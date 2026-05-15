@@ -36,10 +36,14 @@ export async function completeOnboarding(formData: FormData) {
     }
 
     // 2. Insert Company
+    const baseSubdomain = companyName.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const subdomain = `${baseSubdomain}-${Math.floor(Math.random() * 10000)}`;
+
     const { data: company, error: companyError } = await adminClient
       .from("companies")
       .insert({
         name: companyName,
+        subdomain,
         status: "ACTIVE",
       })
       .select("id")
