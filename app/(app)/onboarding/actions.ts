@@ -1,7 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
-import { getAdminClient } from "@/lib/supabase/admin";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
@@ -21,7 +21,7 @@ export async function completeOnboarding(formData: FormData) {
     return { error: "Authentication required" };
   }
 
-  const adminClient = getAdminClient();
+  const adminClient = createAdminClient();
 
   try {
     // 1. Check if user already exists in public.users to prevent double-onboarding

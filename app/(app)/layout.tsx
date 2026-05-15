@@ -2,7 +2,7 @@ import { Sidebar, MobileSidebar, Header } from "@/components/app-shell";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { getAdminClient } from "@/lib/supabase/admin";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 /**
  * Authenticated app layout.
@@ -22,7 +22,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const pathname = headersList.get("x-pathname") || "";
 
   // Check if user has completed onboarding (has a public.users profile)
-  const adminClient = getAdminClient();
+  const adminClient = createAdminClient();
   const { data: userProfile } = await adminClient
     .from("users")
     .select("id, role, company_id, first_name, last_name")
