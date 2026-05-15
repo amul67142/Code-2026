@@ -1,115 +1,265 @@
-import { CheckSquare, Users, TrendingUp, Clock, ArrowUpRight, ArrowDownRight } from "lucide-react";
+import {
+  Users,
+  Building2,
+  Trophy,
+  UserCheck,
+  Phone,
+  ArrowRight,
+} from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { buttonVariants } from "@/components/ui/button";
+import Link from "next/link";
+import { getDashboardData } from "./actions";
+import { format } from "date-fns";
 
-/**
- * Dashboard page — placeholder with skeleton KPI cards.
- * Full implementation in Phase 18.
- */
-export default function DashboardPage() {
+export const metadata = {
+  title: "Dashboard | RealLeads CRM",
+};
+
+export default async function DashboardPage() {
+  const data = await getDashboardData();
+
   const stats = [
     {
       title: "Total Leads",
-      value: "0",
-      change: "+0%",
-      trend: "up" as const,
+      value: data.totalLeads.toString(),
       icon: Users,
+      href: "/leads",
+      color: "text-blue-600 bg-blue-50",
     },
     {
-      title: "Active Tasks",
-      value: "0",
-      change: "+0%",
-      trend: "up" as const,
-      icon: CheckSquare,
+      title: "Leads Won",
+      value: data.leadsWon.toString(),
+      icon: Trophy,
+      href: "/leads",
+      color: "text-green-600 bg-green-50",
     },
     {
-      title: "Conversion Rate",
-      value: "0%",
-      change: "+0%",
-      trend: "up" as const,
-      icon: TrendingUp,
+      title: "Active Projects",
+      value: data.totalProjects.toString(),
+      icon: Building2,
+      href: "/projects",
+      color: "text-violet-600 bg-violet-50",
     },
     {
-      title: "Avg. Response Time",
-      value: "—",
-      change: "0%",
-      trend: "neutral" as const,
-      icon: Clock,
+      title: "Team Members",
+      value: data.totalUsers.toString(),
+      icon: UserCheck,
+      href: "/settings",
+      color: "text-amber-600 bg-amber-50",
     },
   ];
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="space-y-6">
+      {/* Greeting */}
       <div>
-        <h1 className="text-xl font-semibold text-gray-900">Dashboard</h1>
-        <p className="text-sm text-gray-500 mt-0.5">
-          Welcome to RealLeads CRM
+        <h1 className="text-2xl font-bold tracking-tight">
+          Welcome back, {data.userName.split(" ")[0]} 👋
+        </h1>
+        <p className="text-muted-foreground">
+          Here&apos;s what&apos;s happening with your leads today.
         </p>
       </div>
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {stats.map((stat) => (
-          <Card key={stat.title} className="border-gray-200 shadow-none">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-gray-500">
-                {stat.title}
-              </CardTitle>
-              <stat.icon className="size-4 text-gray-400" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-semibold text-gray-900">
-                {stat.value}
-              </div>
-              <div className="flex items-center gap-1 mt-1">
-                {stat.trend === "up" ? (
-                  <ArrowUpRight className="size-3 text-green-600" />
-                ) : stat.trend === "neutral" ? null : (
-                  <ArrowDownRight className="size-3 text-red-600" />
-                )}
-                <span
-                  className={`text-xs ${
-                    stat.trend === "up"
-                      ? "text-green-600"
-                      : stat.trend === "neutral"
-                        ? "text-gray-400"
-                        : "text-red-600"
-                  }`}
-                >
-                  {stat.change} from last month
-                </span>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+        {stats.map((stat) => {
+          const Icon = stat.icon;
+          return (
+            <Link key={stat.title} href={stat.href}>
+              <Card className="border-gray-200 shadow-none hover:bg-muted/50 transition-colors cursor-pointer">
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                    {stat.title}
+                  </CardTitle>
+                  <div className={`rounded-md p-2 ${stat.color}`}>
+                    <Icon className="h-4 w-4" />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold">{stat.value}</div>
+                </CardContent>
+              </Card>
+            </Link>
+          );
+        })}
       </div>
 
-      {/* Placeholder content areas */}
+      {/* Pipeline Overview + Recent Leads */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* Pipeline Distribution */}
         <Card className="lg:col-span-2 border-gray-200 shadow-none">
-          <CardHeader>
-            <CardTitle className="text-sm font-medium text-gray-700">
-              Pipeline Overview
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle className="text-base font-semibold">
+              Pipeline Distribution
             </CardTitle>
+            <Link
+              href="/leads/kanban"
+              className="text-xs text-primary hover:underline flex items-center gap-1"
+            >
+              View Board <ArrowRight className="h-3 w-3" />
+            </Link>
           </CardHeader>
           <CardContent>
-            <div className="h-[240px] flex items-center justify-center text-sm text-gray-400">
-              Pipeline chart will render here after database setup
-            </div>
+            {data.pipelineData.length === 0 ? (
+              <div className="h-[200px] flex flex-col items-center justify-center text-sm text-muted-foreground">
+                <p>No pipeline stages configured yet.</p>
+                <Link
+                  href="/settings/pipeline"
+                  className={buttonVariants({ variant: "outline", size: "sm" }) + " mt-2"}
+                >
+                  Setup Pipeline
+                </Link>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {data.pipelineData.map((stage) => {
+                  const maxCount = Math.max(
+                    ...data.pipelineData.map((s) => s.count),
+                    1
+                  );
+                  const percentage = (stage.count / maxCount) * 100;
+
+                  return (
+                    <div key={stage.name} className="space-y-1">
+                      <div className="flex items-center justify-between text-sm">
+                        <div className="flex items-center gap-2">
+                          <div
+                            className="w-3 h-3 rounded-full"
+                            style={{ backgroundColor: stage.color }}
+                          />
+                          <span className="font-medium">{stage.name}</span>
+                        </div>
+                        <span className="font-semibold">{stage.count}</span>
+                      </div>
+                      <div className="h-2 rounded-full bg-muted overflow-hidden">
+                        <div
+                          className="h-full rounded-full transition-all duration-500"
+                          style={{
+                            width: `${percentage}%`,
+                            backgroundColor: stage.color,
+                          }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </CardContent>
         </Card>
+
+        {/* Recent Leads */}
         <Card className="border-gray-200 shadow-none">
-          <CardHeader>
-            <CardTitle className="text-sm font-medium text-gray-700">
-              Recent Activity
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle className="text-base font-semibold">
+              Recent Leads
             </CardTitle>
+            <Link
+              href="/leads"
+              className="text-xs text-primary hover:underline flex items-center gap-1"
+            >
+              View All <ArrowRight className="h-3 w-3" />
+            </Link>
           </CardHeader>
           <CardContent>
-            <div className="h-[240px] flex items-center justify-center text-sm text-gray-400">
-              Activity feed will render here
-            </div>
+            {data.recentLeads.length === 0 ? (
+              <div className="h-[200px] flex flex-col items-center justify-center text-sm text-muted-foreground">
+                <p>No leads yet.</p>
+                <Link
+                  href="/leads/new"
+                  className={buttonVariants({ variant: "outline", size: "sm" }) + " mt-2"}
+                >
+                  Add First Lead
+                </Link>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                {data.recentLeads.map((lead: any) => (
+                  <div
+                    key={lead.id}
+                    className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 transition-colors"
+                  >
+                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary text-xs font-bold">
+                      {lead.name?.charAt(0)?.toUpperCase() || "?"}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">
+                        {lead.name}
+                      </p>
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        {lead.phone && (
+                          <span className="flex items-center gap-0.5">
+                            <Phone className="h-3 w-3" />
+                            {lead.phone}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex flex-col items-end gap-1">
+                      {lead.pipeline_stages && (
+                        <Badge
+                          variant="outline"
+                          className="text-[10px] px-1.5"
+                          style={{
+                            borderColor: lead.pipeline_stages.color,
+                            color: lead.pipeline_stages.color,
+                          }}
+                        >
+                          {lead.pipeline_stages.name}
+                        </Badge>
+                      )}
+                      <span className="text-[10px] text-muted-foreground">
+                        {format(new Date(lead.created_at), "MMM d")}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
+
+      {/* Quick Actions */}
+      <Card className="border-gray-200 shadow-none">
+        <CardHeader>
+          <CardTitle className="text-base font-semibold">
+            Quick Actions
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap gap-2">
+            <Link
+              href="/leads/new"
+              className={buttonVariants({ variant: "outline" })}
+            >
+              + Add Lead
+            </Link>
+            <Link
+              href="/projects/new"
+              className={buttonVariants({ variant: "outline" })}
+            >
+              + New Project
+            </Link>
+            <Link
+              href="/leads/kanban"
+              className={buttonVariants({ variant: "outline" })}
+            >
+              📋 Pipeline Board
+            </Link>
+            <Link
+              href="/settings/pipeline"
+              className={buttonVariants({ variant: "outline" })}
+            >
+              ⚙️ Configure Pipeline
+            </Link>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
