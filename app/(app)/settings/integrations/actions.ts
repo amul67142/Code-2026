@@ -16,7 +16,7 @@ export async function getWebhooks() {
   const { data: profile } = await supabase
     .from("users")
     .select("company_id")
-    .eq("id", user.id)
+    .eq("auth_user_id", user.id)
     .single();
 
   if (!profile?.company_id) {
@@ -55,7 +55,7 @@ export async function createWebhook(data: {
   const { data: profile } = await supabase
     .from("users")
     .select("company_id")
-    .eq("id", user.id)
+    .eq("auth_user_id", user.id)
     .single();
 
   if (!profile?.company_id) throw new Error("No company found");
