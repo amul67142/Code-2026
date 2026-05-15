@@ -26,7 +26,7 @@ const settingsItems = [
     description: "Invite agents, manage roles and permissions.",
     icon: Users,
     href: "/settings/team",
-    ready: false,
+    ready: true,
   },
   {
     title: "Pipeline",
@@ -47,7 +47,7 @@ const settingsItems = [
     description: "Connect webhooks, Google Ads, and Facebook Ads.",
     icon: Plug,
     href: "/settings/integrations",
-    ready: false,
+    ready: true,
   },
   {
     title: "Billing",
