@@ -56,8 +56,7 @@ export async function completeOnboarding(formData: FormData) {
       .insert({
         auth_user_id: user.id,
         company_id: company.id,
-        first_name: firstName,
-        last_name: lastName,
+        name: `${firstName} ${lastName}`.trim(),
         email: user.email,
         role: "SUPER_ADMIN",
         status: "ACTIVE",

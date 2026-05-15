@@ -25,7 +25,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const adminClient = createAdminClient();
   const { data: userProfile } = await adminClient
     .from("users")
-    .select("id, role, company_id, first_name, last_name")
+    .select("id, role, company_id, name")
     .eq("auth_user_id", user.id)
     .single();
 
