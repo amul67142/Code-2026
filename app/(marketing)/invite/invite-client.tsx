@@ -21,14 +21,27 @@ export function InviteClient() {
   const supabase = createClient();
 
   useEffect(() => {
-    // Check if the user is successfully authenticated via the invite link
+    // The invite link redirects here with #access_token=... in the URL hash.
+    // Supabase JS client automatically detects the hash fragment and exchanges
+    // it for a session. We listen for the auth state change to know when it's ready.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (session) {
+        setHasSession(true);
+        setSessionChecked(true);
+      }
+    });
+
+    // Also check if there's already an existing session (e.g. page refresh)
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
         setHasSession(true);
       }
-      setSessionChecked(true);
+      // Give the hash fragment listener a moment before declaring "no session"
+      setTimeout(() => setSessionChecked(true), 1500);
     });
-  }, [supabase.auth]);
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

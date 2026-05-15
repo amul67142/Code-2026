@@ -2,6 +2,7 @@
 
 import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import { getURL } from "@/lib/utils";
 
 export async function getTeamMembers() {
   const supabase = await createClient();
@@ -51,9 +52,11 @@ export async function inviteTeamMember(email: string, role: string) {
     return { error: "Insufficient permissions to invite users" };
   }
 
-  // 1. Send invite via Supabase Auth Admin API
+  // 1. Send invite via Supabase Auth Admin API — redirect to /invite page
+  const redirectUrl = `${getURL()}/invite`;
   const { data: authUser, error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(email, {
-    data: { role } // Optional user_metadata
+    data: { role },
+    redirectTo: redirectUrl,
   });
 
   if (inviteError) {
