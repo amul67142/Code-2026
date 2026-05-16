@@ -77,6 +77,8 @@ export async function updateCompanySettings(formData: {
   return { success: true };
 }
 
+import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+
 export async function uploadCompanyLogo(formData: FormData) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -101,27 +103,46 @@ export async function uploadCompanyLogo(formData: FormData) {
   const ext = file.name.split(".").pop()?.toLowerCase() || "png";
   const filePath = `logos/${profile.company_id}.${ext}`;
 
-  const adminClient = createAdminClient();
+  try {
+    const s3Client = new S3Client({
+      region: process.env.S3_REGION!,
+      endpoint: process.env.S3_ENDPOINT!,
+      credentials: {
+        accessKeyId: process.env.S3_ACCESS_KEY_ID!,
+        secretAccessKey: process.env.S3_SECRET_ACCESS_KEY!,
+      },
+      // Important for S3 compatible services like Supabase Storage/R2
+      forcePathStyle: true,
+    });
 
-  // Upload to Supabase Storage
-  const { error: uploadError } = await adminClient.storage
-    .from("public")
-    .upload(filePath, file, { upsert: true, contentType: file.type });
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
 
-  if (uploadError) {
-    console.error("Upload error:", uploadError);
+    const command = new PutObjectCommand({
+      Bucket: process.env.S3_BUCKET_NAME!,
+      Key: filePath,
+      Body: buffer,
+      ContentType: file.type,
+    });
+
+    await s3Client.send(command);
+
+    // Get public URL using Supabase storage format
+    // URL pattern: [project-url]/storage/v1/object/public/[bucket]/[key]
+    const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/${process.env.S3_BUCKET_NAME}/${filePath}`;
+
+    const adminClient = createAdminClient();
+    
+    // Update company record
+    await adminClient
+      .from("companies")
+      .update({ logo_url: publicUrl })
+      .eq("id", profile.company_id);
+
+    revalidatePath("/settings/company");
+    return { success: true, url: publicUrl };
+  } catch (error) {
+    console.error("Upload error:", error);
     return { error: "Failed to upload logo" };
   }
-
-  // Get public URL
-  const { data: urlData } = adminClient.storage.from("public").getPublicUrl(filePath);
-
-  // Update company record
-  await adminClient
-    .from("companies")
-    .update({ logo_url: urlData.publicUrl })
-    .eq("id", profile.company_id);
-
-  revalidatePath("/settings/company");
-  return { success: true, url: urlData.publicUrl };
 }
