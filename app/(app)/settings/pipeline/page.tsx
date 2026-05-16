@@ -342,7 +342,7 @@ export default function PipelineSettingsPage() {
         <CardContent className="pt-6">
           <p className="text-sm text-blue-800">
             <strong>Tip:</strong> A typical real estate pipeline includes stages like:{" "}
-            <em>New Lead → Contacted → Site Visit → Negotiation → Won / Lost</em>.
+            <em>New Lead → Contacted → Site Visit Scheduled → Site Visit Done → Negotiation → Booking → Closed Won / Closed Lost</em>.
             Mark your final positive outcome as &quot;Won&quot; and negative outcomes as &quot;Terminal&quot;.
           </p>
         </CardContent>

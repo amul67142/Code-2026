@@ -61,12 +61,12 @@ const LEAD_SOURCES = [
 const DEFAULT_STAGES = [
   "New Lead",
   "Contacted",
-  "Qualified",
   "Site Visit Scheduled",
   "Site Visit Done",
   "Negotiation",
-  "Won",
-  "Lost",
+  "Booking",
+  "Closed Won",
+  "Closed Lost",
 ];
 
 const TIMEZONES = [
