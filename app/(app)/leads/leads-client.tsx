@@ -269,7 +269,14 @@ export default function LeadsClient({
             ) : (
               leads.map((lead: Lead) => (
                 <TableRow key={lead.id} className="hover:bg-muted/50">
-                  <TableCell className="font-medium">{lead.name}</TableCell>
+                  <TableCell className="font-medium">
+                    <Link
+                      href={`/leads/${lead.id}`}
+                      className="text-primary hover:underline"
+                    >
+                      {lead.name}
+                    </Link>
+                  </TableCell>
                   <TableCell>
                     <div className="flex flex-col gap-0.5 text-xs">
                       {lead.phone && (

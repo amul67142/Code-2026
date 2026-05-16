@@ -1,6 +1,6 @@
 "use client";
 
-import { Bell, Menu, Search, LogOut, User, Settings as SettingsIcon } from "lucide-react";
+import { Menu, Search, LogOut, User, Settings as SettingsIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -16,6 +16,7 @@ import { Breadcrumbs } from "./breadcrumbs";
 import { useUser, ROLE_LABELS } from "@/lib/user-context";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
+import { NotificationBell } from "./notification-bell";
 
 /**
  * Top header bar — search, notifications, user menu.
@@ -73,14 +74,7 @@ export function Header() {
       </div>
 
       {/* Notifications */}
-      <Button
-        variant="ghost"
-        size="sm"
-        className="relative text-gray-500 hover:text-gray-900"
-      >
-        <Bell className="size-4" />
-        <span className="absolute top-1 right-1 size-1.5 bg-red-500 rounded-full" />
-      </Button>
+      <NotificationBell />
 
       {/* User menu */}
       <DropdownMenu>

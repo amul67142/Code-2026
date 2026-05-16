@@ -1,0 +1,37 @@
+import { getLeadDetail, getLeadActivities, getAgentsForReassignment } from "./actions";
+import { LeadDetailClient } from "./lead-detail-client";
+import { notFound } from "next/navigation";
+
+interface Props {
+  params: Promise<{ id: string }>;
+}
+
+export async function generateMetadata({ params }: Props) {
+  const { id } = await params;
+  const result = await getLeadDetail(id);
+  return {
+    title: result?.lead?.name
+      ? `${result.lead.name} | RealLeads CRM`
+      : "Lead Detail | RealLeads CRM",
+  };
+}
+
+export default async function LeadDetailPage({ params }: Props) {
+  const { id } = await params;
+  const [result, activities, agents] = await Promise.all([
+    getLeadDetail(id),
+    getLeadActivities(id),
+    getAgentsForReassignment(),
+  ]);
+
+  if (!result) notFound();
+
+  return (
+    <LeadDetailClient
+      lead={result.lead}
+      currentUser={result.currentUser}
+      activities={activities}
+      agents={agents}
+    />
+  );
+}

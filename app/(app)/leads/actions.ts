@@ -220,6 +220,46 @@ export async function updateLeadAssignment(leadId: string, assignedToId: string 
     return { error: "Failed to assign lead" };
   }
 
+  // ── Create notifications & activity log ──────────────────────
+  if (assignedToId) {
+    // Fetch lead name and agent name for notification text
+    const [{ data: lead }, { data: agent }] = await Promise.all([
+      supabase.from("leads").select("name").eq("id", leadId).single(),
+      supabase.from("users").select("name").eq("id", assignedToId).single(),
+    ]);
+
+    const leadName = lead?.name || "A lead";
+    const agentName = agent?.name || "an agent";
+
+    // Get all company users for broadcast notification
+    const { data: companyUsers } = await supabase
+      .from("users")
+      .select("id")
+      .eq("company_id", profile.company_id);
+
+    if (companyUsers && companyUsers.length > 0) {
+      const notifications = companyUsers.map((u) => ({
+        company_id: profile.company_id,
+        user_id: u.id,
+        title: "Lead Assigned",
+        message: `${leadName} was assigned to ${agentName}`,
+        type: "ASSIGNMENT",
+        metadata: { lead_id: leadId, assigned_to_id: assignedToId },
+      }));
+
+      await supabase.from("notifications").insert(notifications);
+    }
+
+    // Log activity on the lead
+    await supabase.from("activities").insert({
+      lead_id: leadId,
+      user_id: profile.id,
+      type: "ASSIGNMENT",
+      description: `Lead assigned to ${agentName}`,
+      metadata: { assigned_to_id: assignedToId, assigned_by: profile.id },
+    });
+  }
+
   revalidatePath("/leads");
   revalidatePath("/leads/kanban");
   return { success: true };
