@@ -18,6 +18,7 @@ import {
   CreditCard,
   ChevronDown,
   X,
+  ClipboardList,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -37,6 +38,7 @@ interface NavItem {
 const navigation: NavItem[] = [
   { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { title: "Leads", href: "/leads", icon: Users },
+  { title: "My Leads", href: "/my-leads", icon: ClipboardList },
   { title: "Pipeline", href: "/leads/kanban", icon: KanbanSquare, minRole: "TEAM_LEAD" },
   { title: "Tasks", href: "/tasks", icon: CheckSquare },
   { title: "Projects", href: "/projects", icon: Building2, minRole: "TEAM_LEAD" },

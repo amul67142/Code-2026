@@ -5,27 +5,12 @@ import { useUser, ROLE_LABELS, hasMinRole } from "@/lib/user-context";
 import { updateMyName } from "./actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Textarea } from "@/components/ui/textarea";
-import { updateLeadStatus } from "../../leads/[id]/actions";
-import Link from "next/link";
-import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
 import {
   Building2,
   Shield,
   Mail,
-  User,
   Check,
   X,
   Loader2,
@@ -56,34 +41,11 @@ const ACCESS_LIST = [
   { label: "Manage Billing", icon: CreditCard, minRole: "SUPER_ADMIN" },
 ];
 
-const STATUS_OPTIONS = [
-  "New",
-  "Contacted",
-  "Interested",
-  "Not Interested",
-  "Follow Up",
-  "Site Visit Scheduled",
-  "Site Visit Done",
-  "Negotiation",
-  "Booking Done",
-  "Lost",
-];
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function ProfileClient({ initialLeads = [] }: { initialLeads?: any[] }) {
+export function ProfileClient() {
   const user = useUser();
   const [name, setName] = useState(user.name);
   const [isPending, setIsPending] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-
-  // My Leads state
-  const [leads, setLeads] = useState(initialLeads);
-  const [selectedLead, setSelectedLead] = useState<any>(null);
-  const [status1, setStatus1] = useState("");
-  const [status1Remark, setStatus1Remark] = useState("");
-  const [status2, setStatus2] = useState("");
-  const [status2Remark, setStatus2Remark] = useState("");
-  const [savingStatus, setSavingStatus] = useState(false);
 
   const handleSaveName = async () => {
     if (name.trim() === user.name) {
@@ -99,52 +61,6 @@ export function ProfileClient({ initialLeads = [] }: { initialLeads?: any[] }) {
       setIsEditing(false);
     }
     setIsPending(false);
-  };
-
-  const handleOpenStatusModal = (lead: any) => {
-    setSelectedLead(lead);
-    setStatus1(lead.status_1 || "");
-    setStatus1Remark(lead.status_1_remark || "");
-    setStatus2(lead.status_2 || "");
-    setStatus2Remark(lead.status_2_remark || "");
-  };
-
-  const handleSaveStatus = async () => {
-    if (!selectedLead) return;
-    setSavingStatus(true);
-    try {
-      const result = await updateLeadStatus(selectedLead.id, {
-        status_1: status1 || undefined,
-        status_1_remark: status1Remark || undefined,
-        status_2: status2 || undefined,
-        status_2_remark: status2Remark || undefined,
-      });
-
-      if (result.error) {
-        toast.error(result.error);
-      } else {
-        toast.success("Lead status updated!");
-        // Optimistic update
-        setLeads((prev) =>
-          prev.map((l) =>
-            l.id === selectedLead.id
-              ? {
-                  ...l,
-                  status_1: status1,
-                  status_1_remark: status1Remark,
-                  status_2: status2,
-                  status_2_remark: status2Remark,
-                }
-              : l
-          )
-        );
-        setSelectedLead(null);
-      }
-    } catch {
-      toast.error("Failed to update status");
-    } finally {
-      setSavingStatus(false);
-    }
   };
 
   return (
@@ -244,137 +160,6 @@ export function ProfileClient({ initialLeads = [] }: { initialLeads?: any[] }) {
               );
             })}
           </div>
-        </CardContent>
-      </Card>
-
-      {/* My Assigned Leads */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">My Assigned Leads</CardTitle>
-          <p className="text-sm text-gray-500">
-            Leads specifically assigned to you for follow-up and status tracking.
-          </p>
-        </CardHeader>
-        <CardContent>
-          {leads.length === 0 ? (
-            <div className="text-sm text-muted-foreground text-center py-6 border rounded-md bg-muted/20">
-              You have no assigned leads.
-            </div>
-          ) : (
-            <div className="border rounded-md overflow-hidden">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Lead</TableHead>
-                    <TableHead>Status 1</TableHead>
-                    <TableHead>Status 2</TableHead>
-                    <TableHead className="w-[100px]"></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {leads.map((lead) => (
-                    <TableRow key={lead.id}>
-                      <TableCell className="font-medium">
-                        <Link
-                          href={`/leads/${lead.id}`}
-                          className="text-primary hover:underline"
-                        >
-                          {lead.name}
-                        </Link>
-                        <div className="text-xs text-muted-foreground font-normal mt-0.5">
-                          {lead.phone} • {formatDistanceToNow(new Date(lead.created_at), { addSuffix: true })}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="text-sm">{lead.status_1 || "—"}</div>
-                        {lead.status_1_remark && (
-                          <div className="text-xs text-muted-foreground truncate max-w-[150px]" title={lead.status_1_remark}>
-                            {lead.status_1_remark}
-                          </div>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <div className="text-sm">{lead.status_2 || "—"}</div>
-                        {lead.status_2_remark && (
-                          <div className="text-xs text-muted-foreground truncate max-w-[150px]" title={lead.status_2_remark}>
-                            {lead.status_2_remark}
-                          </div>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <Dialog open={selectedLead?.id === lead.id} onOpenChange={(open) => !open && setSelectedLead(null)}>
-                          <DialogTrigger render={<Button variant="outline" size="sm" onClick={() => handleOpenStatusModal(lead)} />}>
-                            Update
-                          </DialogTrigger>
-                          <DialogContent>
-                            <DialogHeader>
-                              <DialogTitle>Update Status for {lead.name}</DialogTitle>
-                              <DialogDescription>
-                                Set the current pipeline statuses and internal remarks for this lead.
-                              </DialogDescription>
-                            </DialogHeader>
-                            <div className="space-y-4 py-4">
-                              <div className="space-y-2">
-                                <Label>Status 1</Label>
-                                <select
-                                  className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                                  value={status1}
-                                  onChange={(e) => setStatus1(e.target.value)}
-                                >
-                                  <option value="">Select status...</option>
-                                  {STATUS_OPTIONS.map((s) => (
-                                    <option key={s} value={s}>
-                                      {s}
-                                    </option>
-                                  ))}
-                                </select>
-                                <Textarea
-                                  placeholder="Remark for Status 1..."
-                                  value={status1Remark}
-                                  onChange={(e) => setStatus1Remark(e.target.value)}
-                                  className="min-h-[60px] text-sm"
-                                />
-                              </div>
-
-                              <div className="space-y-2">
-                                <Label>Status 2</Label>
-                                <select
-                                  className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                                  value={status2}
-                                  onChange={(e) => setStatus2(e.target.value)}
-                                >
-                                  <option value="">Select status...</option>
-                                  {STATUS_OPTIONS.map((s) => (
-                                    <option key={s} value={s}>
-                                      {s}
-                                    </option>
-                                  ))}
-                                </select>
-                                <Textarea
-                                  placeholder="Remark for Status 2..."
-                                  value={status2Remark}
-                                  onChange={(e) => setStatus2Remark(e.target.value)}
-                                  className="min-h-[60px] text-sm"
-                                />
-                              </div>
-                            </div>
-                            <div className="flex justify-end">
-                              <Button onClick={handleSaveStatus} disabled={savingStatus}>
-                                {savingStatus && (
-                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                )}
-                                Save Status
-                              </Button>
-                            </div>
-                          </DialogContent>
-                        </Dialog>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
         </CardContent>
       </Card>
     </div>
