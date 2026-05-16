@@ -3,12 +3,12 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { acceptInviteAction } from "./actions";
+import { acceptInviteAction, getInviteDetails } from "./actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
+import { Loader2, Building2, Shield } from "lucide-react";
 
 export function InviteClient() {
   const router = useRouter();
@@ -17,6 +17,10 @@ export function InviteClient() {
   const [isPending, setIsPending] = useState(false);
   const [sessionChecked, setSessionChecked] = useState(false);
   const [hasSession, setHasSession] = useState(false);
+  const [inviteInfo, setInviteInfo] = useState<{
+    companyName?: string;
+    role?: string;
+  }>({});
 
   const supabase = createClient();
 
@@ -24,17 +28,32 @@ export function InviteClient() {
     // The invite link redirects here with #access_token=... in the URL hash.
     // Supabase JS client automatically detects the hash fragment and exchanges
     // it for a session. We listen for the auth state change to know when it's ready.
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (session) {
         setHasSession(true);
         setSessionChecked(true);
+        // Fetch invite details (company name, role)
+        const details = await getInviteDetails();
+        if (!details.error) {
+          setInviteInfo({
+            companyName: details.companyName,
+            role: details.role,
+          });
+        }
       }
     });
 
     // Also check if there's already an existing session (e.g. page refresh)
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session) {
         setHasSession(true);
+        const details = await getInviteDetails();
+        if (!details.error) {
+          setInviteInfo({
+            companyName: details.companyName,
+            role: details.role,
+          });
+        }
       }
       // Give the hash fragment listener a moment before declaring "no session"
       setTimeout(() => setSessionChecked(true), 1500);
@@ -73,7 +92,7 @@ export function InviteClient() {
       toast.error(res.error);
       setIsPending(false);
     } else {
-      toast.success("Account setup complete!");
+      toast.success("Account setup complete! Redirecting...");
       router.push("/dashboard");
     }
   };
@@ -102,42 +121,69 @@ export function InviteClient() {
   }
 
   return (
-    <div className="text-left space-y-4">
-      <div>
-        <h1 className="text-2xl font-semibold text-gray-900">Welcome to RealLeads</h1>
-        <p className="text-sm text-gray-500 mt-1">
-          Please set a password to activate your account.
+    <div className="text-left space-y-5">
+      {/* Invite context header */}
+      <div className="space-y-3">
+        <h1 className="text-2xl font-semibold text-gray-900">You&apos;re Invited!</h1>
+        <p className="text-sm text-gray-600">
+          You have been invited to join <strong>{inviteInfo.companyName || "a company"}</strong> on RealLeads CRM.
         </p>
+        
+        {/* Company & Role badges */}
+        <div className="flex flex-wrap gap-3">
+          {inviteInfo.companyName && (
+            <div className="flex items-center gap-2 rounded-md bg-blue-50 border border-blue-200 px-3 py-1.5">
+              <Building2 className="h-4 w-4 text-blue-600" />
+              <span className="text-sm font-medium text-blue-700">{inviteInfo.companyName}</span>
+            </div>
+          )}
+          {inviteInfo.role && (
+            <div className="flex items-center gap-2 rounded-md bg-green-50 border border-green-200 px-3 py-1.5">
+              <Shield className="h-4 w-4 text-green-600" />
+              <span className="text-sm font-medium text-green-700">{inviteInfo.role}</span>
+            </div>
+          )}
+        </div>
       </div>
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="password">Password</Label>
-          <Input
-            id="password"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            disabled={isPending}
-            placeholder="••••••••"
-          />
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="confirmPassword">Confirm Password</Label>
-          <Input
-            id="confirmPassword"
-            type="password"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            required
-            disabled={isPending}
-            placeholder="••••••••"
-          />
-        </div>
-        <Button className="w-full mt-2" type="submit" disabled={isPending}>
-          {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Activate Account"}
-        </Button>
-      </form>
+
+      {/* Divider */}
+      <div className="border-t border-gray-200" />
+
+      {/* Password form */}
+      <div>
+        <p className="text-sm text-gray-500 mb-4">
+          Set a password below to activate your account and start working.
+        </p>
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="password">Password</Label>
+            <Input
+              id="password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              disabled={isPending}
+              placeholder="Minimum 8 characters"
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="confirmPassword">Confirm Password</Label>
+            <Input
+              id="confirmPassword"
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              required
+              disabled={isPending}
+              placeholder="Re-enter password"
+            />
+          </div>
+          <Button className="w-full mt-2" type="submit" disabled={isPending}>
+            {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Activate Account & Login"}
+          </Button>
+        </form>
+      </div>
     </div>
   );
 }
