@@ -7,19 +7,35 @@ import {
   Route,
   Plug,
   CreditCard,
+  User,
 } from "lucide-react";
+import { createClient } from "@/lib/supabase/server";
+import { redirect } from "next/navigation";
 
 export const metadata = {
   title: "Settings | RealLeads CRM",
 };
 
+const ROLE_LEVEL: Record<string, number> = {
+  SUPER_ADMIN: 5,
+  ADMIN: 4,
+  TEAM_LEAD: 3,
+  AGENT: 2,
+  READ_ONLY: 1,
+};
+
+function hasMinRole(userRole: string, minRole: string): boolean {
+  return (ROLE_LEVEL[userRole] ?? 0) >= (ROLE_LEVEL[minRole] ?? 99);
+}
+
 const settingsItems = [
   {
     title: "My Profile",
     description: "View your profile, role, and access level.",
-    icon: Building2,
+    icon: User,
     href: "/settings/profile",
     ready: true,
+    minRole: "READ_ONLY",
   },
   {
     title: "Company",
@@ -27,6 +43,7 @@ const settingsItems = [
     icon: Building2,
     href: "/settings/company",
     ready: true,
+    minRole: "ADMIN",
   },
   {
     title: "Team",
@@ -34,6 +51,7 @@ const settingsItems = [
     icon: Users,
     href: "/settings/team",
     ready: true,
+    minRole: "ADMIN",
   },
   {
     title: "Pipeline",
@@ -41,6 +59,7 @@ const settingsItems = [
     icon: GitBranch,
     href: "/settings/pipeline",
     ready: true,
+    minRole: "ADMIN",
   },
   {
     title: "Routing",
@@ -48,6 +67,7 @@ const settingsItems = [
     icon: Route,
     href: "/settings/routing",
     ready: false,
+    minRole: "ADMIN",
   },
   {
     title: "Integrations",
@@ -55,6 +75,7 @@ const settingsItems = [
     icon: Plug,
     href: "/settings/integrations",
     ready: true,
+    minRole: "ADMIN",
   },
   {
     title: "Billing",
@@ -62,10 +83,29 @@ const settingsItems = [
     icon: CreditCard,
     href: "/settings/billing",
     ready: false,
+    minRole: "SUPER_ADMIN",
   },
 ];
 
-export default function SettingsPage() {
+export default async function SettingsPage() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) redirect("/login");
+
+  const { data: profile } = await supabase
+    .from("users")
+    .select("role")
+    .eq("auth_user_id", user.id)
+    .single();
+
+  const userRole = profile?.role || "AGENT";
+
+  // Filter settings items by role
+  const visibleItems = settingsItems.filter((item) =>
+    hasMinRole(userRole, item.minRole)
+  );
+
   return (
     <div className="space-y-6">
       <div>
@@ -76,7 +116,7 @@ export default function SettingsPage() {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {settingsItems.map((item) => {
+        {visibleItems.map((item) => {
           const Icon = item.icon;
           return (
             <Link
