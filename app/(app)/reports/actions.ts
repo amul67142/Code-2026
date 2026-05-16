@@ -1,13 +1,14 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { redirect } from "next/navigation";
 import { getMyProfile } from "@/app/(app)/settings/profile/actions";
 import { format, subDays, isAfter } from "date-fns";
 
 export async function getDashboardMetrics(days: number = 30) {
   const supabase = await createClient();
   const profileRes = await getMyProfile();
-  if (!profileRes || !profileRes.profile) throw new Error("Unauthorized");
+  if (!profileRes || !profileRes.profile) return redirect("/login");
   const profile = profileRes.profile;
 
   // Calculate the cutoff date
