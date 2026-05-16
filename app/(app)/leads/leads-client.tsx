@@ -317,24 +317,18 @@ export default function LeadsClient({
                     )}
                   </TableCell>
                   <TableCell>
-                    <Select
+                    <select
+                      className="h-8 w-[150px] text-xs rounded-md border border-input bg-background px-2 py-1 focus:outline-none focus:ring-2 focus:ring-ring"
                       value={lead.assigned_user?.id || "unassigned"}
-                      onValueChange={(v) => handleAssign(lead.id, v)}
+                      onChange={(e) => handleAssign(lead.id, e.target.value)}
                     >
-                      <SelectTrigger className="h-8 w-[140px] text-xs">
-                        <SelectValue placeholder="Unassigned" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="unassigned">
-                          <span className="text-muted-foreground">Unassigned</span>
-                        </SelectItem>
-                        {initialAgents.map((a) => (
-                          <SelectItem key={a.id} value={a.id}>
-                            {a.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      <option value="unassigned">Unassigned</option>
+                      {initialAgents.map((a) => (
+                        <option key={a.id} value={a.id}>
+                          {a.name}
+                        </option>
+                      ))}
+                    </select>
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
                     {format(new Date(lead.created_at), "MMM d, yyyy")}
