@@ -15,11 +15,18 @@ export const metadata = {
 
 const settingsItems = [
   {
+    title: "My Profile",
+    description: "View your profile, role, and access level.",
+    icon: Building2,
+    href: "/settings/profile",
+    ready: true,
+  },
+  {
     title: "Company",
     description: "Manage your company profile, logo, and preferences.",
     icon: Building2,
     href: "/settings/company",
-    ready: false,
+    ready: true,
   },
   {
     title: "Team",

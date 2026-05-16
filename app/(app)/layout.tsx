@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { UserProvider, type UserProfile } from "@/lib/user-context";
 
 /**
  * Authenticated app layout.
@@ -25,7 +26,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const adminClient = createAdminClient();
   const { data: userProfile } = await adminClient
     .from("users")
-    .select("id, role, company_id, name")
+    .select("id, role, company_id, name, email")
     .eq("auth_user_id", user.id)
     .single();
 
@@ -45,20 +46,39 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     return <>{children}</>;
   }
 
+  // Fetch company info for the context
+  const { data: company } = await adminClient
+    .from("companies")
+    .select("name, logo_url")
+    .eq("id", userProfile.company_id)
+    .single();
+
+  const userCtx: UserProfile = {
+    id: userProfile.id,
+    name: userProfile.name || user.email?.split("@")[0] || "User",
+    email: userProfile.email || user.email || "",
+    role: userProfile.role || "AGENT",
+    companyId: userProfile.company_id,
+    companyName: company?.name || "My Company",
+    companyLogo: company?.logo_url || null,
+  };
+
   // Render full app shell for onboarded users
   return (
-    <div className="flex h-screen overflow-hidden bg-[#F7F8FA]">
-      {/* Desktop sidebar */}
-      <Sidebar />
+    <UserProvider user={userCtx}>
+      <div className="flex h-screen overflow-hidden bg-[#F7F8FA]">
+        {/* Desktop sidebar */}
+        <Sidebar />
 
-      {/* Mobile sidebar (drawer) */}
-      <MobileSidebar />
+        {/* Mobile sidebar (drawer) */}
+        <MobileSidebar />
 
-      {/* Main content area */}
-      <div className="flex flex-1 flex-col min-w-0">
-        <Header />
-        <main className="flex-1 overflow-y-auto p-4 lg:p-6">{children}</main>
+        {/* Main content area */}
+        <div className="flex flex-1 flex-col min-w-0">
+          <Header />
+          <main className="flex-1 overflow-y-auto p-4 lg:p-6">{children}</main>
+        </div>
       </div>
-    </div>
+    </UserProvider>
   );
 }

@@ -25,13 +25,21 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { useAppStore } from "@/stores/app-store";
+import { useUser, hasMinRole, ROLE_LABELS } from "@/lib/user-context";
 import { useState } from "react";
 
 interface NavItem {
   title: string;
   href: string;
   icon: React.ComponentType<{ className?: string }>;
-  children?: { title: string; href: string; icon: React.ComponentType<{ className?: string }> }[];
+  /** Minimum role required to see this item */
+  minRole?: string;
+  children?: {
+    title: string;
+    href: string;
+    icon: React.ComponentType<{ className?: string }>;
+    minRole?: string;
+  }[];
 }
 
 const navigation: NavItem[] = [
@@ -39,32 +47,39 @@ const navigation: NavItem[] = [
   { title: "Leads", href: "/leads", icon: Users },
   { title: "Pipeline", href: "/leads/kanban", icon: KanbanSquare },
   { title: "Tasks", href: "/tasks", icon: CheckSquare },
-  { title: "Projects", href: "/projects", icon: Building2 },
-  { title: "Reports", href: "/reports", icon: BarChart3 },
+  { title: "Projects", href: "/projects", icon: Building2, minRole: "TEAM_LEAD" },
+  { title: "Reports", href: "/reports", icon: BarChart3, minRole: "TEAM_LEAD" },
   {
     title: "Settings",
     href: "/settings",
     icon: Settings,
+    minRole: "ADMIN",
     children: [
-      { title: "Company", href: "/settings/company", icon: Building },
-      { title: "Team", href: "/settings/team", icon: UserPlus },
-      { title: "Pipeline", href: "/settings/pipeline", icon: GitBranch },
-      { title: "Routing", href: "/settings/routing", icon: Route },
-      { title: "Integrations", href: "/settings/integrations", icon: Plug },
-      { title: "Billing", href: "/settings/billing", icon: CreditCard },
+      { title: "Company", href: "/settings/company", icon: Building, minRole: "ADMIN" },
+      { title: "Team", href: "/settings/team", icon: UserPlus, minRole: "ADMIN" },
+      { title: "Pipeline", href: "/settings/pipeline", icon: GitBranch, minRole: "ADMIN" },
+      { title: "Routing", href: "/settings/routing", icon: Route, minRole: "ADMIN" },
+      { title: "Integrations", href: "/settings/integrations", icon: Plug, minRole: "ADMIN" },
+      { title: "Billing", href: "/settings/billing", icon: CreditCard, minRole: "SUPER_ADMIN" },
     ],
   },
 ];
 
 /**
  * Desktop sidebar — collapsible left navigation.
- * Clean CRM style: white background, subtle borders, no flashy gradients.
+ * Filters menu items based on user role.
  */
 export function Sidebar() {
   const pathname = usePathname();
   const { sidebarCollapsed, toggleCollapsed } = useAppStore();
+  const user = useUser();
   const [settingsOpen, setSettingsOpen] = useState(
     pathname.startsWith("/settings")
+  );
+
+  /** Filter nav items by role */
+  const visibleNav = navigation.filter(
+    (item) => !item.minRole || hasMinRole(user.role, item.minRole)
   );
 
   return (
@@ -81,7 +96,7 @@ export function Sidebar() {
         </div>
         {!sidebarCollapsed && (
           <span className="text-sm font-semibold text-gray-900 truncate">
-            RealLeads
+            {user.companyName || "RealLeads"}
           </span>
         )}
       </div>
@@ -89,12 +104,19 @@ export function Sidebar() {
       {/* Navigation */}
       <ScrollArea className="flex-1 py-2">
         <nav className="flex flex-col gap-0.5 px-2">
-          {navigation.map((item) => {
+          {visibleNav.map((item) => {
             const isActive =
               pathname === item.href || pathname.startsWith(item.href + "/");
             const hasChildren = item.children && item.children.length > 0;
 
             if (hasChildren) {
+              // Filter children by role too
+              const visibleChildren = item.children!.filter(
+                (child) => !child.minRole || hasMinRole(user.role, child.minRole)
+              );
+
+              if (visibleChildren.length === 0) return null;
+
               return (
                 <div key={item.title}>
                   <button
@@ -121,7 +143,7 @@ export function Sidebar() {
                   </button>
                   {settingsOpen && !sidebarCollapsed && (
                     <div className="ml-4 mt-0.5 flex flex-col gap-0.5 border-l border-gray-200 pl-2">
-                      {item.children!.map((child) => {
+                      {visibleChildren.map((child) => {
                         const childActive = pathname === child.href;
                         return (
                           <Link
@@ -166,8 +188,16 @@ export function Sidebar() {
 
       <Separator />
 
-      {/* Collapse toggle */}
-      <div className="p-2">
+      {/* Role badge + collapse toggle */}
+      <div className="p-2 space-y-1">
+        {!sidebarCollapsed && (
+          <div className="px-2 py-1">
+            <p className="text-xs text-gray-400 truncate">{user.email}</p>
+            <span className="text-[10px] font-medium text-primary bg-primary/10 px-1.5 py-0.5 rounded">
+              {ROLE_LABELS[user.role] || user.role}
+            </span>
+          </div>
+        )}
         <Button
           variant="ghost"
           size="sm"
