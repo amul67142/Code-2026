@@ -101,6 +101,22 @@ export async function getLeadsGrouped() {
   return { stages: stages || [], leads: leads || [] };
 }
 
+// ── Get agents for assignment ─────────────────────────────────────
+export async function getAgentsForAssignment() {
+  const supabase = await createClient();
+  const profile = await getUserProfile();
+  if (!profile) return [];
+
+  const { data: agents } = await supabase
+    .from("users")
+    .select("id, name")
+    .eq("company_id", profile.company_id)
+    .in("role", ["AGENT", "TEAM_LEAD"])
+    .order("name", { ascending: true });
+
+  return agents || [];
+}
+
 // ── Create a new lead ───────────────────────────────────────────
 export async function createLead(formData: FormData) {
   const name = formData.get("name") as string;
@@ -109,6 +125,7 @@ export async function createLead(formData: FormData) {
   const source = formData.get("source") as string;
   const projectId = formData.get("project_id") as string;
   const stageId = formData.get("stage_id") as string;
+  const assignedToId = formData.get("assigned_to_id") as string;
   const budgetMin = formData.get("budget_min") as string;
   const budgetMax = formData.get("budget_max") as string;
   const notes = formData.get("notes") as string;
@@ -144,6 +161,7 @@ export async function createLead(formData: FormData) {
     source: source || "MANUAL",
     project_id: projectId || null,
     stage_id: resolvedStageId || null,
+    assigned_to_id: (assignedToId && assignedToId !== "unassigned") ? assignedToId : null,
     budget_min: budgetMin ? parseFloat(budgetMin) : null,
     budget_max: budgetMax ? parseFloat(budgetMax) : null,
     notes: notes || null,

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { createLead } from "../actions";
+import { createLead, getAgentsForAssignment } from "../actions";
 import { getStages } from "../../settings/pipeline/actions";
 import { getProjects } from "../../projects/actions";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -48,18 +48,25 @@ interface Project {
   name: string;
 }
 
+interface Agent {
+  id: string;
+  name: string;
+}
+
 export default function NewLeadPage() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [stages, setStages] = useState<Stage[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [agents, setAgents] = useState<Agent[]>([]);
 
   useEffect(() => {
     async function load() {
       try {
-        const [s, p] = await Promise.all([getStages(), getProjects()]);
+        const [s, p, a] = await Promise.all([getStages(), getProjects(), getAgentsForAssignment()]);
         setStages(s as Stage[]);
         setProjects(p as Project[]);
+        setAgents(a as Agent[]);
       } catch {
         toast.error("Failed to load form data");
       }
@@ -182,21 +189,39 @@ export default function NewLeadPage() {
               </div>
             </div>
 
-            {/* Project */}
-            <div className="space-y-2">
-              <Label htmlFor="project_id">Interested Project</Label>
-              <Select name="project_id">
-                <SelectTrigger>
-                  <SelectValue placeholder="None" />
-                </SelectTrigger>
-                <SelectContent>
-                  {projects.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>
-                      {p.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            {/* Project & Assignee */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="project_id">Interested Project</Label>
+                <Select name="project_id">
+                  <SelectTrigger>
+                    <SelectValue placeholder="None" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {projects.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="assigned_to_id">Assign To (Optional)</Label>
+                <Select name="assigned_to_id">
+                  <SelectTrigger>
+                    <SelectValue placeholder="Unassigned" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="unassigned">Unassigned</SelectItem>
+                    {agents.map((a) => (
+                      <SelectItem key={a.id} value={a.id}>
+                        {a.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             {/* Budget & BHK */}
