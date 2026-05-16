@@ -202,3 +202,25 @@ export async function updateLeadStage(leadId: string, stageId: string) {
   revalidatePath("/leads/kanban");
   return { success: true };
 }
+
+// ── Update lead assignment ────────────────────────────────────────
+export async function updateLeadAssignment(leadId: string, assignedToId: string | null) {
+  const supabase = await createClient();
+  const profile = await getUserProfile();
+  if (!profile) return { error: "Unauthorized" };
+
+  const { error } = await supabase
+    .from("leads")
+    .update({ assigned_to_id: assignedToId, updated_at: new Date().toISOString() })
+    .eq("id", leadId)
+    .eq("company_id", profile.company_id);
+
+  if (error) {
+    console.error("updateLeadAssignment error:", error);
+    return { error: "Failed to assign lead" };
+  }
+
+  revalidatePath("/leads");
+  revalidatePath("/leads/kanban");
+  return { success: true };
+}

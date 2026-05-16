@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { getLeads } from "./actions";
+import { getLeads, updateLeadAssignment } from "./actions";
 import {
   Table,
   TableBody,
@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { format } from "date-fns";
+import { toast } from "sonner";
 
 const SOURCES = [
   "MANUAL",
@@ -61,14 +62,21 @@ interface Stage {
   color: string;
 }
 
+interface Agent {
+  id: string;
+  name: string;
+}
+
 interface LeadsClientProps {
   initialLeads: Lead[];
   initialStages: Stage[];
+  initialAgents: Agent[];
 }
 
 export default function LeadsClient({
   initialLeads,
   initialStages,
+  initialAgents,
 }: LeadsClientProps) {
   const [leads, setLeads] = useState<Lead[]>(initialLeads);
   const [isPending, startTransition] = useTransition();
@@ -129,6 +137,29 @@ export default function LeadsClient({
 
   function handleSearchKeyDown(e: React.KeyboardEvent) {
     if (e.key === "Enter") applyFilters();
+  }
+
+  async function handleAssign(leadId: string, agentId: string) {
+    const assignedToId = agentId === "unassigned" ? null : agentId;
+    const result = await updateLeadAssignment(leadId, assignedToId);
+    if (result.error) {
+      toast.error(result.error);
+      return;
+    }
+    // Optimistic update
+    setLeads((prev) =>
+      prev.map((l) =>
+        l.id === leadId
+          ? {
+              ...l,
+              assigned_user: assignedToId
+                ? initialAgents.find((a) => a.id === assignedToId) || null
+                : null,
+            }
+          : l
+      )
+    );
+    toast.success(assignedToId ? "Lead assigned" : "Lead unassigned");
   }
 
   return (
@@ -285,10 +316,25 @@ export default function LeadsClient({
                       <span className="text-muted-foreground text-xs">—</span>
                     )}
                   </TableCell>
-                  <TableCell className="text-sm">
-                    {lead.assigned_user?.name || (
-                      <span className="text-muted-foreground">Unassigned</span>
-                    )}
+                  <TableCell>
+                    <Select
+                      value={lead.assigned_user?.id || "unassigned"}
+                      onValueChange={(v) => handleAssign(lead.id, v)}
+                    >
+                      <SelectTrigger className="h-8 w-[140px] text-xs">
+                        <SelectValue placeholder="Unassigned" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="unassigned">
+                          <span className="text-muted-foreground">Unassigned</span>
+                        </SelectItem>
+                        {initialAgents.map((a) => (
+                          <SelectItem key={a.id} value={a.id}>
+                            {a.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
                     {format(new Date(lead.created_at), "MMM d, yyyy")}
