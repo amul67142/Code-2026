@@ -97,9 +97,17 @@ export function Sidebar() {
     >
       {/* Logo / Brand */}
       <div className="flex items-center gap-2 px-4 h-14 border-b border-gray-200">
-        <div className="flex items-center justify-center size-8 rounded-lg bg-gray-900 text-white text-sm font-bold shrink-0">
-          R
-        </div>
+        {user.companyLogo ? (
+          <img
+            src={user.companyLogo}
+            alt={user.companyName || "Company"}
+            className="size-8 rounded-lg object-cover shrink-0"
+          />
+        ) : (
+          <div className="flex items-center justify-center size-8 rounded-lg bg-gray-900 text-white text-sm font-bold shrink-0">
+            {(user.companyName || "R").charAt(0).toUpperCase()}
+          </div>
+        )}
         {!sidebarCollapsed && (
           <span className="text-sm font-semibold text-gray-900 truncate">
             {user.companyName || "RealLeads"}
