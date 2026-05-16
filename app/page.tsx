@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
-import { AuthRedirectHandler } from "@/components/auth-redirect-handler";
 
 /**
  * Public landing page — serves as the root "/" route.
@@ -9,8 +8,6 @@ import { AuthRedirectHandler } from "@/components/auth-redirect-handler";
 export default function HomePage() {
   return (
     <div className="flex flex-col items-center justify-center min-h-screen px-4 bg-white">
-      {/* Detects invite hash fragments and redirects to /invite */}
-      <AuthRedirectHandler />
       <div className="flex items-center justify-center size-16 rounded-2xl bg-gray-900 text-white text-2xl font-bold mb-6">
         R
       </div>

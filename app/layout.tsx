@@ -29,6 +29,17 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${inter.variable} h-full`}>
+      <head>
+        {/* Instant redirect for invite links — runs before React hydration */}
+        <script dangerouslySetInnerHTML={{ __html: `
+          (function(){
+            var h=window.location.hash;
+            if(h && h.indexOf('type=invite')!==-1 && window.location.pathname==='/'){
+              window.location.replace('/invite'+h);
+            }
+          })();
+        `}} />
+      </head>
       <body className="min-h-full font-sans antialiased">
         <Providers>{children}</Providers>
       </body>
