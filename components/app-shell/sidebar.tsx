@@ -35,6 +35,8 @@ interface NavItem {
   icon: React.ComponentType<{ className?: string }>;
   /** Minimum role required to see this item */
   minRole?: string;
+  /** Roles that should NOT see this item */
+  hideForRoles?: string[];
   children?: {
     title: string;
     href: string;
@@ -46,7 +48,7 @@ interface NavItem {
 const navigation: NavItem[] = [
   { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { title: "Leads", href: "/leads", icon: Users },
-  { title: "My Leads", href: "/my-leads", icon: ClipboardList },
+  { title: "My Leads", href: "/my-leads", icon: ClipboardList, hideForRoles: ["SUPER_ADMIN"] },
   { title: "Pipeline", href: "/leads/kanban", icon: KanbanSquare, minRole: "TEAM_LEAD" },
   { title: "Tasks", href: "/tasks", icon: CheckSquare },
   { title: "Projects", href: "/projects", icon: Building2, minRole: "TEAM_LEAD" },
@@ -80,9 +82,11 @@ export function Sidebar() {
   );
 
   /** Filter nav items by role */
-  const visibleNav = navigation.filter(
-    (item) => !item.minRole || hasMinRole(user.role, item.minRole)
-  );
+  const visibleNav = navigation.filter((item) => {
+    if (item.minRole && !hasMinRole(user.role, item.minRole)) return false;
+    if (item.hideForRoles && item.hideForRoles.includes(user.role)) return false;
+    return true;
+  });
 
   return (
     <aside
