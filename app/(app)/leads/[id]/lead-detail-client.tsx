@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { updateLeadStatus, addLeadActivity } from "./actions";
 import { updateLeadAssignment } from "../actions";
+import { updateTaskStatus } from "../../tasks/actions";
+import { TaskDialog } from "@/components/tasks/task-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -30,10 +32,11 @@ import {
   Loader2,
   UserCheck,
   Clock,
+  CheckCircle2,
 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { format, formatDistanceToNow } from "date-fns";
+import { format, formatDistanceToNow, isPast } from "date-fns";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Lead = any;
@@ -88,6 +91,7 @@ interface LeadDetailClientProps {
   currentUser: CurrentUser;
   activities: Activity[];
   agents: Agent[];
+  tasks: any[];
 }
 
 export function LeadDetailClient({
@@ -95,6 +99,7 @@ export function LeadDetailClient({
   currentUser,
   activities: initialActivities,
   agents,
+  tasks: initialTasks,
 }: LeadDetailClientProps) {
   const router = useRouter();
 
@@ -115,10 +120,19 @@ export function LeadDetailClient({
   const [activityDesc, setActivityDesc] = useState("");
   const [savingActivity, setSavingActivity] = useState(false);
   const [activities, setActivities] = useState<Activity[]>(initialActivities);
+  
+  // Tasks state
+  const [tasks, setTasks] = useState<any[]>(initialTasks);
+  const [showTaskDialog, setShowTaskDialog] = useState(false);
+  const [completingTask, setCompletingTask] = useState<string | null>(null);
 
   useEffect(() => {
     setActivities(initialActivities);
   }, [initialActivities]);
+
+  useEffect(() => {
+    setTasks(initialTasks);
+  }, [initialTasks]);
 
   // Reassign
   const [reassigning, setReassigning] = useState(false);
@@ -191,6 +205,26 @@ export function LeadDetailClient({
       toast.error("Failed to reassign");
     } finally {
       setReassigning(false);
+    }
+  }
+
+  async function handleCompleteTask(taskId: string) {
+    setCompletingTask(taskId);
+    try {
+      const result = await updateTaskStatus(taskId, "COMPLETED");
+      if (result.error) {
+        toast.error(result.error);
+      } else {
+        toast.success("Task completed");
+        setTasks((prev) =>
+          prev.map((t) => (t.id === taskId ? { ...t, status: "COMPLETED" } : t))
+        );
+        router.refresh();
+      }
+    } catch {
+      toast.error("Failed to complete task");
+    } finally {
+      setCompletingTask(null);
     }
   }
 
@@ -427,7 +461,7 @@ export function LeadDetailClient({
           )}
         </div>
 
-        {/* ── Right Column: Reassign + Timeline ── */}
+        {/* ── Right Column: Reassign + Tasks + Timeline ── */}
         <div className="space-y-6">
           {/* Reassign Card (SUPER_ADMIN only) */}
           {isSuperAdmin && (
@@ -457,6 +491,70 @@ export function LeadDetailClient({
               </CardContent>
             </Card>
           )}
+
+          {/* Tasks Card */}
+          <Card>
+            <CardHeader className="pb-3 flex flex-row items-center justify-between space-y-0">
+              <div>
+                <CardTitle className="text-base">Tasks</CardTitle>
+                <CardDescription>Scheduled follow-ups</CardDescription>
+              </div>
+              {canEdit && (
+                <Button size="sm" variant="outline" onClick={() => setShowTaskDialog(true)}>
+                  Add Task
+                </Button>
+              )}
+            </CardHeader>
+            <CardContent>
+              {tasks.filter(t => t.status === 'PENDING').length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  No pending tasks
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  {tasks.filter(t => t.status === 'PENDING').map((task) => {
+                    const isOverdue = isPast(new Date(task.due_at));
+                    return (
+                      <div key={task.id} className={`p-3 rounded-lg border text-sm ${isOverdue ? 'border-red-200 bg-red-50/50' : 'bg-muted/30'}`}>
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium">{task.type}</span>
+                              {isOverdue && (
+                                <Badge variant="destructive" className="text-[10px] h-4 px-1 uppercase">Overdue</Badge>
+                              )}
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                              <Clock className="h-3 w-3" />
+                              {format(new Date(task.due_at), "MMM d, h:mm a")}
+                            </p>
+                          </div>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7"
+                            disabled={completingTask === task.id}
+                            onClick={() => handleCompleteTask(task.id)}
+                          >
+                            {completingTask === task.id ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <CheckCircle2 className="h-4 w-4" />
+                            )}
+                          </Button>
+                        </div>
+                        {task.notes && (
+                          <p className="text-xs text-muted-foreground mt-2 italic line-clamp-2">
+                            "{task.notes}"
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
           {/* Activity Timeline */}
           <Card>
@@ -516,6 +614,13 @@ export function LeadDetailClient({
             </CardContent>
           </Card>
         </div>
+
+        <TaskDialog
+          open={showTaskDialog}
+          onOpenChange={setShowTaskDialog}
+          leadId={lead.id}
+          leadName={lead.name}
+        />
       </div>
     </div>
   );
