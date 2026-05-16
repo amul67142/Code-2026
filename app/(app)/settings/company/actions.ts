@@ -128,8 +128,10 @@ export async function uploadCompanyLogo(formData: FormData) {
     await s3Client.send(command);
 
     // Get public URL using Supabase storage format
-    // URL pattern: [project-url]/storage/v1/object/public/[bucket]/[key]
-    const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/${process.env.S3_BUCKET_NAME}/${filePath}`;
+    // Bucket name needs to be URL encoded since it contains a space ("Bigleads images")
+    const encodedBucket = encodeURIComponent(process.env.S3_BUCKET_NAME!);
+    const encodedPath = filePath.split("/").map(encodeURIComponent).join("/");
+    const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/${encodedBucket}/${encodedPath}`;
 
     const adminClient = createAdminClient();
     

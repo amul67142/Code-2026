@@ -173,6 +173,31 @@ export async function POST(
       return NextResponse.json({ error: "Failed to create lead" }, { status: 500 });
     }
 
+    // --- NEW: Lead Routing & Assignment ---
+    let assignedUserId: string | null = null;
+    if (webhook.assignment_rule === "ROUND_ROBIN") {
+      const { data: assignData, error: assignError } = await supabase.rpc(
+        "assign_lead_round_robin", 
+        { p_company_id: companyId, p_lead_id: lead.id }
+      );
+      
+      if (assignError) {
+        console.error("Round Robin assignment failed:", assignError);
+      } else {
+        assignedUserId = assignData;
+      }
+    } else if (webhook.assignment_rule === "SPECIFIC_AGENT" && webhook.assigned_agent_id) {
+      // Assign to specific agent directly
+      const { error: assignError } = await supabase
+        .from("leads")
+        .update({ assigned_to_id: webhook.assigned_agent_id })
+        .eq("id", lead.id);
+        
+      if (!assignError) {
+        assignedUserId = webhook.assigned_agent_id;
+      }
+    }
+
     // 9. Update Webhook Stats and Log Success
     await supabase
       .from("webhooks")
@@ -191,7 +216,8 @@ export async function POST(
     return NextResponse.json({ 
       success: true, 
       lead_id: lead.id,
-      message: "Lead created successfully" 
+      assigned_to_id: assignedUserId,
+      message: "Lead created and routed successfully" 
     });
 
   } catch (error: any) {

@@ -63,10 +63,10 @@ const settingsItems = [
   },
   {
     title: "Routing",
-    description: "Set up lead assignment and routing rules.",
+    description: "Manage lead assignment rules",
     icon: Route,
     href: "/settings/routing",
-    ready: false,
+    ready: true,
     minRole: "ADMIN",
   },
   {
