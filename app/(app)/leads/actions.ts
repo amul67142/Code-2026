@@ -257,3 +257,38 @@ export async function updateLeadAssignment(leadId: string, assignedToId: string 
   revalidatePath("/leads/kanban");
   return { success: true };
 }
+
+// ── Bulk Import Leads ──────────────────────────────────────────────
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function bulkImportLeads(leads: any[]) {
+  const supabase = await createClient();
+  const profile = await getUserProfile();
+  if (!profile) return { error: "Unauthorized" };
+
+  if (!leads || leads.length === 0) return { error: "No leads to import" };
+
+  try {
+    const CHUNK_SIZE = 500;
+    for (let i = 0; i < leads.length; i += CHUNK_SIZE) {
+      const chunk = leads.slice(i, i + CHUNK_SIZE).map((l) => ({
+        ...l,
+        company_id: profile.company_id,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }));
+
+      const { error } = await supabase.from("leads").insert(chunk);
+      if (error) {
+        console.error("Bulk import chunk error:", error);
+        return { error: `Failed to import at row ${i + 1}. ${error.message}` };
+      }
+    }
+
+    revalidatePath("/leads");
+    revalidatePath("/leads/kanban");
+    return { success: true };
+  } catch (err) {
+    console.error("Bulk import error:", err);
+    return { error: "An unexpected error occurred during import." };
+  }
+}

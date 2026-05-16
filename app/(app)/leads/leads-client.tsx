@@ -11,7 +11,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { buttonVariants } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -26,10 +26,14 @@ import {
   LayoutGrid,
   Phone,
   Mail,
+  Download,
+  Upload,
 } from "lucide-react";
 import Link from "next/link";
 import { format } from "date-fns";
 import { toast } from "sonner";
+import Papa from "papaparse";
+import { ImportLeadsDialog } from "./import-leads-dialog";
 
 const SOURCES = [
   "MANUAL",
@@ -96,6 +100,7 @@ export default function LeadsClient({
   const [search, setSearch] = useState("");
   const [stageFilter, setStageFilter] = useState("all");
   const [sourceFilter, setSourceFilter] = useState("all");
+  const [isImportOpen, setIsImportOpen] = useState(false);
 
   function applyFilters() {
     startTransition(async () => {
@@ -175,8 +180,42 @@ export default function LeadsClient({
     toast.success(assignedToId ? "Lead assigned" : "Lead unassigned");
   }
 
+  function handleExportCSV() {
+    if (leads.length === 0) {
+      toast.error("No leads to export");
+      return;
+    }
+
+    const exportData = leads.map(l => ({
+      "Lead Name": l.name,
+      "Phone": l.phone || "",
+      "Email": l.email || "",
+      "Stage": l.stage?.name || "",
+      "Source": l.source || "",
+      "Project": l.project?.name || "",
+      "Assigned To": l.assigned_user?.name || "Unassigned",
+      "Status 1": l.status_1 || "",
+      "Status 1 Remark": l.status_1_remark || "",
+      "Status 2": l.status_2 || "",
+      "Status 2 Remark": l.status_2_remark || "",
+      "Created At": l.created_at ? format(new Date(l.created_at), "PPp") : "",
+    }));
+
+    const csv = Papa.unparse(exportData);
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", `leads_export_${format(new Date(), "yyyyMMdd")}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
   return (
     <div className="space-y-4">
+      <ImportLeadsDialog open={isImportOpen} onOpenChange={setIsImportOpen} />
+      
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -185,7 +224,15 @@ export default function LeadsClient({
             Manage and track all your leads.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button variant="outline" onClick={handleExportCSV}>
+            <Download className="mr-2 h-4 w-4" />
+            Export
+          </Button>
+          <Button variant="outline" onClick={() => setIsImportOpen(true)}>
+            <Upload className="mr-2 h-4 w-4" />
+            Import
+          </Button>
           <Link
             href="/leads/kanban"
             className={buttonVariants({ variant: "outline" })}
