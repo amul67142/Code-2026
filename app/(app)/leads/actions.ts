@@ -109,9 +109,9 @@ export async function getAgentsForAssignment() {
 
   const { data: agents } = await supabase
     .from("users")
-    .select("id, name")
+    .select("id, name, role")
     .eq("company_id", profile.company_id)
-    .in("role", ["AGENT", "TEAM_LEAD"])
+    .in("role", ["AGENT", "TEAM_LEAD", "ADMIN", "SUPER_ADMIN"])
     .order("name", { ascending: true });
 
   return agents || [];
