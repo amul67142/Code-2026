@@ -129,6 +129,7 @@ export async function updateLeadStatus(
 
   revalidatePath(`/leads/${leadId}`);
   revalidatePath("/leads");
+  revalidatePath("/settings/profile");
   return { success: true };
 }
 
