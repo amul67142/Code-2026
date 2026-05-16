@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { updateLeadStatus, addLeadActivity } from "./actions";
 import { updateLeadAssignment } from "../actions";
@@ -115,6 +115,10 @@ export function LeadDetailClient({
   const [activityDesc, setActivityDesc] = useState("");
   const [savingActivity, setSavingActivity] = useState(false);
   const [activities, setActivities] = useState<Activity[]>(initialActivities);
+
+  useEffect(() => {
+    setActivities(initialActivities);
+  }, [initialActivities]);
 
   // Reassign
   const [reassigning, setReassigning] = useState(false);

@@ -231,33 +231,26 @@ export async function updateLeadAssignment(leadId: string, assignedToId: string 
     const leadName = lead?.name || "A lead";
     const agentName = agent?.name || "an agent";
 
-    // Get all company users for broadcast notification
-    const { data: companyUsers } = await supabase
-      .from("users")
-      .select("id")
-      .eq("company_id", profile.company_id);
-
-    if (companyUsers && companyUsers.length > 0) {
-      const notifications = companyUsers.map((u) => ({
-        company_id: profile.company_id,
-        user_id: u.id,
-        title: "Lead Assigned",
-        message: `${leadName} was assigned to ${agentName}`,
-        type: "ASSIGNMENT",
-        metadata: { lead_id: leadId, assigned_to_id: assignedToId },
-      }));
-
-      await supabase.from("notifications").insert(notifications);
-    }
+    // Notify ONLY the assigned agent
+    const { error: notifError } = await supabase.from("notifications").insert({
+      company_id: profile.company_id,
+      user_id: assignedToId,
+      title: "Lead Assigned",
+      message: `You have been assigned a new lead: ${leadName}`,
+      type: "ASSIGNMENT",
+      metadata: { lead_id: leadId, assigned_to_id: assignedToId },
+    });
+    if (notifError) console.error("Failed to insert notification:", notifError);
 
     // Log activity on the lead
-    await supabase.from("activities").insert({
+    const { error: actError } = await supabase.from("activities").insert({
       lead_id: leadId,
       user_id: profile.id,
       type: "ASSIGNMENT",
       description: `Lead assigned to ${agentName}`,
       metadata: { assigned_to_id: assignedToId, assigned_by: profile.id },
     });
+    if (actError) console.error("Failed to insert activity:", actError);
   }
 
   revalidatePath("/leads");
