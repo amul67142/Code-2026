@@ -11,6 +11,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { TaskDialog } from "@/components/tasks/task-dialog";
 import {
   Phone,
   Mail,
@@ -19,9 +20,9 @@ import {
   CheckCircle2,
   Clock,
   MoreVertical,
-  AlertCircle,
   ExternalLink,
   User,
+  Plus,
 } from "lucide-react";
 import { format, isPast, isToday, isTomorrow } from "date-fns";
 import { updateTaskStatus } from "./actions";
@@ -49,11 +50,13 @@ interface Task {
 
 interface TasksClientProps {
   initialTasks: Task[];
+  leads: { id: string; name: string }[];
 }
 
-export function TasksClient({ initialTasks }: TasksClientProps) {
+export function TasksClient({ initialTasks, leads }: TasksClientProps) {
   const [tasks, setTasks] = useState(initialTasks);
   const [loading, setLoading] = useState<string | null>(null);
+  const [showDialog, setShowDialog] = useState(false);
 
   const pendingTasks = tasks.filter(
     (t) => t.status === "PENDING" && !isPast(new Date(t.due_at))
@@ -169,6 +172,10 @@ export function TasksClient({ initialTasks }: TasksClientProps) {
             Manage your daily follow-ups and activities.
           </p>
         </div>
+        <Button onClick={() => setShowDialog(true)}>
+          <Plus className="h-4 w-4 mr-2" />
+          New Task
+        </Button>
       </div>
 
       <Tabs defaultValue="pending" className="w-full">
@@ -216,6 +223,12 @@ export function TasksClient({ initialTasks }: TasksClientProps) {
           )}
         </TabsContent>
       </Tabs>
+
+      <TaskDialog
+        open={showDialog}
+        onOpenChange={setShowDialog}
+        leads={leads}
+      />
     </div>
   );
 }

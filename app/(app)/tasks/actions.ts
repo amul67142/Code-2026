@@ -30,8 +30,14 @@ export async function getTasks(status?: "PENDING" | "COMPLETED" | "OVERDUE" | "C
       lead:leads(id, name, phone, email),
       assigned_to:users!tasks_assigned_to_id_fkey(id, name)
     `)
-    .eq("company_id", profile.company_id)
-    .order("due_at", { ascending: true });
+    .eq("company_id", profile.company_id);
+
+  // If agent, only show their own tasks
+  if (profile.role === "AGENT") {
+    query = query.eq("assigned_to_id", profile.id);
+  }
+
+  query = query.order("due_at", { ascending: true });
 
   if (status) {
     if (status === "OVERDUE") {
@@ -151,4 +157,29 @@ export async function getLeadTasks(leadId: string) {
   }
 
   return tasks || [];
+}
+
+export async function getMyLeads() {
+  const supabase = await createClient();
+  const profile = await getUserProfile();
+  if (!profile) return [];
+
+  let query = supabase
+    .from("leads")
+    .select("id, name")
+    .eq("company_id", profile.company_id)
+    .order("name", { ascending: true })
+    .limit(500);
+
+  // Agents only see their own leads
+  if (profile.role === "AGENT") {
+    query = query.eq("assigned_to_id", profile.id);
+  }
+
+  const { data, error } = await query;
+  if (error) {
+    console.error("getMyLeads error:", error);
+    return [];
+  }
+  return data || [];
 }
