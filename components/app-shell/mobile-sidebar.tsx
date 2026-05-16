@@ -37,7 +37,7 @@ interface NavItem {
 const navigation: NavItem[] = [
   { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { title: "Leads", href: "/leads", icon: Users },
-  { title: "Pipeline", href: "/leads/kanban", icon: KanbanSquare },
+  { title: "Pipeline", href: "/leads/kanban", icon: KanbanSquare, minRole: "TEAM_LEAD" },
   { title: "Tasks", href: "/tasks", icon: CheckSquare },
   { title: "Projects", href: "/projects", icon: Building2, minRole: "TEAM_LEAD" },
   { title: "Reports", href: "/reports", icon: BarChart3, minRole: "TEAM_LEAD" },
