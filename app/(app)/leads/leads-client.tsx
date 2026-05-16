@@ -306,15 +306,15 @@ export default function LeadsClient({
       <div className="rounded-md border bg-card">
         <Table>
           <TableHeader>
-            <TableRow>
+          <TableRow>
               <TableHead>Name</TableHead>
-              <TableHead>Contact</TableHead>
-              <TableHead>Source</TableHead>
-              <TableHead>Project</TableHead>
+              <TableHead className="hidden md:table-cell">Contact</TableHead>
+              <TableHead className="hidden lg:table-cell">Source</TableHead>
+              <TableHead className="hidden lg:table-cell">Project</TableHead>
               <TableHead>Stage</TableHead>
-              <TableHead>Statuses</TableHead>
-              <TableHead>Assigned</TableHead>
-              <TableHead>Created</TableHead>
+              <TableHead className="hidden xl:table-cell">Statuses</TableHead>
+              <TableHead className="hidden sm:table-cell">Assigned</TableHead>
+              <TableHead className="hidden md:table-cell">Created</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -338,7 +338,7 @@ export default function LeadsClient({
                       {lead.name}
                     </Link>
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="hidden md:table-cell">
                     <div className="flex flex-col gap-0.5 text-xs">
                       {lead.phone && (
                         <span className="flex items-center gap-1 text-muted-foreground">
@@ -354,7 +354,7 @@ export default function LeadsClient({
                       )}
                     </div>
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="hidden lg:table-cell">
                     <span
                       className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${
                         SOURCE_COLORS[lead.source] || SOURCE_COLORS.OTHER
@@ -363,7 +363,7 @@ export default function LeadsClient({
                       {lead.source?.replace(/_/g, " ")}
                     </span>
                   </TableCell>
-                  <TableCell className="text-sm">
+                  <TableCell className="text-sm hidden lg:table-cell">
                     {lead.projects?.name || (
                       <span className="text-muted-foreground">—</span>
                     )}
@@ -384,7 +384,7 @@ export default function LeadsClient({
                       <span className="text-muted-foreground text-xs">—</span>
                     )}
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="hidden xl:table-cell">
                     <div className="flex flex-col gap-1">
                       {lead.status_1 && (
                         <div className="flex flex-col">
@@ -407,7 +407,7 @@ export default function LeadsClient({
                       )}
                     </div>
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="hidden sm:table-cell">
                     <select
                       className="h-8 w-[150px] text-xs rounded-md border border-input bg-background px-2 py-1 focus:outline-none focus:ring-2 focus:ring-ring"
                       value={lead.assigned_user?.id || "unassigned"}
@@ -421,7 +421,7 @@ export default function LeadsClient({
                       ))}
                     </select>
                   </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">
+                  <TableCell className="text-sm text-muted-foreground hidden md:table-cell">
                     {format(new Date(lead.created_at), "MMM d, yyyy")}
                   </TableCell>
                 </TableRow>

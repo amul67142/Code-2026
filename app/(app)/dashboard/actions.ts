@@ -95,6 +95,43 @@ export async function getDashboardData() {
     .order("created_at", { ascending: false })
     .limit(5);
 
+  // ── Overdue Tasks ──────────────────────────
+  const { count: overdueTasks } = await supabase
+    .from("tasks")
+    .select("*", { count: "exact", head: true })
+    .eq("company_id", companyId)
+    .eq("status", "PENDING")
+    .lt("due_at", new Date().toISOString());
+
+  // ── Tasks Due Today ────────────────────────
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  const todayEnd = new Date();
+  todayEnd.setHours(23, 59, 59, 999);
+
+  const { count: tasksDueToday } = await supabase
+    .from("tasks")
+    .select("*", { count: "exact", head: true })
+    .eq("company_id", companyId)
+    .eq("status", "PENDING")
+    .gte("due_at", todayStart.toISOString())
+    .lte("due_at", todayEnd.toISOString());
+
+  // ── New Leads This Week ────────────────────
+  const weekAgo = new Date();
+  weekAgo.setDate(weekAgo.getDate() - 7);
+  const { count: newLeadsThisWeek } = await supabase
+    .from("leads")
+    .select("*", { count: "exact", head: true })
+    .eq("company_id", companyId)
+    .is("deleted_at", null)
+    .gte("created_at", weekAgo.toISOString());
+
+  // ── Conversion Rate ────────────────────────
+  const conversionRate = (totalLeads || 0) > 0
+    ? Math.round(((leadsWon || 0) / (totalLeads || 1)) * 100)
+    : 0;
+
   return {
     userName: profile.name || "User",
     totalLeads: totalLeads || 0,
@@ -103,5 +140,9 @@ export async function getDashboardData() {
     totalUsers: totalUsers || 0,
     pipelineData,
     recentLeads: recentLeads || [],
+    overdueTasks: overdueTasks || 0,
+    tasksDueToday: tasksDueToday || 0,
+    newLeadsThisWeek: newLeadsThisWeek || 0,
+    conversionRate,
   };
 }

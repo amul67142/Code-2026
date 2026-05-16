@@ -5,6 +5,11 @@ import {
   UserCheck,
   Phone,
   ArrowRight,
+  TrendingUp,
+  AlertTriangle,
+  CalendarCheck,
+  Sparkles,
+  Target,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -27,6 +32,7 @@ export default async function DashboardPage() {
       icon: Users,
       href: "/leads",
       color: "text-blue-600 bg-blue-50",
+      sub: `+${data.newLeadsThisWeek} this week`,
     },
     {
       title: "Leads Won",
@@ -34,20 +40,50 @@ export default async function DashboardPage() {
       icon: Trophy,
       href: "/leads",
       color: "text-green-600 bg-green-50",
+      sub: `${data.conversionRate}% conversion`,
     },
+    {
+      title: "Tasks Due Today",
+      value: data.tasksDueToday.toString(),
+      icon: CalendarCheck,
+      href: "/tasks",
+      color: "text-violet-600 bg-violet-50",
+      sub: "Pending follow-ups",
+    },
+    {
+      title: "Overdue Tasks",
+      value: data.overdueTasks.toString(),
+      icon: AlertTriangle,
+      href: "/tasks",
+      color: data.overdueTasks > 0 ? "text-red-600 bg-red-50" : "text-emerald-600 bg-emerald-50",
+      sub: data.overdueTasks > 0 ? "Needs attention!" : "All clear ✓",
+    },
+  ];
+
+  const secondaryStats = [
     {
       title: "Active Projects",
       value: data.totalProjects.toString(),
       icon: Building2,
       href: "/projects",
-      color: "text-violet-600 bg-violet-50",
     },
     {
       title: "Team Members",
       value: data.totalUsers.toString(),
       icon: UserCheck,
-      href: "/settings",
-      color: "text-amber-600 bg-amber-50",
+      href: "/settings/team",
+    },
+    {
+      title: "Conversion Rate",
+      value: `${data.conversionRate}%`,
+      icon: Target,
+      href: "/reports",
+    },
+    {
+      title: "New This Week",
+      value: data.newLeadsThisWeek.toString(),
+      icon: TrendingUp,
+      href: "/leads",
     },
   ];
 
@@ -63,13 +99,13 @@ export default async function DashboardPage() {
         </p>
       </div>
 
-      {/* KPI Cards */}
+      {/* Primary KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {stats.map((stat) => {
           const Icon = stat.icon;
           return (
             <Link key={stat.title} href={stat.href}>
-              <Card className="border-gray-200 shadow-none hover:bg-muted/50 transition-colors cursor-pointer">
+              <Card className="border-gray-200 shadow-none hover:shadow-md hover:border-gray-300 transition-all cursor-pointer">
                 <CardHeader className="flex flex-row items-center justify-between pb-2">
                   <CardTitle className="text-sm font-medium text-muted-foreground">
                     {stat.title}
@@ -80,8 +116,27 @@ export default async function DashboardPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="text-3xl font-bold">{stat.value}</div>
+                  <p className="text-xs text-muted-foreground mt-1">{stat.sub}</p>
                 </CardContent>
               </Card>
+            </Link>
+          );
+        })}
+      </div>
+
+      {/* Secondary Stats Strip */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {secondaryStats.map((stat) => {
+          const Icon = stat.icon;
+          return (
+            <Link key={stat.title} href={stat.href}>
+              <div className="flex items-center gap-3 p-3 rounded-lg border border-gray-200 bg-white hover:bg-muted/50 transition-colors">
+                <Icon className="h-4 w-4 text-muted-foreground" />
+                <div>
+                  <p className="text-lg font-bold leading-none">{stat.value}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{stat.title}</p>
+                </div>
+              </div>
             </Link>
           );
         })}
@@ -179,8 +234,9 @@ export default async function DashboardPage() {
               <div className="space-y-3">
                 {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                 {data.recentLeads.map((lead: any) => (
-                  <div
+                  <Link
                     key={lead.id}
+                    href={`/leads/${lead.id}`}
                     className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 transition-colors"
                   >
                     <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary text-xs font-bold">
@@ -216,7 +272,7 @@ export default async function DashboardPage() {
                         {format(new Date(lead.created_at), "MMM d")}
                       </span>
                     </div>
-                  </div>
+                  </Link>
                 ))}
               </div>
             )}
@@ -227,7 +283,8 @@ export default async function DashboardPage() {
       {/* Quick Actions */}
       <Card className="border-gray-200 shadow-none">
         <CardHeader>
-          <CardTitle className="text-base font-semibold">
+          <CardTitle className="text-base font-semibold flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-amber-500" />
             Quick Actions
           </CardTitle>
         </CardHeader>
@@ -240,22 +297,28 @@ export default async function DashboardPage() {
               + Add Lead
             </Link>
             <Link
-              href="/projects/new"
+              href="/tasks"
               className={buttonVariants({ variant: "outline" })}
             >
-              + New Project
+              📋 My Tasks
             </Link>
             <Link
               href="/leads/kanban"
               className={buttonVariants({ variant: "outline" })}
             >
-              📋 Pipeline Board
+              🔄 Pipeline Board
             </Link>
             <Link
-              href="/settings/pipeline"
+              href="/reports"
               className={buttonVariants({ variant: "outline" })}
             >
-              ⚙️ Configure Pipeline
+              📊 Reports
+            </Link>
+            <Link
+              href="/settings/team"
+              className={buttonVariants({ variant: "outline" })}
+            >
+              👥 Manage Team
             </Link>
           </div>
         </CardContent>
