@@ -10,6 +10,21 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Loader2, Building2, Shield } from "lucide-react";
 
+/**
+ * Parse the URL hash fragment into key-value pairs.
+ * e.g. #access_token=abc&refresh_token=def → { access_token: "abc", refresh_token: "def" }
+ */
+function parseHashParams(hash: string): Record<string, string> {
+  const params: Record<string, string> = {};
+  const raw = hash.startsWith("#") ? hash.substring(1) : hash;
+  if (!raw) return params;
+  raw.split("&").forEach((pair) => {
+    const [key, ...rest] = pair.split("=");
+    if (key) params[key] = decodeURIComponent(rest.join("="));
+  });
+  return params;
+}
+
 export function InviteClient() {
   const router = useRouter();
   const [password, setPassword] = useState("");
@@ -25,14 +40,42 @@ export function InviteClient() {
   const supabase = createClient();
 
   useEffect(() => {
-    // The invite link redirects here with #access_token=... in the URL hash.
-    // Supabase JS client automatically detects the hash fragment and exchanges
-    // it for a session. We listen for the auth state change to know when it's ready.
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+    async function establishSession() {
+      // Step 1: Try to extract tokens from URL hash fragment
+      const hash = window.location.hash;
+      const params = parseHashParams(hash);
+
+      if (params.access_token && params.refresh_token) {
+        // Manually set the session using the tokens from the invite link
+        const { error } = await supabase.auth.setSession({
+          access_token: params.access_token,
+          refresh_token: params.refresh_token,
+        });
+
+        if (!error) {
+          // Clean up the URL hash
+          window.history.replaceState(null, "", window.location.pathname);
+          setHasSession(true);
+          
+          // Fetch invite details
+          const details = await getInviteDetails();
+          if (!details.error) {
+            setInviteInfo({
+              companyName: details.companyName,
+              role: details.role,
+            });
+          }
+          setSessionChecked(true);
+          return;
+        } else {
+          console.error("Failed to set session from hash:", error);
+        }
+      }
+
+      // Step 2: Fallback — check if there's already an existing session (e.g. page refresh)
+      const { data: { session } } = await supabase.auth.getSession();
       if (session) {
         setHasSession(true);
-        setSessionChecked(true);
-        // Fetch invite details (company name, role)
         const details = await getInviteDetails();
         if (!details.error) {
           setInviteInfo({
@@ -41,25 +84,11 @@ export function InviteClient() {
           });
         }
       }
-    });
 
-    // Also check if there's already an existing session (e.g. page refresh)
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (session) {
-        setHasSession(true);
-        const details = await getInviteDetails();
-        if (!details.error) {
-          setInviteInfo({
-            companyName: details.companyName,
-            role: details.role,
-          });
-        }
-      }
-      // Give the hash fragment listener a moment before declaring "no session"
-      setTimeout(() => setSessionChecked(true), 1500);
-    });
+      setSessionChecked(true);
+    }
 
-    return () => subscription.unsubscribe();
+    establishSession();
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
