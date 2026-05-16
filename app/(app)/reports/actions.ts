@@ -23,8 +23,8 @@ export async function getDashboardMetrics(days: number = 30) {
       id,
       source,
       created_at,
-      stage:stages(id, name, color),
-      assigned_user:users!leads_assigned_user_fkey(id, name)
+      stage:pipeline_stages(id, name, color),
+      assigned_user:users!leads_assigned_to_id_fkey(id, name)
     `)
     .eq("company_id", profile.company_id)
     .limit(10000);
