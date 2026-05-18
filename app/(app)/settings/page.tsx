@@ -92,7 +92,7 @@ const settingsItems = [
     icon: Mail,
     href: "/settings/emails",
     ready: true,
-    minRole: "ADMIN",
+    minRole: "SUPER_ADMIN",
   },
 ];
 

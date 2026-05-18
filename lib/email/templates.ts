@@ -172,22 +172,22 @@ export async function sendStageChangeEmail(to: string, agentName: string, leadNa
   });
 }
 
-// ── 8. Password Reset Email ─────────────────────────────────────
-export function getPasswordResetEmailHtml(name: string, resetUrl: string) {
+// ── 8. Password Reset Email ─────────────────────────────────────────
+export function getPasswordResetEmailHtml(userName: string, resetUrl: string) {
   return layout(`
-    <h1>Password Reset 🔑</h1>
-    <p>Hi ${name}, we received a request to reset your password.</p>
-    <p>Click the button below to set a new password:</p>
-    <p style="text-align:center; margin-top:24px"><a href="${resetUrl}" class="btn">Reset Password →</a></p>
-    <p class="meta" style="margin-top:16px">If you didn't request this, you can safely ignore this email.</p>
+    <h1>Reset your password</h1>
+    <p>Hi <strong>${userName}</strong>,</p>
+    <p>We received a request to reset your password for RealLeads CRM.</p>
+    <p style="margin-top:24px; text-align:center"><a href="${resetUrl}" class="btn">Reset Password →</a></p>
+    <p class="meta" style="margin-top:16px">This link will expire in 10 minutes. If you didn't request a password reset, you can safely ignore this email.</p>
   `);
 }
 
-export async function sendPasswordResetEmail(to: string, name: string, resetUrl: string) {
+export async function sendPasswordResetEmail(to: string, userName: string, resetUrl: string) {
   return sendEmail({
     to,
     subject: "Reset your RealLeads password",
-    html: getPasswordResetEmailHtml(name, resetUrl),
+    html: getPasswordResetEmailHtml(userName, resetUrl),
   });
 }
 

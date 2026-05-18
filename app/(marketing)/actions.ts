@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { getURL } from "@/lib/utils";
+import { sendWelcomeEmail } from "@/lib/email";
 
 export async function login(formData: FormData) {
   const email = formData.get("email") as string;
@@ -56,6 +57,10 @@ export async function signup(formData: FormData) {
   if (error) {
     return { error: error.message };
   }
+
+  // Attempt to send welcome email, don't fail signup if it fails
+  const name = email.split("@")[0]; // Fallback name
+  await sendWelcomeEmail(email, name);
 
   // If email confirmation is required, redirect to a check email message
   return { success: "Account created! Please check your email to confirm your account." };
