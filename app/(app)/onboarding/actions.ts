@@ -41,8 +41,9 @@ export async function completeOnboarding(data: OnboardingData) {
       .single();
 
     if (existingUser) {
-      return { success: "Already onboarded. Redirecting..." };
-    }
+      // Already fully onboarded, just redirect
+      revalidatePath("/", "layout");
+    } else {
 
     // 2. Insert Company
     const baseSubdomain = data.companyName.toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -85,7 +86,9 @@ export async function completeOnboarding(data: OnboardingData) {
 
     if (userError) {
       console.error("User Error:", userError);
-      return { error: "Failed to create user profile" };
+      // Rollback: delete the company we just created to avoid orphaned data
+      await adminClient.from("companies").delete().eq("id", company.id);
+      return { error: "Failed to create user profile. Please try again." };
     }
 
     // 4. Create default pipeline stages if user selected them
@@ -102,7 +105,8 @@ export async function completeOnboarding(data: OnboardingData) {
       });
     }
 
-    revalidatePath("/", "layout");
+      revalidatePath("/", "layout");
+    } // end else
 
   } catch (err: any) {
     console.error("Onboarding Error:", err);
