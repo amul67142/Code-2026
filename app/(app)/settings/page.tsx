@@ -8,6 +8,7 @@ import {
   Plug,
   CreditCard,
   User,
+  Mail,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
@@ -84,6 +85,14 @@ const settingsItems = [
     href: "/settings/billing",
     ready: false,
     minRole: "SUPER_ADMIN",
+  },
+  {
+    title: "Emails",
+    description: "Preview automated email templates and configurations.",
+    icon: Mail,
+    href: "/settings/emails",
+    ready: true,
+    minRole: "ADMIN",
   },
 ];
 

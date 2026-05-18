@@ -7,7 +7,7 @@ Remaining: Auto-marking overdue tasks and deep logging for task-specific activit
 Phase 13: Background Jobs (Cron)
 Remaining: Implementing a background worker (like Inngest or simple Vercel Cron) to handle daily digests, task reminders, trial expiries, and weekly reports.
 Phase 14: Reports & Analytics
-Remaining: Building a dedicated /reports dashboard with Recharts to visualize Agent performance, Pipeline conversion, and Campaign sources.
+Remaining: Building a dedicated /reports dashboard with Recharts to visualize Agent performance, Pipeline conversion, and Campaign sources. done
 Phase 15: Billing (Razorpay)
 Remaining: Connecting Razorpay APIs to handle subscriptions, webhooks, cancellations, and invoices on the Billing settings page.
 Phase 16: Emails
@@ -22,5 +22,5 @@ Phase 17: Real-Time & Notifications
 Done: In-app notification bell and assignment alerts.
 Remaining: FCM (Firebase Cloud Messaging) Push Notifications for mobile devices and live Supabase Realtime subscriptions (currently it uses 30-second polling).
 ✅ Fully Completed:
-Phase 18: Frontend Polish: Dashboard KPIs, fully functional Kanban board, and mobile-responsive layout/sidebars are done.
-Phase 19: Onboarding Wizard: The multi-step company onboarding with pipeline generation is complete.
+Phase 18: Frontend Polish: Dashboard KPIs, fully functional Kanban board, and mobile-responsive layout/sidebars are done done
+Phase 19: Onboarding Wizard: The multi-step company onboarding with pipeline generation is complete done
