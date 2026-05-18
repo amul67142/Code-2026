@@ -150,13 +150,12 @@ export default function OnboardingPage() {
 
   const handleFinish = async () => {
     setIsPending(true);
-    const result = await completeOnboarding(form);
+    const result = await completeOnboarding(form) as any;
     if (result?.error) {
       toast.error(result.error);
       setIsPending(false);
-    } else if (result?.success) {
-      toast.success(result.success);
     }
+    // On success, the server action redirects to /dashboard automatically
   };
 
   const progress = ((step + 1) / STEPS.length) * 100;
