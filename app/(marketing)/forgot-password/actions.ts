@@ -28,14 +28,10 @@ export async function requestPasswordReset(formData: FormData) {
 
 
   // Generate a native Supabase recovery link
-  // Supabase automatically configures the redirect URL based on settings
-  // It will redirect to whatever we configured in our dashboard (e.g., /reset-password)
+  // We use our custom /auth/confirm endpoint with the hashed_token so we can verify the OTP server-side
   const { data, error } = await adminClient.auth.admin.generateLink({
     type: "recovery",
     email: email,
-    options: {
-      redirectTo: `${getURL()}/auth/callback?next=/reset-password`,
-    },
   });
 
   if (error) {
@@ -43,7 +39,9 @@ export async function requestPasswordReset(formData: FormData) {
     return { error: "Failed to generate reset link. Please try again." };
   }
 
-  const actionLink = data.properties.action_link;
+  // Construct a direct link to our server-side verification endpoint
+  const hashedToken = data.properties.hashed_token;
+  const actionLink = `${getURL()}/auth/confirm?token_hash=${hashedToken}&type=recovery&next=/reset-password`;
 
   // Send the email with our custom template containing the secure link
   const name = user.name || email.split("@")[0];
