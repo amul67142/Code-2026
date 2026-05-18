@@ -24,6 +24,7 @@ import {
   MapPin
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { LeadCaptureModal } from "@/components/LeadCaptureModal";
 
 const LOGO_LIGHT = "https://res.cloudinary.com/dy2zpgv6q/image/upload/v1779118448/Gemini_Generated_Image_2kpsnp2kpsnp2kps_1_-Photoroom_ddqkxb.png";
 const LOGO_DARK = "https://res.cloudinary.com/dy2zpgv6q/image/upload/v1779125703/Gemini_Generated_Image_c60xw7c60xw7c60x-Photoroom_laj5vl.png";
@@ -39,6 +40,7 @@ const stages = [
 export default function HomePage() {
   const [isDark, setIsDark] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [leadModalOpen, setLeadModalOpen] = useState(false);
 
   // Sync state with HTML class
   useEffect(() => {
@@ -243,8 +245,8 @@ export default function HomePage() {
               The intelligent CRM built for modern sales teams. Capture, route, and close leads faster with one unified pipeline.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-4">
-              <Link 
-                href="#pricing" 
+              <button 
+                onClick={() => setLeadModalOpen(true)}
                 className={cn(
                   buttonVariants({ size:"lg" }), 
                   "h-12 px-8 rounded-full shadow-lg text-base transition-all duration-300 w-full sm:w-auto justify-center",
@@ -254,7 +256,7 @@ export default function HomePage() {
                 )}
               >
                 Get Demo <ArrowRight className="ml-2 size-4" />
-              </Link>
+              </button>
               <Link 
                 href="#pipeline" 
                 className={cn(
@@ -837,8 +839,8 @@ export default function HomePage() {
                       </li>
                     ))}
                   </ul>
-                  <Link 
-                    href="#contact" 
+                  <button 
+                    onClick={() => setLeadModalOpen(true)}
                     className={cn(
                       buttonVariants({ size:"lg" }), 
                       "w-full rounded-full text-sm font-semibold transition-all", 
@@ -850,7 +852,7 @@ export default function HomePage() {
                     )}
                   >
                     {tier.cta}
-                  </Link>
+                  </button>
                 </div>
               ))}
             </div>
@@ -873,8 +875,8 @@ export default function HomePage() {
               Join thousands of high-performing teams using BigLead to close deals faster.
             </p>
             <div className="flex flex-col sm:flex-row justify-center gap-4">
-              <Link 
-                href="#pricing" 
+              <button 
+                onClick={() => setLeadModalOpen(true)}
                 className={cn(
                   buttonVariants({ size:"lg" }), 
                   "h-14 px-10 text-lg rounded-full shadow-xl transition-all duration-300",
@@ -884,7 +886,7 @@ export default function HomePage() {
                 )}
               >
                 Get Demo
-              </Link>
+              </button>
               <Link 
                 href="#pricing" 
                 className={cn(
@@ -971,6 +973,8 @@ export default function HomePage() {
           </div>
         </div>
       </footer>
+
+      <LeadCaptureModal open={leadModalOpen} onOpenChange={setLeadModalOpen} />
     </div>
   );
 }
