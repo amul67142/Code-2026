@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { completeOnboarding, type OnboardingData } from "./actions";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -89,6 +90,7 @@ const CURRENCIES = [
 ];
 
 export default function OnboardingPage() {
+  const [mounted, setMounted] = useState(false);
   const [step, setStep] = useState(0);
   const [isPending, setIsPending] = useState(false);
   const [form, setForm] = useState<OnboardingData>({
@@ -103,6 +105,21 @@ export default function OnboardingPage() {
     leadSources: [],
     pipelineStages: [...DEFAULT_STAGES],
   });
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-gray-50 via-white to-blue-50">
+        <div className="w-full max-w-[520px] space-y-6 px-4">
+          <div className="h-8 bg-gray-200 rounded-full animate-pulse" />
+          <div className="h-64 bg-gray-100 rounded-2xl animate-pulse" />
+        </div>
+      </div>
+    );
+  }
 
   const update = (key: keyof OnboardingData, val: any) =>
     setForm((f) => ({ ...f, [key]: val }));

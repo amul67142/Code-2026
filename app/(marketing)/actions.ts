@@ -44,25 +44,25 @@ export async function signup(formData: FormData) {
 
   const supabase = await createClient();
 
-  // Supabase Auth handles sending the email using the configured SMTP
-  // The user should configure Resend SMTP in their Supabase dashboard for auth emails.
-  const { error } = await supabase.auth.signUp({
+  const { data, error } = await supabase.auth.signUp({
     email,
     password,
-    options: {
-      emailRedirectTo: `${getURL()}/api/auth/callback`,
-    },
   });
 
   if (error) {
     return { error: error.message };
   }
 
-  // Attempt to send welcome email, don't fail signup if it fails
-  const name = email.split("@")[0]; // Fallback name
-  await sendWelcomeEmail(email, name);
+  // If email confirmation is disabled, sign in immediately and redirect
+  if (data.session) {
+    // Attempt to send welcome email, don't fail signup if it fails
+    const name = email.split("@")[0];
+    await sendWelcomeEmail(email, name);
+    revalidatePath("/", "layout");
+    redirect("/onboarding");
+  }
 
-  // If email confirmation is required, redirect to a check email message
+  // Email confirmation is still enabled (fallback)
   return { success: "Account created! Please check your email to confirm your account." };
 }
 
