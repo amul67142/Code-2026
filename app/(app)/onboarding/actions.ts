@@ -100,7 +100,7 @@ export async function completeOnboarding(data: OnboardingData) {
       await adminClient.from("pipeline_stages").insert({
         company_id: company.id,
         name: stages[i],
-        position: i,
+        stage_order: i,
         color: ["#6366f1", "#3b82f6", "#f59e0b", "#10b981", "#8b5cf6", "#22c55e", "#ef4444"][i % 7],
       });
     }

@@ -168,7 +168,7 @@ export default function NewLeadPage() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="stage_id">Pipeline Stage</Label>
-                <Select name="stage_id" defaultValue={stages[0]?.id || ""}>
+                <Select key={stages[0]?.id || "empty"} name="stage_id" defaultValue={stages[0]?.id || ""}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select stage" />
                   </SelectTrigger>

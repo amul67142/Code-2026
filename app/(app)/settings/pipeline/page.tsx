@@ -179,11 +179,9 @@ export default function PipelineSettingsPage() {
           </p>
         </div>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Add Stage
-            </Button>
+          <DialogTrigger render={<Button />}>
+            <Plus className="mr-2 h-4 w-4" />
+            Add Stage
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
