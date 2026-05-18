@@ -9,10 +9,13 @@ export async function requestPasswordReset(formData: FormData) {
   const email = formData.get("email") as string;
   if (!email) return { error: "Email is required" };
 
-  const supabase = await createClient();
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+  const { createClient: createAdminClient } = await import("@supabase/supabase-js");
+  const adminClient = createAdminClient(supabaseUrl, supabaseKey);
 
-  // Check if the user exists in our `users` table
-  const { data: user, error: userError } = await supabase
+  // Check if the user exists in our `users` table using admin client to bypass RLS
+  const { data: user, error: userError } = await adminClient
     .from("users")
     .select("name")
     .eq("email", email)
@@ -23,10 +26,6 @@ export async function requestPasswordReset(formData: FormData) {
     return { success: "If an account exists, a reset link has been sent." };
   }
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-  const { createClient: createAdminClient } = await import("@supabase/supabase-js");
-  const adminClient = createAdminClient(supabaseUrl, supabaseKey);
 
   // Generate a native Supabase recovery link
   // Supabase automatically configures the redirect URL based on settings
