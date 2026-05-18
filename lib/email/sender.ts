@@ -1,6 +1,6 @@
 import { Resend } from "resend";
 
-const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || "RealLeads CRM <noreply@realleads.app>";
+const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || "BigLead <noreply@biglead.site>";
 
 interface SendEmailOptions {
   to: string;
