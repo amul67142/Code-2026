@@ -615,11 +615,6 @@ export default function HomePage() {
                   "rounded-3xl border p-2 overflow-hidden transition-all duration-300 shadow-2xl relative group w-full max-w-lg",
                   isDark ? "border-gray-800 bg-gray-900/20 shadow-black/40" : "border-gray-200 bg-gray-50/50 shadow-gray-100"
                 )}>
-                  {/* Decorative badge */}
-                  <div className="absolute top-4 left-4 z-10 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 text-[10px] font-bold uppercase tracking-wider">
-                    <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" /> Lead Ingestion Flow
-                  </div>
-                  
                   {/* The Flow connectivity GIF/Image */}
                   <img 
                     src="https://res.cloudinary.com/dy2zpgv6q/image/upload/v1779176794/biglead-ezgif.com-optimize_z1dmf5.gif" 
