@@ -609,50 +609,23 @@ export default function HomePage() {
                 </div>
               </div>
 
-              {/* Mini pipeline visual */}
-              <div className="w-full lg:w-1/2">
+              {/* Ingestion Flow Connectivity Visual */}
+              <div className="w-full lg:w-1/2 flex justify-center items-center">
                 <div className={cn(
-                  "rounded-3xl border p-6 space-y-3 transition-colors shadow-2xl",
-                  isDark ? "border-gray-800 bg-gray-900/40 shadow-black/40" : "border-gray-200 bg-white shadow-gray-100"
+                  "rounded-3xl border p-2 overflow-hidden transition-all duration-300 shadow-2xl relative group w-full max-w-lg",
+                  isDark ? "border-gray-800 bg-gray-900/20 shadow-black/40" : "border-gray-200 bg-gray-50/50 shadow-gray-100"
                 )}>
-                  <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Live Pipeline Overview</p>
-                  {stages.map((s, i) => {
-                    const counts = [12, 8, 5, 3];
-                    const widths = ["w-full", "w-4/5", "w-3/5", "w-2/5"];
-                    return (
-                      <div key={s.label} className="space-y-1.5">
-                        <div className="flex items-center justify-between text-sm">
-                          <div className="flex items-center gap-2">
-                            <span className={cn("size-2.5 rounded-full", s.color)} />
-                            <span className={cn("font-semibold transition-colors", isDark ? "text-gray-300" : "text-gray-700")}>{s.label}</span>
-                          </div>
-                          <span className={cn(
-                            "text-xs font-bold px-2 py-0.5 rounded-full border transition-colors", 
-                            isDark ? "border-gray-800 bg-black text-gray-300" : cn(s.bg, s.text, s.border)
-                          )}>
-                            {counts[i]} leads
-                          </span>
-                        </div>
-                        <div className={cn("h-2.5 rounded-full overflow-hidden transition-colors", isDark ? "bg-gray-800" : "bg-gray-100")}>
-                          <div className={cn("h-full rounded-full", s.color, widths[i])} />
-                        </div>
-                      </div>
-                    );
-                  })}
-                  <div className={cn("pt-4 border-t flex items-center justify-between transition-colors", isDark ? "border-gray-850" : "border-gray-100")}>
-                    <div className="text-center">
-                      <p className={cn("text-2xl font-bold transition-colors", isDark ? "text-white" : "text-gray-900")}>28</p>
-                      <p className="text-xs text-gray-500">Total Leads</p>
-                    </div>
-                    <div className="text-center">
-                      <p className="text-2xl font-bold text-emerald-500">₹3.2Cr</p>
-                      <p className="text-xs text-gray-500">Pipeline Value</p>
-                    </div>
-                    <div className="text-center">
-                      <p className="text-2xl font-bold text-gray-800 dark:text-gray-200">68%</p>
-                      <p className="text-xs text-gray-500">Conversion</p>
-                    </div>
+                  {/* Decorative badge */}
+                  <div className="absolute top-4 left-4 z-10 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 text-[10px] font-bold uppercase tracking-wider">
+                    <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" /> Lead Ingestion Flow
                   </div>
+                  
+                  {/* The Flow connectivity GIF/Image */}
+                  <img 
+                    src="https://res.cloudinary.com/dy2zpgv6q/image/upload/v1779176794/biglead-ezgif.com-optimize_z1dmf5.gif" 
+                    alt="Multi-channel Ingestion Flow Connectivity" 
+                    className="w-full h-auto rounded-2xl object-cover transition-transform duration-500 group-hover:scale-102"
+                  />
                 </div>
               </div>
             </div>
