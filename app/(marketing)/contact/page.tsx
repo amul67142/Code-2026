@@ -116,7 +116,7 @@ export default function ContactPage() {
                 </p>
                 <button 
                   onClick={() => { setIsSubmitted(false); setFormData({ name: "", email: "", phone: "", message: "" }); }}
-                  className={cn(buttonVariants({ variant: "outline" }), "rounded-full text-xs cursor-pointer border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-900 mt-6")}
+                  className={cn(buttonVariants({ variant: "outline" }), "rounded-full text-xs cursor-pointer border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-950 mt-6 transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0 shadow-sm")}
                 >
                   Send another message
                 </button>
@@ -178,7 +178,7 @@ export default function ContactPage() {
                 <button 
                   type="submit" 
                   disabled={isSubmitting}
-                  className={cn(buttonVariants({ size: "lg" }), "w-full rounded-xl font-semibold shadow-md flex items-center justify-center gap-2 cursor-pointer bg-white hover:bg-zinc-200 text-black shadow-white/5 transition-all h-12")}
+                  className={cn(buttonVariants({ size: "lg" }), "w-full rounded-xl font-semibold flex items-center justify-center gap-2 cursor-pointer bg-white hover:bg-zinc-100 text-black border border-transparent transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0 shadow-sm h-12")}
                 >
                   {isSubmitting ? "Sending..." : <>Send Message <Send className="size-4" /></>}
                 </button>

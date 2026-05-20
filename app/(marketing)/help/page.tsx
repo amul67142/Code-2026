@@ -10,7 +10,7 @@ export default function HelpPage() {
   const faqs = [
     {
       q: "How do I upgrade to the Pro plan in Indian Rupees (INR)?",
-      a: "Indian customer transactions are processed in INR through local card and net banking processing channels. Simply toggle the currency state switcher on our landing page or billing page to 'INR pricing' and proceed to standard PayU checkout. Subscription settlements typically reflect within minutes on your user dashboard.",
+      a: "Indian customer transactions are processed in INR through local card and net banking processing channels. Simply toggle the currency state switcher on our landing page or billing page to 'INR pricing' and proceed to standard secure checkout. Subscription settlements typically reflect within minutes on your user dashboard.",
     },
     {
       q: "How does the smart telephony callback scheduling operate?",

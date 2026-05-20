@@ -77,7 +77,7 @@ export default function CookiesPage() {
                 <div className="size-8 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-400">
                   <Info className="size-4.5 text-zinc-300" />
                 </div>
-                <h4 className="font-bold text-sm text-white">Payment Operations (PayU Gateway)</h4>
+                <h4 className="font-bold text-sm text-white">Payment Operations (Secure Gateway)</h4>
                 <p className="text-xs text-zinc-500 font-medium">Standard third-party gateway compliance tokens issued strictly during invoice checkout or plan subscription to verify anti-fraud billing variables. No payment card numbers or credit profiles are stored by these cookies.</p>
               </div>
             </div>

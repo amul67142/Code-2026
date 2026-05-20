@@ -21,7 +21,7 @@ export default function BlogPage() {
       category: "Finance & Operations",
       readTime: "5 min read",
       author: "Billing Engineering",
-      desc: "A thorough review of how local payment systems (INR equivalents through PayU and USD pricing tiers) help international teams scale their CRM workspaces without micro-fee leakages.",
+      desc: "A thorough review of how local payment systems (INR equivalents through secure localized payment processors and USD pricing tiers) help international teams scale their CRM workspaces without micro-fee leakages.",
       date: "May 15, 2026",
     },
   ];

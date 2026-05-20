@@ -63,7 +63,7 @@ export default function PrivacyPage() {
                 <strong className="text-zinc-300">Ingested Pipeline Leads:</strong> Prospect records uploaded via CSV, synced from Facebook Lead Ads/Google Ads webhooks, or entered manually into your dashboard.
               </li>
               <li>
-                <strong className="text-zinc-300">Payment & Billing Logins:</strong> Billing country, tax identifiers (GST/PAN in India), and subscription details. Payment cards and banking credentials are never saved on our servers; they are processed entirely through standard PCI-DSS compliant Indian gateways (PayU).
+                <strong className="text-zinc-300">Payment & Billing Logins:</strong> Billing country, tax identifiers (GST/PAN in India), and subscription details. Payment cards and banking credentials are never saved on our servers; they are processed entirely through standard PCI-DSS compliant Indian gateways.
               </li>
             </ul>
           </section>
@@ -114,7 +114,7 @@ export default function PrivacyPage() {
                 <div className="size-8 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-400">
                   <Lock className="size-4.5" />
                 </div>
-                <h4 className="font-bold text-sm text-white">PayU Gateway</h4>
+                <h4 className="font-bold text-sm text-white">Payment Processor</h4>
                 <p className="text-xs text-zinc-500">Encrypted tokenization and PCI-DSS subscription charge settlements in INR/USD.</p>
               </div>
             </div>

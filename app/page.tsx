@@ -159,9 +159,9 @@ export default function HomePage() {
               href="/signup" 
               className={cn(
                 buttonVariants({ size:"sm" }), 
-                "rounded-full text-xs sm:text-sm font-semibold shadow transition-all",
+                "rounded-full text-xs sm:text-sm font-semibold shadow-sm transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0 border border-transparent",
                 isDark 
-                  ? "bg-white hover:bg-gray-200 text-black shadow-white/10" 
+                  ? "bg-white hover:bg-gray-100 text-black" 
                   : "bg-gray-900 hover:bg-black text-white"
               )}
             >
@@ -219,18 +219,7 @@ export default function HomePage() {
           </div>
 
           <div className="container mx-auto px-4 max-w-6xl relative z-10">
-            {/* badge */}
-            <div className="flex justify-center mb-6">
-              <span className={cn(
-                "inline-flex items-center gap-2 px-4 py-1.5 rounded-full border text-xs sm:text-sm font-semibold shadow-sm transition-all duration-300",
-                isDark 
-                  ? "bg-black border-gray-900 text-gray-300" 
-                  : "bg-gradient-to-r from-gray-50 to-zinc-50 border-gray-200 text-gray-700"
-              )}>
-                <span className="size-2 rounded-full bg-emerald-500 pulse-dot" />
-                BigLead 2.0 — Now Live
-              </span>
-            </div>
+
 
             <h1 className={cn(
               "text-center text-5xl md:text-7xl font-bold tracking-tight leading-tight mb-6 transition-colors duration-300",
@@ -250,9 +239,9 @@ export default function HomePage() {
                 onClick={() => setLeadModalOpen(true)}
                 className={cn(
                   buttonVariants({ size:"lg" }), 
-                  "h-12 px-8 rounded-full shadow-lg text-base transition-all duration-300 w-full sm:w-auto justify-center",
+                  "h-12 px-8 rounded-full text-base w-full sm:w-auto justify-center transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0 border border-transparent shadow-sm",
                   isDark 
-                    ? "bg-white hover:bg-gray-200 text-black shadow-white/5" 
+                    ? "bg-white hover:bg-gray-100 text-black" 
                     : "bg-gray-900 hover:bg-black text-white"
                 )}
               >
@@ -262,10 +251,10 @@ export default function HomePage() {
                 href="#pipeline" 
                 className={cn(
                   buttonVariants({ variant:"outline", size:"lg" }), 
-                  "h-12 px-8 rounded-full text-base transition-all duration-300 w-full sm:w-auto justify-center",
+                  "h-12 px-8 rounded-full text-base w-full sm:w-auto justify-center transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0 shadow-sm",
                   isDark 
-                    ? "border-gray-800 bg-black hover:bg-gray-950 text-gray-300 hover:text-white" 
-                    : "border-gray-300 hover:bg-gray-50 text-gray-700"
+                    ? "border-gray-800 bg-black hover:bg-zinc-900/60 text-gray-300 hover:text-white" 
+                    : "border-gray-250 hover:bg-gray-50 text-gray-700"
                 )}
               >
                 See the Pipeline
@@ -830,12 +819,12 @@ export default function HomePage() {
                     onClick={() => setLeadModalOpen(true)}
                     className={cn(
                       buttonVariants({ size:"lg" }), 
-                      "w-full rounded-full text-sm font-semibold transition-all", 
+                      "w-full rounded-full text-sm font-semibold transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0 shadow-sm", 
                       tier.popular 
-                        ? "bg-white hover:bg-gray-100 text-black font-extrabold shadow-md shadow-white/5" 
+                        ? "bg-white hover:bg-gray-100 text-black font-extrabold border border-transparent" 
                         : isDark
-                          ? "bg-gray-800 hover:bg-gray-750 text-white border border-gray-700/60"
-                          : "bg-gray-800 hover:bg-gray-750 text-white border border-gray-750"
+                          ? "bg-zinc-900 hover:bg-zinc-800 text-white border border-zinc-800"
+                          : "bg-gray-800 hover:bg-gray-900 text-white border border-gray-850"
                     )}
                   >
                     {tier.cta}
@@ -866,9 +855,9 @@ export default function HomePage() {
                 onClick={() => setLeadModalOpen(true)}
                 className={cn(
                   buttonVariants({ size:"lg" }), 
-                  "h-14 px-10 text-lg rounded-full shadow-xl transition-all duration-300",
+                  "h-14 px-10 text-lg rounded-full transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0 shadow-sm border border-transparent",
                   isDark 
-                    ? "bg-white hover:bg-gray-200 text-black shadow-white/5" 
+                    ? "bg-white hover:bg-gray-100 text-black" 
                     : "bg-gray-900 hover:bg-black text-white"
                 )}
               >
@@ -878,10 +867,10 @@ export default function HomePage() {
                 href="#pricing" 
                 className={cn(
                   buttonVariants({ variant:"outline", size:"lg" }), 
-                  "h-14 px-10 text-lg rounded-full transition-all duration-300",
+                  "h-14 px-10 text-lg rounded-full transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0 shadow-sm",
                   isDark 
-                    ? "border-gray-800 bg-black hover:bg-gray-950 text-gray-300 hover:text-white" 
-                    : "border-gray-300 hover:bg-gray-50 text-gray-700"
+                    ? "border-gray-800 bg-black hover:bg-zinc-900/60 text-gray-300 hover:text-white" 
+                    : "border-gray-250 hover:bg-gray-50 text-gray-700"
                 )}
               >
                 View Pricing

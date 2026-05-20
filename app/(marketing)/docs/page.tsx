@@ -129,7 +129,7 @@ export default function DocsPage() {
               Secure workspaces from unauthorized exports or edits using role structures:
             </p>
             <ul className="list-disc pl-6 space-y-1.5 text-zinc-400 text-xs sm:text-sm">
-              <li><strong className="text-zinc-300">Administrators:</strong> Full authority over database exports, team membership, PayU invoices, and webhook configurations.</li>
+              <li><strong className="text-zinc-300">Administrators:</strong> Full authority over database exports, team membership, subscription invoices, and webhook configurations.</li>
               <li><strong className="text-zinc-300">Sales Representatives:</strong> View assigned lead rows, drag pipeline cards, and log phone notes.</li>
             </ul>
           </section>

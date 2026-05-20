@@ -18,7 +18,7 @@ export default function ChangelogPage() {
         "Fully customizable pipeline stages (New Lead, Contacted, Negotiation, Closed Won, Lost).",
         "Multi-currency pricing integration dynamically toggling Basic, Pro, and Enterprise tiers between USD and INR.",
         "Secure callback triggering routes utilizing standard telecommunication protocols to immediately link clients to agents.",
-        "Fully PCI-DSS compliant Indian payment processor checkout flow integrated via PayU.",
+        "Fully PCI-DSS compliant Indian payment processor checkout flow integrated via secure localized payment gateways.",
         "Supabase isolated row-level database architecture active to keep pipelines private.",
         "Interactive analytics dashboards monitoring conversion counts, team activity log sheets, and active pipelines.",
       ],

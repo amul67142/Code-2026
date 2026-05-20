@@ -86,7 +86,7 @@ export default function SecurityPage() {
                   <Lock className="size-4.5 text-emerald-400" />
                 </div>
                 <h4 className="font-bold text-sm text-white">Gateway Tokenization</h4>
-                <p className="text-xs text-zinc-500">We do not store credit cards or net banking logins. PayU handles subscription settlements over direct certified token pipelines.</p>
+                <p className="text-xs text-zinc-500">We do not store credit cards or net banking logins. Our secure payment processor handles subscription settlements over direct certified token pipelines.</p>
               </div>
             </div>
           </section>

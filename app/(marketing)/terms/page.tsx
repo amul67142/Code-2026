@@ -118,7 +118,7 @@ export default function TermsPage() {
             </div>
             
             <p>
-              Indian customer subscriptions are processed in Indian Rupees (INR) through local payment gateways (such as PayU). We reserve the right to modify prices or adjust currency conversions upon prior notification. Subscription renewals are billed automatically on the anniversary date.
+              Indian customer subscriptions are processed in Indian Rupees (INR) through local payment gateways (such as secure domestic gateways). We reserve the right to modify prices or adjust currency conversions upon prior notification. Subscription renewals are billed automatically on the anniversary date.
             </p>
           </section>
 
