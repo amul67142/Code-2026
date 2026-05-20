@@ -1,5 +1,5 @@
 -- ============================================================================
--- RealLeads CRM — Seed Data
+-- Big Lead CRM — Seed Data
 -- Demo company, admin user, agents, default pipeline stages, sample project
 -- ============================================================================
 

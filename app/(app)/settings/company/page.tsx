@@ -1,7 +1,7 @@
 import { CompanyClient } from "./company-client";
 
 export const metadata = {
-  title: "Company Settings | RealLeads CRM",
+  title: "Company Settings | Big Lead CRM",
 };
 
 export default function CompanySettingsPage() {

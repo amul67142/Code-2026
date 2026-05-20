@@ -209,7 +209,7 @@ export default function OnboardingPage() {
             {step === 0 && (
               <div className="space-y-5">
                 <div className="text-center space-y-1">
-                  <h2 className="text-xl font-bold text-gray-900">Welcome to RealLeads! 🎉</h2>
+                  <h2 className="text-xl font-bold text-gray-900">Welcome to Big Lead! 🎉</h2>
                   <p className="text-sm text-gray-500">Tell us about yourself</p>
                 </div>
                 <div className="grid grid-cols-2 gap-4">

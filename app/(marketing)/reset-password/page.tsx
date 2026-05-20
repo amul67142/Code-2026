@@ -1,7 +1,7 @@
 import { ResetPasswordClient } from "./reset-password-client";
 
 export const metadata = {
-  title: "Set New Password — RealLeads CRM",
+  title: "Set New Password — Big Lead CRM",
 };
 
 export default function ResetPasswordPage() {

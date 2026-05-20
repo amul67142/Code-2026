@@ -54,7 +54,7 @@ const mockData = {
   overdueCount: 3,
   oldStage: "New",
   newStage: "Contacted",
-  url: "https://realleads.app/dummy-link",
+  url: "https://biglead.site/dummy-link",
   dailyStats: { newLeads: 5, tasksDue: 12, overdueCount: 2 },
   weeklyStats: { totalLeads: 45, newLeads: 14, leadsWon: 3, leadsLost: 1, tasksCompleted: 28 },
   daysLeft: 3,

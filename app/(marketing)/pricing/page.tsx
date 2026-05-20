@@ -1,5 +1,5 @@
 export const metadata = {
-  title: "Pricing — RealLeads CRM",
+  title: "Pricing — Big Lead CRM",
 };
 
 export default function PricingPage() {

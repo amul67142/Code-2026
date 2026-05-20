@@ -41,6 +41,7 @@ export default function HomePage() {
   const [isDark, setIsDark] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [leadModalOpen, setLeadModalOpen] = useState(false);
+  const [currency, setCurrency] = useState("usd");
 
   // Sync state with HTML class
   useEffect(() => {
@@ -274,7 +275,7 @@ export default function HomePage() {
               "text-center text-sm transition-colors duration-300",
               isDark ? "text-gray-500" : "text-gray-400"
             )}>
-              Personalized walkthrough · Custom integrations · AI site visit available
+              Personalized walkthrough · Custom integrations · Smart site-visit scheduling
             </p>
 
             {/* ── ANIMATED PIPELINE VISUAL ── */}
@@ -627,18 +628,18 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* ── AI VOICE & SITE VISIT FLOW ── */}
+        {/* ── SMART CALLBACK & SITE VISIT FLOW ── */}
         <section id="ai-voice" className={cn("py-24 transition-colors", isDark ? "bg-black" : "bg-white")}>
           <div className="container mx-auto px-4 max-w-6xl">
             <div className="text-center max-w-3xl mx-auto mb-16">
               <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 text-sm font-semibold mb-4 border border-blue-200 dark:border-blue-900/30">
-                <Bot className="size-4" /> AI Voice Calling
+                <Smartphone className="size-4" /> Smart Callback System
               </div>
               <h2 className={cn("text-3xl md:text-5xl font-bold mb-4 transition-colors", isDark ? "text-white" : "text-gray-900")}>
-                Convert leads on autopilot with <em className="not-italic text-zinc-500">human-like AI</em>
+                Convert prospects faster with <em className="not-italic text-zinc-500">Telephony Automation</em>
               </h2>
               <p className={cn("text-lg transition-colors", isDark ? "text-gray-400" : "text-gray-500")}>
-                Our AI Voice Agent calls leads instantly, qualifies them, and books site visits directly into your calendar. Watch the flow below.
+                Our automated telephony router triggers callbacks instantly, qualifies prospects, and books site visits directly into your calendar. Watch the flow below.
               </p>
             </div>
 
@@ -668,7 +669,7 @@ export default function HomePage() {
                   </p>
                 </div>
 
-                {/* Step 2: AI Voice Agent */}
+                {/* Step 2: Automated Telephony Call */}
                 <div className={cn(
                   "flex flex-col items-center text-center p-6 rounded-2xl w-full md:w-1/3 transition-all relative border-2 border-blue-500/50 md:scale-110 z-20",
                   isDark ? "bg-gray-900 shadow-2xl shadow-blue-900/20" : "bg-blue-50 shadow-2xl shadow-blue-200/50"
@@ -679,9 +680,9 @@ export default function HomePage() {
                   <div className="size-16 rounded-full bg-blue-600 text-white flex items-center justify-center mb-4" style={{ animation: "call-wave 2s infinite" }}>
                     <Mic className="size-8" />
                   </div>
-                  <h3 className={cn("text-xl font-bold mb-2 transition-colors", isDark ? "text-white" : "text-gray-900")}>2. AI Voice Agent</h3>
+                  <h3 className={cn("text-xl font-bold mb-2 transition-colors", isDark ? "text-white" : "text-gray-900")}>2. Automated Telephony Call</h3>
                   <p className={cn("text-sm transition-colors", isDark ? "text-gray-400" : "text-gray-500")}>
-                    "Hi, this is Alex! I noticed you were interested in our new project. Would you like to schedule a site visit?"
+                    "Connecting you to our next available sales representative to schedule your exclusive site visit."
                   </p>
                 </div>
 
@@ -728,12 +729,28 @@ export default function HomePage() {
                 Pricing
               </div>
               <h2 className="text-3xl md:text-4xl font-bold mb-3">Simple, transparent pricing</h2>
-              <p className="text-gray-400 text-lg">Start for free, upgrade when you're ready. No hidden fees.</p>
+              <p className="text-gray-400 text-lg mb-8">Start for free, upgrade when you're ready. No hidden fees.</p>
+              
+              {/* Currency Toggle Switch */}
+              <div className="inline-flex items-center gap-3 px-4 py-2 rounded-full bg-gray-900/50 border border-gray-800">
+                <span className={cn("text-xs font-semibold tracking-wide transition-colors", currency === "usd" ? "text-white" : "text-gray-400")}>USD ($)</span>
+                <button 
+                  onClick={() => setCurrency(currency === "usd" ? "inr" : "usd")}
+                  className="relative w-11 h-6 rounded-full bg-gray-800 border border-gray-700 transition-colors focus:outline-none cursor-pointer"
+                  aria-label="Toggle currency"
+                >
+                  <span className={cn(
+                    "absolute top-0.5 left-0.5 size-4.5 rounded-full bg-white transition-transform duration-300 shadow-md",
+                    currency === "inr" ? "translate-x-5" : "translate-x-0"
+                  )} />
+                </button>
+                <span className={cn("text-xs font-semibold tracking-wide transition-colors", currency === "inr" ? "text-white" : "text-gray-400")}>INR (₹)</span>
+              </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto items-center">
               {[
                 { 
-                  name: "Basic", price: "$9", period: "/mo", desc: "For individuals getting started.", 
+                  name: "Basic", priceUSD: "$9", priceINR: "₹749", period: "/mo", desc: "For individuals getting started.", 
                   features: [
                     { text: "3 team members", included: true },
                     { text: "Website leads only", included: true },
@@ -747,24 +764,24 @@ export default function HomePage() {
                   cta: "Get Demo"
                 },
                 { 
-                  name: "Pro", price: "$19", period: "/mo", desc: "For growing teams needing automation.", popular: true, 
+                  name: "Pro", priceUSD: "$19", priceINR: "₹1,599", period: "/mo", desc: "For growing teams needing automation.", popular: true, 
                   features: [
                     { text: "Unlimited team members", included: true },
                     { text: "All webhooks (Zapier, Google Ads, etc.)", included: true },
                     { text: "CSV import", included: true },
                     { text: "Unlimited leads", included: true },
                     { text: "Full pipeline", included: true },
-                    { text: "No AI calling", included: false },
+                    { text: "No automated callbacks", included: false },
                     { text: "12hr support", included: true }
                   ], 
                   accent: "border-white dark:border-zinc-500 shadow-zinc-900/40",
                   cta: "Get Demo"
                 },
                 { 
-                  name: "Enterprise", price: "Custom", desc: "For large, complex organisations.", 
+                  name: "Enterprise", priceUSD: "Custom", priceINR: "Custom", desc: "For large, complex organisations.", 
                   features: [
                     { text: "Unlimited everything", included: true },
-                    { text: "AI site visit available", included: true },
+                    { text: "Custom telephony & routing", included: true },
                     { text: "Dedicated support", included: true },
                     { text: "Custom integrations", included: true }
                   ], 
@@ -792,8 +809,10 @@ export default function HomePage() {
                   <h3 className="text-xl font-bold mb-1">{tier.name}</h3>
                   <p className="text-sm text-gray-400 mb-5 h-9">{tier.desc}</p>
                   <div className="flex items-baseline mb-7">
-                    <span className="text-4xl font-bold">{tier.price}</span>
-                    {tier.period && <span className="text-gray-400 ml-1 text-sm">{tier.period}</span>}
+                    <span className="text-4xl font-bold">
+                      {currency === "usd" ? tier.priceUSD : tier.priceINR}
+                    </span>
+                    {tier.period && tier.priceUSD !== "Custom" && <span className="text-gray-400 ml-1 text-sm">{tier.period}</span>}
                   </div>
                   <ul className="space-y-3 mb-8 flex-1">
                     {tier.features.map((f, j) => (
@@ -901,28 +920,58 @@ export default function HomePage() {
               </div>
             </div>
             {[
-              { title:"Product",   links:["Features","Pricing","Integrations","Changelog"] },
-              { title:"Resources", links:["Documentation","Blog","Help Center","Contact"] },
-              { title:"Legal",     links:["Privacy Policy","Terms","Security","Cookies"] },
+              { 
+                title: "Product",   
+                links: [
+                  { name: "Features", href: "#features" },
+                  { name: "Pricing", href: "#pricing" },
+                  { name: "Integrations", href: "/integrations" },
+                  { name: "Changelog", href: "/changelog" }
+                ] 
+              },
+              { 
+                title: "Resources", 
+                links: [
+                  { name: "Documentation", href: "/docs" },
+                  { name: "Blog", href: "/blog" },
+                  { name: "Help Center", href: "/help" },
+                  { name: "Contact", href: "/contact" }
+                ] 
+              },
+              { 
+                title: "Legal",     
+                links: [
+                  { name: "Privacy Policy", href: "/privacy" },
+                  { name: "Terms", href: "/terms" },
+                  { name: "Security", href: "/security" },
+                  { name: "Cookies", href: "/cookies" }
+                ] 
+              },
             ].map(col => (
               <div key={col.title}>
                 <h4 className={cn("font-bold mb-4 text-sm transition-colors", isDark ? "text-gray-300" : "text-gray-900")}>{col.title}</h4>
                 <ul className="space-y-2.5">
                   {col.links.map(l => (
-                    <li key={l}>
-                      <a href="#" className={cn("text-sm transition-colors", isDark ? "text-gray-400 hover:text-white" : "text-gray-500 hover:text-gray-900")}>
-                        {l}
-                      </a>
+                    <li key={l.name}>
+                      <Link href={l.href} className={cn("text-sm transition-colors", isDark ? "text-gray-400 hover:text-white" : "text-gray-500 hover:text-gray-900")}>
+                        {l.name}
+                      </Link>
                     </li>
                   ))}
                 </ul>
               </div>
             ))}
           </div>
-          <div className={cn("pt-6 border-t flex items-center justify-between flex-wrap gap-4 transition-colors", isDark ? "border-gray-900" : "border-gray-100")}>
-            <p className={cn("text-xs transition-colors", isDark ? "text-gray-500" : "text-gray-400")}>
-              © {new Date().getFullYear()} BigLead Inc. All rights reserved.
-            </p>
+          <div className={cn("pt-6 border-t flex flex-col md:flex-row items-center justify-between gap-6 transition-colors", isDark ? "border-gray-900" : "border-gray-100")}>
+            <div className={cn("text-xs text-center md:text-left transition-colors flex flex-col gap-1.5", isDark ? "text-gray-500" : "text-gray-400")}>
+              <p className="font-semibold text-gray-400 dark:text-gray-500">© {new Date().getFullYear()} BigLead. All rights reserved.</p>
+              <p className="opacity-80">
+                Operating Address: Sector 47, Gurgaon, Haryana — 122001, India
+              </p>
+              <p className="opacity-80">
+                Email: info@biglead.site | Phone: +91 79828 94432
+              </p>
+            </div>
             <div className="flex gap-3">
               {stages.map(s => (
                 <span 

@@ -1,5 +1,5 @@
 export const metadata = {
-  title: "Accept Invite — RealLeads CRM",
+  title: "Accept Invite — Big Lead CRM",
 };
 
 import { InviteClient } from "./invite-client";

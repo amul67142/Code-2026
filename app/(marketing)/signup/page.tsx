@@ -5,8 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SignupForm } from "./signup-form";
 export const metadata = {
-  title: "Sign Up — RealLeads CRM",
-  description: "Create your RealLeads CRM account and start your free trial",
+  title: "Sign Up — Big Lead CRM",
+  description: "Create your Big Lead CRM account and start your free trial",
 };
 
 /**
@@ -19,7 +19,7 @@ export default function SignupPage() {
       <Card className="w-full max-w-[400px] border-gray-200 shadow-sm">
         <CardHeader className="text-center pb-2">
           <div className="flex items-center justify-center size-10 rounded-lg bg-gray-900 text-white text-sm font-bold mx-auto mb-3">
-            R
+            B
           </div>
           <CardTitle className="text-lg font-semibold text-gray-900">
             Start your free trial

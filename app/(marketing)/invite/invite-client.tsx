@@ -155,7 +155,7 @@ export function InviteClient() {
       <div className="space-y-3">
         <h1 className="text-2xl font-semibold text-gray-900">You&apos;re Invited!</h1>
         <p className="text-sm text-gray-600">
-          You have been invited to join <strong>{inviteInfo.companyName || "a company"}</strong> on RealLeads CRM.
+          You have been invited to join <strong>{inviteInfo.companyName || "a company"}</strong> on Big Lead CRM.
         </p>
         
         {/* Company & Role badges */}

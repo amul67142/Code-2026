@@ -1,5 +1,5 @@
 -- ============================================================================
--- RealLeads CRM — Full Database Schema Migration
+-- Big Lead CRM — Full Database Schema Migration
 -- Phase 2: All tables, enums, indexes, triggers, RLS policies
 -- ============================================================================
 

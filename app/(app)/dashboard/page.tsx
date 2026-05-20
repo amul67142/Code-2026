@@ -19,7 +19,7 @@ import { getDashboardData } from "./actions";
 import { format } from "date-fns";
 
 export const metadata = {
-  title: "Dashboard | RealLeads CRM",
+  title: "Dashboard | Big Lead CRM",
 };
 
 export default async function DashboardPage() {

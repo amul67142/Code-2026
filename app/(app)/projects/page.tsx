@@ -14,7 +14,7 @@ import Link from "next/link";
 import { format } from "date-fns";
 
 export const metadata = {
-  title: "Projects | RealLeads CRM",
+  title: "Projects | Big Lead CRM",
 };
 
 export default async function ProjectsPage() {

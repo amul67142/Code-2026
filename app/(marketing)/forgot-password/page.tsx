@@ -1,7 +1,7 @@
 import { ForgotPasswordClient } from "./forgot-password-client";
 
 export const metadata = {
-  title: "Forgot Password — RealLeads CRM",
+  title: "Forgot Password — Big Lead CRM",
 };
 
 export default function ForgotPasswordPage() {

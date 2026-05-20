@@ -1,7 +1,7 @@
-# RealLeads CRM - Context up to Phase 4
+# Big Lead CRM - Context up to Phase 4
 
 ## Project Overview
-RealLeads CRM is a multi-tenant B2B SaaS Customer Relationship Management system designed for modern real estate professionals. It is built using Next.js 15 (App Router), React 19, TypeScript, Tailwind CSS v4, Shadcn/ui, and Supabase (PostgreSQL + Auth).
+Big Lead CRM is a multi-tenant B2B SaaS Customer Relationship Management system designed for modern real estate professionals. It is built using Next.js 15 (App Router), React 19, TypeScript, Tailwind CSS v4, Shadcn/ui, and Supabase (PostgreSQL + Auth).
 
 ## Current Status
 We have successfully completed **Phase 1 (Foundation)**, **Phase 2 (Database & Migration)**, **Phase 3 (Authentication & Onboarding)**, and **Phase 4 (Marketing & Funnel Integration)**.

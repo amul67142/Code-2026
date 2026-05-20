@@ -107,12 +107,12 @@ export function Sidebar() {
           />
         ) : (
           <div className="flex items-center justify-center size-8 rounded-lg bg-gray-900 text-white text-sm font-bold shrink-0">
-            {(user.companyName || "R").charAt(0).toUpperCase()}
+            {(user.companyName || "B").charAt(0).toUpperCase()}
           </div>
         )}
         {!sidebarCollapsed && (
           <span className="text-sm font-semibold text-gray-900 truncate">
-            {user.companyName || "RealLeads"}
+            {user.companyName || "Big Lead"}
           </span>
         )}
       </div>

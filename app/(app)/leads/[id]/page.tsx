@@ -12,8 +12,8 @@ export async function generateMetadata({ params }: Props) {
   const result = await getLeadDetail(id);
   return {
     title: result?.lead?.name
-      ? `${result.lead.name} | RealLeads CRM`
-      : "Lead Detail | RealLeads CRM",
+      ? `${result.lead.name} | Big Lead CRM`
+      : "Lead Detail | Big Lead CRM",
   };
 }
 

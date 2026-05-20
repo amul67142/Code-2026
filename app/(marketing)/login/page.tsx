@@ -5,8 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { LoginForm } from "./login-form";
 export const metadata = {
-  title: "Log In — RealLeads CRM",
-  description: "Sign in to your RealLeads CRM account",
+  title: "Log In — Big Lead CRM",
+  description: "Sign in to your Big Lead CRM account",
 };
 
 /**
@@ -19,13 +19,13 @@ export default function LoginPage() {
       <Card className="w-full max-w-[400px] border-gray-200 shadow-sm">
         <CardHeader className="text-center pb-2">
           <div className="flex items-center justify-center size-10 rounded-lg bg-gray-900 text-white text-sm font-bold mx-auto mb-3">
-            R
+            B
           </div>
           <CardTitle className="text-lg font-semibold text-gray-900">
             Welcome back
           </CardTitle>
           <p className="text-sm text-gray-500">
-            Sign in to your RealLeads account
+            Sign in to your Big Lead account
           </p>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">

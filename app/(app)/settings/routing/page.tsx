@@ -3,7 +3,7 @@ import RoutingClient from "./routing-client";
 import { redirect } from "next/navigation";
 
 export const metadata = {
-  title: "Routing Settings | RealLeads CRM",
+  title: "Routing Settings | Big Lead CRM",
 };
 
 export default async function RoutingSettingsPage() {

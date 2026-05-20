@@ -4,7 +4,7 @@ import { buttonVariants } from "@/components/ui/button";
 import EmailsClient from "./emails-client";
 
 export const metadata = {
-  title: "Email Templates | RealLeads CRM",
+  title: "Email Templates | Big Lead CRM",
 };
 
 export default function EmailsSettingsPage() {

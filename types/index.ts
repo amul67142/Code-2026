@@ -1,5 +1,5 @@
 /**
- * RealLeads CRM — Shared TypeScript Types & Enums
+ * Big Lead CRM — Shared TypeScript Types & Enums
  * All database enums, shared types, and API contracts live here.
  */
 

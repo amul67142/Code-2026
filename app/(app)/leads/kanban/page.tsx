@@ -2,7 +2,7 @@ import { getLeadsGrouped } from "../actions";
 import KanbanClient from "./kanban-client";
 
 export const metadata = {
-  title: "Kanban Board | RealLeads CRM",
+  title: "Kanban Board | Big Lead CRM",
 };
 
 /**

@@ -3,7 +3,7 @@ import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 
 export const metadata = {
-  title: "Billing | RealLeads CRM",
+  title: "Billing | Big Lead CRM",
 };
 
 export default function BillingPage() {

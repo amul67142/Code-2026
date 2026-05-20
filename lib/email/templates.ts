@@ -17,7 +17,7 @@ function layout(content: string) {
   .meta { font-size:13px; color:#6b7280; }
 </style></head>
 <body><div class="wrap"><div class="card">${content}</div>
-<div class="footer">Powered by RealLeads CRM</div></div></body></html>`;
+<div class="footer">Powered by Big Lead CRM</div></div></body></html>`;
 }
 
 // ── 1. Welcome Email ────────────────────────────────────────────
@@ -41,7 +41,7 @@ export function getWelcomeEmailHtml(name: string) {
 export async function sendWelcomeEmail(to: string, name: string) {
   return sendEmail({
     to,
-    subject: "Welcome to RealLeads CRM! 🎉",
+    subject: "Welcome to Big Lead CRM! 🎉",
     html: getWelcomeEmailHtml(name),
   });
 }
@@ -50,7 +50,7 @@ export async function sendWelcomeEmail(to: string, name: string) {
 export function getInviteEmailHtml(inviterName: string, companyName: string, inviteUrl: string) {
   return layout(`
     <h1>You've been invited! 🤝</h1>
-    <p><strong>${inviterName}</strong> has invited you to join <strong>${companyName}</strong> on RealLeads CRM.</p>
+    <p><strong>${inviterName}</strong> has invited you to join <strong>${companyName}</strong> on Big Lead CRM.</p>
     <p>Click the button below to accept the invitation and set up your account:</p>
     <p style="margin-top:24px; text-align:center"><a href="${inviteUrl}" class="btn">Accept Invite →</a></p>
     <p class="meta" style="margin-top:16px">This invite link will expire in 7 days.</p>
@@ -60,7 +60,7 @@ export function getInviteEmailHtml(inviterName: string, companyName: string, inv
 export async function sendInviteEmail(to: string, inviterName: string, companyName: string, inviteUrl: string) {
   return sendEmail({
     to,
-    subject: `${inviterName} invited you to ${companyName} on RealLeads`,
+    subject: `${inviterName} invited you to ${companyName} on Big Lead`,
     html: getInviteEmailHtml(inviterName, companyName, inviteUrl),
   });
 }
@@ -177,7 +177,7 @@ export function getPasswordResetEmailHtml(userName: string, resetUrl: string) {
   return layout(`
     <h1>Reset your password</h1>
     <p>Hi <strong>${userName}</strong>,</p>
-    <p>We received a request to reset your password for RealLeads CRM.</p>
+    <p>We received a request to reset your password for Big Lead CRM.</p>
     <p style="margin-top:24px; text-align:center"><a href="${resetUrl}" class="btn">Reset Password →</a></p>
     <p class="meta" style="margin-top:16px">This link will expire in 10 minutes. If you didn't request a password reset, you can safely ignore this email.</p>
   `);
@@ -186,7 +186,7 @@ export function getPasswordResetEmailHtml(userName: string, resetUrl: string) {
 export async function sendPasswordResetEmail(to: string, userName: string, resetUrl: string) {
   return sendEmail({
     to,
-    subject: "Reset your RealLeads password",
+    subject: "Reset your Big Lead password",
     html: getPasswordResetEmailHtml(userName, resetUrl),
   });
 }
@@ -195,7 +195,7 @@ export async function sendPasswordResetEmail(to: string, userName: string, reset
 export function getTrialExpiryEmailHtml(name: string, daysLeft: number) {
   return layout(`
     <h1>Trial Ending Soon ⏳</h1>
-    <p>Hi ${name}, your RealLeads CRM trial expires in <strong>${daysLeft} day(s)</strong>.</p>
+    <p>Hi ${name}, your Big Lead CRM trial expires in <strong>${daysLeft} day(s)</strong>.</p>
     <p>Upgrade now to keep all your data, leads, and pipeline configured:</p>
     <p style="text-align:center; margin-top:24px"><a href="${process.env.NEXT_PUBLIC_APP_URL || "https://bigload.site"}/settings/billing" class="btn">Upgrade Now →</a></p>
   `);

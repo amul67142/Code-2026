@@ -14,7 +14,7 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 
 export const metadata = {
-  title: "Settings | RealLeads CRM",
+  title: "Settings | Big Lead CRM",
 };
 
 const ROLE_LEVEL: Record<string, number> = {

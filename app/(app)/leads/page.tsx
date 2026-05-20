@@ -3,7 +3,7 @@ import { getStages } from "../settings/pipeline/actions";
 import LeadsClient from "./leads-client";
 
 export const metadata = {
-  title: "Leads | RealLeads CRM",
+  title: "Leads | Big Lead CRM",
 };
 
 /**

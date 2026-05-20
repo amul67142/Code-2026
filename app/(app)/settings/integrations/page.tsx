@@ -3,7 +3,7 @@ import { getProjects } from "../../projects/actions";
 import IntegrationsClient from "./integrations-client";
 
 export const metadata = {
-  title: "Integrations & Webhooks | RealLeads CRM",
+  title: "Integrations & Webhooks | Big Lead CRM",
 };
 
 export default async function IntegrationsPage() {

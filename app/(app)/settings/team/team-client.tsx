@@ -124,7 +124,7 @@ export default function TeamClient({ initialTeam, currentRole }: { initialTeam: 
                   <Label>Email Address</Label>
                   <Input 
                     type="email" 
-                    placeholder="agent@realleads.com" 
+                    placeholder="agent@biglead.site" 
                     value={inviteEmail}
                     onChange={(e) => setInviteEmail(e.target.value)}
                     required

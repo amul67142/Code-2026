@@ -12,8 +12,8 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: {
-    default: "RealLeads CRM",
-    template: "%s — RealLeads CRM",
+    default: "Big Lead CRM",
+    template: "%s — Big Lead CRM",
   },
   description:
     "Capture, assign, track, and close every real estate lead from one simple dashboard.",

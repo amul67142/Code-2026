@@ -98,11 +98,11 @@ export function MobileSidebar() {
               />
             ) : (
               <div className="flex items-center justify-center size-8 rounded-lg bg-gray-900 text-white text-sm font-bold">
-                {(user.companyName || "R").charAt(0).toUpperCase()}
+                {(user.companyName || "B").charAt(0).toUpperCase()}
               </div>
             )}
             <span className="text-sm font-semibold text-gray-900">
-              {user.companyName || "RealLeads"}
+              {user.companyName || "Big Lead"}
             </span>
           </div>
           <button
