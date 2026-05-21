@@ -23,6 +23,35 @@ const AUTH_ROUTES = ["/login", "/signup"];
  */
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  const hostname = request.headers.get("host") || "";
+
+  // 0. Owner Subdomain Routing
+  if (hostname.startsWith("owner.") || hostname.startsWith("owner-")) {
+    const isOwnerLoginRoute = pathname === "/owner-admin/login";
+    const ownerSession = request.cookies.get("owner_session");
+    
+    if (!ownerSession && !isOwnerLoginRoute) {
+      const loginUrl = request.nextUrl.clone();
+      loginUrl.pathname = "/owner-admin/login";
+      return NextResponse.redirect(loginUrl);
+    }
+    
+    if (ownerSession && isOwnerLoginRoute) {
+      const homeUrl = request.nextUrl.clone();
+      homeUrl.pathname = "/owner-admin";
+      return NextResponse.redirect(homeUrl);
+    }
+
+    // If the path already starts with /owner-admin, pass through as-is
+    if (pathname.startsWith("/owner-admin")) {
+      return NextResponse.next();
+    }
+
+    // Otherwise rewrite to /owner-admin folder mapping
+    const rewriteUrl = request.nextUrl.clone();
+    rewriteUrl.pathname = `/owner-admin${pathname === "/" ? "" : pathname}`;
+    return NextResponse.rewrite(rewriteUrl);
+  }
 
   // Set pathname in request headers so server components can read it
   request.headers.set("x-pathname", pathname);
