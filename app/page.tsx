@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LeadCaptureModal } from "@/components/LeadCaptureModal";
+import { PricingSection } from "@/components/PricingSection";
 
 const LOGO_LIGHT = "https://res.cloudinary.com/dy2zpgv6q/image/upload/v1779118448/Gemini_Generated_Image_2kpsnp2kpsnp2kps_1_-Photoroom_ddqkxb.png";
 const LOGO_DARK = "https://res.cloudinary.com/dy2zpgv6q/image/upload/v1779125703/Gemini_Generated_Image_c60xw7c60xw7c60x-Photoroom_laj5vl.png";
@@ -41,7 +42,7 @@ export default function HomePage() {
   const [isDark, setIsDark] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [leadModalOpen, setLeadModalOpen] = useState(false);
-  const [currency, setCurrency] = useState("usd");
+
 
   // Sync state with HTML class
   useEffect(() => {
@@ -710,128 +711,7 @@ export default function HomePage() {
           )} />
 
           <div className="container mx-auto px-4 max-w-6xl relative z-10">
-            <div className="text-center max-w-2xl mx-auto mb-16">
-              <div className={cn(
-                "inline-flex items-center gap-1.5 mb-4 px-3 py-1 rounded-full border text-xs font-bold uppercase tracking-wider transition-colors",
-                isDark ? "bg-gray-900/80 border-gray-800 text-gray-400" : "bg-white/10 border border-white/20 text-gray-300"
-              )}>
-                Pricing
-              </div>
-              <h2 className="text-3xl md:text-4xl font-bold mb-3">Simple, transparent pricing</h2>
-              <p className="text-gray-400 text-lg mb-8">Start for free, upgrade when you're ready. No hidden fees.</p>
-              
-              {/* Currency Toggle Switch */}
-              <div className="inline-flex items-center gap-3 px-4 py-2 rounded-full bg-gray-900/50 border border-gray-800">
-                <span className={cn("text-xs font-semibold tracking-wide transition-colors", currency === "usd" ? "text-white" : "text-gray-400")}>USD ($)</span>
-                <button 
-                  onClick={() => setCurrency(currency === "usd" ? "inr" : "usd")}
-                  className="relative w-11 h-6 rounded-full bg-gray-800 border border-gray-700 transition-colors focus:outline-none cursor-pointer"
-                  aria-label="Toggle currency"
-                >
-                  <span className={cn(
-                    "absolute top-0.5 left-0.5 size-4.5 rounded-full bg-white transition-transform duration-300 shadow-md",
-                    currency === "inr" ? "translate-x-5" : "translate-x-0"
-                  )} />
-                </button>
-                <span className={cn("text-xs font-semibold tracking-wide transition-colors", currency === "inr" ? "text-white" : "text-gray-400")}>INR (₹)</span>
-              </div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto items-center">
-              {[
-                { 
-                  name: "Basic", priceUSD: "$9", priceINR: "₹749", period: "/mo", desc: "For individuals getting started.", 
-                  features: [
-                    { text: "3 team members", included: true },
-                    { text: "Website leads only", included: true },
-                    { text: "CSV import", included: true },
-                    { text: "Unlimited leads", included: true },
-                    { text: "No pipeline", included: false },
-                    { text: "No ad webhooks", included: false },
-                    { text: "24hr support", included: true }
-                  ], 
-                  accent: isDark ? "border-gray-800" : "border-gray-700",
-                  cta: "Get Demo"
-                },
-                { 
-                  name: "Pro", priceUSD: "$19", priceINR: "₹1,599", period: "/mo", desc: "For growing teams needing automation.", popular: true, 
-                  features: [
-                    { text: "Unlimited team members", included: true },
-                    { text: "All webhooks (Zapier, Google Ads, etc.)", included: true },
-                    { text: "CSV import", included: true },
-                    { text: "Unlimited leads", included: true },
-                    { text: "Full pipeline", included: true },
-                    { text: "No automated callbacks", included: false },
-                    { text: "12hr support", included: true }
-                  ], 
-                  accent: "border-white dark:border-zinc-500 shadow-zinc-900/40",
-                  cta: "Get Demo"
-                },
-                { 
-                  name: "Enterprise", priceUSD: "Custom", priceINR: "Custom", desc: "For large, complex organisations.", 
-                  features: [
-                    { text: "Unlimited everything", included: true },
-                    { text: "Custom telephony & routing", included: true },
-                    { text: "Dedicated support", included: true },
-                    { text: "Custom integrations", included: true }
-                  ], 
-                  accent: isDark ? "border-gray-800" : "border-gray-700",
-                  cta: "Contact Sales"
-                },
-              ].map((tier, i) => (
-                <div 
-                  key={i} 
-                  className={cn(
-                    "rounded-3xl p-8 flex flex-col relative border transition-all duration-300", 
-                    tier.popular 
-                      ? "bg-gradient-to-b from-zinc-900 to-black border-white dark:border-zinc-700 shadow-2xl py-12 md:scale-105 z-10" 
-                      : isDark 
-                        ? "bg-gray-900/40 hover:bg-gray-900/60 border-gray-850 hover:border-gray-700" 
-                        : "bg-gray-905 hover:border-gray-600 border-gray-700",
-                    tier.accent
-                  )}
-                >
-                  {tier.popular && (
-                    <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white text-black text-[10px] font-bold px-4 py-1.5 rounded-full uppercase tracking-wider shadow border border-gray-200">
-                      Most Popular
-                    </div>
-                  )}
-                  <h3 className="text-xl font-bold mb-1">{tier.name}</h3>
-                  <p className="text-sm text-gray-400 mb-5 h-9">{tier.desc}</p>
-                  <div className="flex items-baseline mb-7">
-                    <span className="text-4xl font-bold">
-                      {currency === "usd" ? tier.priceUSD : tier.priceINR}
-                    </span>
-                    {tier.period && tier.priceUSD !== "Custom" && <span className="text-gray-400 ml-1 text-sm">{tier.period}</span>}
-                  </div>
-                  <ul className="space-y-3 mb-8 flex-1">
-                    {tier.features.map((f, j) => (
-                      <li key={j} className={cn("flex items-start gap-2.5 text-sm", !f.included && "opacity-60")}>
-                        {f.included 
-                          ? <CheckCircle2 className="size-4 shrink-0 text-emerald-400 mt-0.5" /> 
-                          : <X className="size-4 shrink-0 text-gray-500 mt-0.5" />}
-                        <span className={cn(tier.popular ? "text-gray-100" : "text-gray-300", !f.included && "text-gray-500 line-through decoration-gray-600")}>
-                          {f.text}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                  <button 
-                    onClick={() => setLeadModalOpen(true)}
-                    className={cn(
-                      buttonVariants({ size:"lg" }), 
-                      "w-full rounded-full text-sm font-semibold transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0 shadow-sm", 
-                      tier.popular 
-                        ? "bg-white hover:bg-gray-100 text-black font-extrabold border border-transparent" 
-                        : isDark
-                          ? "bg-zinc-900 hover:bg-zinc-800 text-white border border-zinc-800"
-                          : "bg-gray-800 hover:bg-gray-900 text-white border border-gray-850"
-                    )}
-                  >
-                    {tier.cta}
-                  </button>
-                </div>
-              ))}
-            </div>
+            <PricingSection isDark={isDark} onCtaClick={() => setLeadModalOpen(true)} />
           </div>
         </section>
 

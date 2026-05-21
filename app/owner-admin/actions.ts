@@ -75,3 +75,53 @@ export async function deleteUser(id: string) {
   revalidatePath("/owner-admin/users");
   revalidatePath("/owner-admin");
 }
+
+// ── Pricing Plans ──
+
+export async function getPricingPlans() {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from("pricing_plans")
+    .select("*")
+    .order("sort_order", { ascending: true });
+  if (error) throw new Error("Failed to fetch pricing plans: " + error.message);
+  return data;
+}
+
+export async function upsertPricingPlan(plan: {
+  id?: string;
+  name: string;
+  description: string;
+  price_inr: number;
+  period: string | null;
+  is_popular: boolean;
+  is_custom_price: boolean;
+  cta_text: string;
+  sort_order: number;
+  features: { text: string; included: boolean }[];
+}) {
+  const supabase = createAdminClient();
+  const payload = {
+    ...plan,
+    updated_at: new Date().toISOString(),
+  };
+
+  if (plan.id) {
+    const { error } = await supabase.from("pricing_plans").update(payload).eq("id", plan.id);
+    if (error) throw new Error("Failed to update plan: " + error.message);
+  } else {
+    const { id, ...rest } = payload;
+    const { error } = await supabase.from("pricing_plans").insert(rest);
+    if (error) throw new Error("Failed to create plan: " + error.message);
+  }
+  revalidatePath("/owner-admin/pricing");
+  revalidatePath("/");
+}
+
+export async function deletePricingPlan(id: string) {
+  const supabase = createAdminClient();
+  const { error } = await supabase.from("pricing_plans").delete().eq("id", id);
+  if (error) throw new Error("Failed to delete plan: " + error.message);
+  revalidatePath("/owner-admin/pricing");
+  revalidatePath("/");
+}

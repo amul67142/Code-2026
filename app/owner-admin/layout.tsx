@@ -6,6 +6,7 @@ import {
   LayoutDashboard, 
   Building2, 
   Users, 
+  Tag,
   CreditCard, 
   LifeBuoy,
   LogOut,
@@ -17,6 +18,7 @@ const navigation = [
   { name: "Overview", href: "/owner-admin", icon: LayoutDashboard },
   { name: "Companies", href: "/owner-admin/companies", icon: Building2 },
   { name: "Users", href: "/owner-admin/users", icon: Users },
+  { name: "Pricing", href: "/owner-admin/pricing", icon: Tag },
   { name: "Payments", href: "/owner-admin/payments", icon: CreditCard, locked: true },
   { name: "Tickets", href: "/owner-admin/tickets", icon: LifeBuoy, locked: true },
 ];
