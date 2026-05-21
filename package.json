@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "check-plans": "node scripts/check-plans.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1048.0",
