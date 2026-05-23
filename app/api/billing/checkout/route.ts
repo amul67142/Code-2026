@@ -66,19 +66,41 @@ export async function POST(request: Request) {
     const subscriptionId = `sub_${crypto.randomUUID().replace(/-/g, "")}`;
     const returnUrl = `${origin}/settings/billing?session_id=${subscriptionId}`;
 
-    // 9. Prepare inline plan parameters for Cashfree Subscriptions API
-    const planDetails = {
-      plan_name: plan.name,
-      plan_type: "PERIODIC" as const,
-      plan_currency: "INR",
-      plan_max_amount: plan.price_inr,
-      plan_recurring_amount: plan.price_inr,
-      plan_intervals: 1,
-      plan_interval_type: "MONTH" as const, // All standard plans are billed monthly
-    };
+    // 9. Prepare deterministic Plan ID on Cashfree
+    const planIdOnCashfree = `plan_${plan.name.toLowerCase()}_${plan.price_inr}`;
+    let cashfreePlanExists = false;
 
-    // 10. Call Cashfree to initiate Subscription Session
-    console.log(`🚀 Creating subscription ${subscriptionId} inline on Cashfree for plan: ${plan.name}`);
+    try {
+      console.log(`🔍 Checking if plan ${planIdOnCashfree} already exists on Cashfree...`);
+      await cashfree.getPlan(planIdOnCashfree);
+      cashfreePlanExists = true;
+      console.log(`✅ Plan ${planIdOnCashfree} exists on Cashfree.`);
+    } catch (getPlanError) {
+      console.log(`ℹ️ Plan ${planIdOnCashfree} not found on Cashfree. Proceeding to create it...`);
+    }
+
+    // Register plan dynamically on Cashfree if it doesn't exist
+    if (!cashfreePlanExists) {
+      try {
+        await cashfree.createPlan({
+          plan_id: planIdOnCashfree,
+          plan_name: `${plan.name} Plan - ${plan.price_inr} INR/mo`,
+          plan_type: "PERIODIC",
+          plan_currency: "INR",
+          plan_max_amount: plan.price_inr,
+          plan_recurring_amount: plan.price_inr,
+          plan_intervals: 1,
+          plan_interval_type: "MONTH",
+        });
+        console.log(`✅ Plan ${planIdOnCashfree} successfully registered on Cashfree.`);
+      } catch (createPlanError: any) {
+        console.error(`❌ Failed to create plan ${planIdOnCashfree} on Cashfree:`, createPlanError);
+        throw new Error(`Plan creation failed: ${createPlanError.message}`);
+      }
+    }
+
+    // 10. Call Cashfree to initiate Subscription Session referencing the Plan ID
+    console.log(`🚀 Creating subscription ${subscriptionId} on Cashfree linked to plan: ${planIdOnCashfree}`);
     const response = await cashfree.createSubscription({
       subscription_id: subscriptionId,
       customer_details: {
@@ -86,7 +108,9 @@ export async function POST(request: Request) {
         customer_email: company?.billing_email || userProfile.email,
         customer_phone: userProfile.phone || "9999999999", // Fallback dummy to pass schema validation
       },
-      plan_details: planDetails,
+      plan_details: {
+        plan_id: planIdOnCashfree,
+      },
       return_url: returnUrl,
     });
 
@@ -99,8 +123,8 @@ export async function POST(request: Request) {
         company_id: userProfile.company_id,
         plan_id: plan.id,
         cashfree_sub_id: subscriptionId,
-        cashfree_plan_id: plan.name,
-        status: "TRIALING", // Set initial status as trailing until webhook confirms mandate active
+        cashfree_plan_id: planIdOnCashfree,
+        status: "TRIALING", // Set initial status as trialing until webhook confirms mandate active
         amount_inr: plan.price_inr,
         current_period_start: new Date().toISOString(),
         current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // Temporary 30 days period extension

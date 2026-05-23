@@ -117,16 +117,56 @@ export const cashfree = {
       };
     }
 
-    if (params.expiry_time) {
-      payload.subscription_expiry_time = params.expiry_time;
-    }
-
     console.log("📤 Cashfree Subscriptions request payload:", JSON.stringify(payload, null, 2));
 
     return cashfreeRequest({
       method: "POST",
       path: "/subscriptions",
       body: payload,
+    });
+  },
+
+  /**
+   * Creates a subscription plan on Cashfree.
+   */
+  async createPlan(params: {
+    plan_id: string;
+    plan_name: string;
+    plan_type: "PERIODIC" | "ON_DEMAND";
+    plan_currency: string;
+    plan_max_amount: number;
+    plan_recurring_amount?: number;
+    plan_intervals?: number;
+    plan_interval_type?: "WEEK" | "MONTH" | "YEAR" | "week" | "month" | "year";
+  }) {
+    const payload = {
+      plan_id: params.plan_id,
+      plan_name: params.plan_name,
+      plan_type: params.plan_type,
+      plan_currency: params.plan_currency,
+      plan_max_amount: params.plan_max_amount,
+      plan_recurring_amount: params.plan_recurring_amount,
+      plan_intervals: params.plan_intervals || 1,
+      plan_interval_type: (params.plan_interval_type || "MONTH").toUpperCase(),
+    };
+
+    console.log("📤 Cashfree Create Plan request payload:", JSON.stringify(payload, null, 2));
+
+    return cashfreeRequest({
+      method: "POST",
+      path: "/plans",
+      body: payload,
+    });
+  },
+
+  /**
+   * Retrieves a subscription plan from Cashfree by plan_id.
+   * Returns plan details if found, or throws error.
+   */
+  async getPlan(planId: string) {
+    return cashfreeRequest({
+      method: "GET",
+      path: `/plans/${planId}`,
     });
   },
 
