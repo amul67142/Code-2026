@@ -135,20 +135,15 @@ export async function POST(request: Request) {
       throw upsertError;
     }
 
-    // 12. Return the authorization checkout link to frontend redirect
-    const authLink = 
-      response.authLink ||
-      response.auth_link ||
-      response.authorization_link ||
-      response.subscription_meta?.authorization_link ||
-      response.subscription_meta?.authLink ||
-      response.subscription_meta?.auth_link;
+    // 12. Return the authorization session ID to frontend
+    const subscriptionSessionId = response.subscription_session_id;
 
-    console.log(`ℹ️ Resolved checkout redirect link: ${authLink}`);
+    console.log(`ℹ️ Resolved checkout redirect session ID: ${subscriptionSessionId}`);
 
     return NextResponse.json({
       subscriptionId,
-      authLink,
+      subscriptionSessionId,
+      authLink: subscriptionSessionId, // Fallback placeholder
     });
 
   } catch (err: any) {

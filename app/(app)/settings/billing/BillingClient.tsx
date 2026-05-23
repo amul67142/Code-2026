@@ -120,9 +120,28 @@ export function BillingClient() {
     }
   }, []);
 
+  const loadCashfreeScript = (): Promise<any> => {
+    return new Promise((resolve, reject) => {
+      if ((window as any).Cashfree) {
+        resolve((window as any).Cashfree);
+        return;
+      }
+      const script = document.createElement("script");
+      script.src = "https://sdk.cashfree.com/js/v3/cashfree.js";
+      script.async = true;
+      script.onload = () => resolve((window as any).Cashfree);
+      script.onerror = () => reject(new Error("Failed to load Cashfree SDK script."));
+      document.body.appendChild(script);
+    });
+  };
+
   const handleCheckout = async (plan: PricingPlan) => {
     setCheckoutLoadingId(plan.id);
     try {
+      // 1. Load Cashfree SDK dynamically
+      const CashfreeSDK = await loadCashfreeScript();
+
+      // 2. Request Subscription Session ID from backend
       const res = await fetch("/api/billing/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -134,11 +153,20 @@ export function BillingClient() {
         throw new Error(data.error || "Failed to initiate payment session.");
       }
 
-      if (data.authLink) {
+      if (data.subscriptionSessionId) {
         toast.info("Redirecting you to Cashfree secure authorization...");
-        window.location.href = data.authLink;
+        
+        // 3. Initialize Cashfree instance dynamically
+        const isProd = process.env.NEXT_PUBLIC_CASHFREE_ENV === "production";
+        const cashfreeInstance = CashfreeSDK({ mode: isProd ? "production" : "sandbox" });
+        
+        // 4. Trigger Hosted Subscription Checkout
+        cashfreeInstance.subscriptionsCheckout({
+          subsSessionId: data.subscriptionSessionId,
+          redirectTarget: "_self"
+        });
       } else {
-        throw new Error("No payment link returned by checkout provider.");
+        throw new Error("No subscription session returned by checkout provider.");
       }
     } catch (err: any) {
       console.error(err);
