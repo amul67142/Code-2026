@@ -1,7 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
-import { cashfree } from "@/lib/billing/cashfree";
+import { razorpayClient } from "@/lib/billing/razorpay";
 import { revalidatePath } from "next/cache";
 
 export async function cancelSubscriptionAction(subscriptionId: string) {
@@ -25,13 +25,13 @@ export async function cancelSubscriptionAction(subscriptionId: string) {
       return { success: false, error: "Only the company Super Admin can manage billing." };
     }
 
-    // 3. Call Cashfree to cancel the active subscription mandate
-    console.log(`🔌 Requesting Cashfree to cancel subscription ${subscriptionId}...`);
+    // 3. Call Razorpay to cancel the active subscription mandate
+    console.log(`🔌 Requesting Razorpay to cancel subscription ${subscriptionId}...`);
     try {
-      await cashfree.cancelSubscription(subscriptionId);
-    } catch (cfErr: any) {
-      console.warn("⚠️ Cashfree cancellation API warning/error:", cfErr.message);
-      // Even if Cashfree throws an error (e.g. subscription already inactive), 
+      await razorpayClient.cancelSubscription(subscriptionId);
+    } catch (rzpErr: any) {
+      console.warn("⚠️ Razorpay cancellation API warning/error:", rzpErr.message);
+      // Even if Razorpay throws an error (e.g. subscription already inactive), 
       // we still proceed to update our local state to keep tables in sync.
     }
 
@@ -43,7 +43,7 @@ export async function cancelSubscriptionAction(subscriptionId: string) {
         cancelled_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
-      .eq("cashfree_sub_id", subscriptionId);
+      .eq("razorpay_sub_id", subscriptionId);
 
     if (subError) {
       console.error("❌ Failed to update subscription status to CANCELLED in DB:", subError);

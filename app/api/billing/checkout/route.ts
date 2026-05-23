@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { cashfree } from "@/lib/billing/cashfree";
+import { razorpayClient } from "@/lib/billing/razorpay";
 import { UserRole } from "@/types";
 
 export async function POST(request: Request) {
@@ -63,58 +63,44 @@ export async function POST(request: Request) {
 
     // 8. Generate dynamic checkout return URL
     const origin = request.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-    const subscriptionId = `sub_${crypto.randomUUID().replace(/-/g, "")}`;
-    const returnUrl = `${origin}/settings/billing?session_id=${subscriptionId}`;
+    const returnUrl = `${origin}/settings/billing`;
 
-    // 9. Prepare deterministic Plan ID on Cashfree
-    const planIdOnCashfree = `plan_${plan.name.toLowerCase()}_${plan.price_inr}`;
-    let cashfreePlanExists = false;
+    // 9. Sync Plan with Razorpay dynamically on checkout
+    let razorpayPlanId = (plan as any).razorpay_plan_id;
 
-    try {
-      console.log(`🔍 Checking if plan ${planIdOnCashfree} already exists on Cashfree...`);
-      await cashfree.getPlan(planIdOnCashfree);
-      cashfreePlanExists = true;
-      console.log(`✅ Plan ${planIdOnCashfree} exists on Cashfree.`);
-    } catch (getPlanError) {
-      console.log(`ℹ️ Plan ${planIdOnCashfree} not found on Cashfree. Proceeding to create it...`);
-    }
-
-    // Register plan dynamically on Cashfree if it doesn't exist
-    if (!cashfreePlanExists) {
+    if (!razorpayPlanId) {
       try {
-        await cashfree.createPlan({
-          plan_id: planIdOnCashfree,
-          plan_name: `${plan.name} Plan ${plan.price_inr} INR`,
-          plan_type: "PERIODIC",
-          plan_currency: "INR",
-          plan_max_amount: plan.price_inr,
-          plan_recurring_amount: plan.price_inr,
-          plan_intervals: 1,
-          plan_interval_type: "MONTH",
-        });
-        console.log(`✅ Plan ${planIdOnCashfree} successfully registered on Cashfree.`);
+        const rzpPlan = await razorpayClient.createPlan(plan.name, plan.price_inr);
+        razorpayPlanId = rzpPlan.id;
+
+        // Save generated Razorpay Plan ID back to our local pricing_plans table
+        const { error: updatePlanError } = await supabase
+          .from("pricing_plans")
+          .update({ razorpay_plan_id: razorpayPlanId })
+          .eq("id", plan.id);
+
+        if (updatePlanError) {
+          console.error("⚠️ Failed to store razorpay_plan_id in database pricing_plans table:", updatePlanError);
+        } else {
+          console.log(`✅ Dynamically registered plan ${plan.name} on Razorpay: ${razorpayPlanId}`);
+        }
       } catch (createPlanError: any) {
-        console.error(`❌ Failed to create plan ${planIdOnCashfree} on Cashfree:`, createPlanError);
-        throw new Error(`Plan creation failed: ${createPlanError.message}`);
+        console.error("❌ Failed to create plan on Razorpay:", createPlanError);
+        throw new Error(`Razorpay plan creation failed: ${createPlanError.message}`);
       }
     }
 
-    // 10. Call Cashfree to initiate Subscription Session referencing the Plan ID
-    console.log(`🚀 Creating subscription ${subscriptionId} on Cashfree linked to plan: ${planIdOnCashfree}`);
-    const response = await cashfree.createSubscription({
-      subscription_id: subscriptionId,
-      customer_details: {
-        customer_name: userProfile.name || company?.name || "Company Admin",
-        customer_email: company?.billing_email || userProfile.email,
-        customer_phone: userProfile.phone || "9999999999", // Fallback dummy to pass schema validation
-      },
-      plan_details: {
-        plan_id: planIdOnCashfree,
-      },
+    // 10. Call Razorpay Subscriptions API to initialize mandate
+    console.log(`🚀 Creating subscription on Razorpay linked to Plan ID: ${razorpayPlanId}`);
+    const rzpSubscription = await razorpayClient.createSubscription({
+      plan_id: razorpayPlanId,
+      customer_name: userProfile.name || company?.name || "Company Admin",
+      customer_email: company?.billing_email || userProfile.email,
+      customer_phone: userProfile.phone || "9999999999", // Fallback to pass schema validation
       return_url: returnUrl,
     });
 
-    console.log("✅ Cashfree Subscription created successfully:", response);
+    console.log("✅ Razorpay Subscription created successfully:", rzpSubscription);
 
     // 11. Write/Upsert record to local database under company context
     const { error: upsertError } = await supabase
@@ -122,12 +108,12 @@ export async function POST(request: Request) {
       .upsert({
         company_id: userProfile.company_id,
         plan_id: plan.id,
-        cashfree_sub_id: subscriptionId,
-        cashfree_plan_id: planIdOnCashfree,
-        status: "TRIALING", // Set initial status as trialing until webhook confirms mandate active
+        razorpay_sub_id: rzpSubscription.id,
+        razorpay_plan_id: razorpayPlanId,
+        status: "TRIALING", // Initial status as trialing until webhook confirms active payment
         amount_inr: plan.price_inr,
         current_period_start: new Date().toISOString(),
-        current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // Temporary 30 days period extension
+        current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
       }, { onConflict: "company_id" });
 
     if (upsertError) {
@@ -135,15 +121,10 @@ export async function POST(request: Request) {
       throw upsertError;
     }
 
-    // 12. Return the authorization session ID to frontend
-    const subscriptionSessionId = response.subscription_session_id;
-
-    console.log(`ℹ️ Resolved checkout redirect session ID: ${subscriptionSessionId}`);
-
+    // 12. Return the hosted redirect short_url to the frontend!
     return NextResponse.json({
-      subscriptionId,
-      subscriptionSessionId,
-      authLink: subscriptionSessionId, // Fallback placeholder
+      subscriptionId: rzpSubscription.id,
+      shortUrl: rzpSubscription.short_url,
     });
 
   } catch (err: any) {

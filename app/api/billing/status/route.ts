@@ -39,7 +39,7 @@ export async function GET() {
       .select(`
         id,
         status,
-        cashfree_sub_id,
+        razorpay_sub_id,
         current_period_start,
         current_period_end,
         cancelled_at,

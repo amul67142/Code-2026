@@ -10,13 +10,11 @@ import {
   Check, 
   Sparkles, 
   Calendar, 
-  Receipt, 
-  AlertTriangle, 
-  Loader2, 
-  ExternalLink,
   ShieldCheck,
   XCircle,
-  Clock
+  Clock,
+  Loader2,
+  Receipt
 } from "lucide-react";
 
 interface PlanFeature {
@@ -49,7 +47,7 @@ interface BillingStatus {
   subscription: {
     id: string;
     status: "ACTIVE" | "PAST_DUE" | "CANCELLED" | "TRIALING";
-    cashfree_sub_id: string;
+    razorpay_sub_id: string;
     current_period_start: string | null;
     current_period_end: string | null;
     cancelled_at: string | null;
@@ -114,34 +112,16 @@ export function BillingClient() {
     // Check if session redirect has completed with standard parameters
     const params = new URLSearchParams(window.location.search);
     if (params.get("session_id")) {
-      toast.success("Subscription authorization link completed! We are waiting for your bank/Cashfree to approve the mandate.");
+      toast.success("Mandate setup completed! We are waiting for Razorpay/your bank to approve and activate the subscription.");
       // Clear the query parameter cleanly to keep URL pristine
       window.history.replaceState({}, document.title, window.location.pathname);
     }
   }, []);
 
-  const loadCashfreeScript = (): Promise<any> => {
-    return new Promise((resolve, reject) => {
-      if ((window as any).Cashfree) {
-        resolve((window as any).Cashfree);
-        return;
-      }
-      const script = document.createElement("script");
-      script.src = "https://sdk.cashfree.com/js/v3/cashfree.js";
-      script.async = true;
-      script.onload = () => resolve((window as any).Cashfree);
-      script.onerror = () => reject(new Error("Failed to load Cashfree SDK script."));
-      document.body.appendChild(script);
-    });
-  };
-
   const handleCheckout = async (plan: PricingPlan) => {
     setCheckoutLoadingId(plan.id);
     try {
-      // 1. Load Cashfree SDK dynamically
-      const CashfreeSDK = await loadCashfreeScript();
-
-      // 2. Request Subscription Session ID from backend
+      // 1. Request Subscription Checkout session from backend
       const res = await fetch("/api/billing/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -153,20 +133,12 @@ export function BillingClient() {
         throw new Error(data.error || "Failed to initiate payment session.");
       }
 
-      if (data.subscriptionSessionId) {
-        toast.info("Redirecting you to Cashfree secure authorization...");
-        
-        // 3. Initialize Cashfree instance dynamically
-        const isProd = process.env.NEXT_PUBLIC_CASHFREE_ENV === "production";
-        const cashfreeInstance = CashfreeSDK({ mode: isProd ? "production" : "sandbox" });
-        
-        // 4. Trigger Hosted Subscription Checkout
-        cashfreeInstance.subscriptionsCheckout({
-          subsSessionId: data.subscriptionSessionId,
-          redirectTarget: "_self"
-        });
+      if (data.shortUrl) {
+        toast.info("Redirecting you to Razorpay secure checkout...");
+        // Bypasses React SDK dynamic scripts entirely! Pure secure hosted redirect.
+        window.location.href = data.shortUrl;
       } else {
-        throw new Error("No subscription session returned by checkout provider.");
+        throw new Error("No payment link returned by checkout provider.");
       }
     } catch (err: any) {
       console.error(err);
@@ -176,14 +148,14 @@ export function BillingClient() {
   };
 
   const handleCancelSubscription = async () => {
-    if (!status?.subscription?.cashfree_sub_id) return;
+    if (!status?.subscription?.razorpay_sub_id) return;
     
     if (!confirm("Are you absolutely sure you want to cancel your CRM subscription? Your pipeline and automated workflows will be paused at the end of the billing cycle.")) {
       return;
     }
 
     startTransition(async () => {
-      const res = await cancelSubscriptionAction(status.subscription!.cashfree_sub_id);
+      const res = await cancelSubscriptionAction(status.subscription!.razorpay_sub_id);
       if (res.success) {
         toast.success("Subscription cancelled successfully.");
         fetchBillingData();
@@ -357,7 +329,7 @@ export function BillingClient() {
             Available Pricing Plans
           </h2>
           <p className="text-sm text-zinc-500">
-            Upgrade or change your current plan dynamically. Selected upgrades will redirect to Cashfree Autopay setup.
+            Upgrade or change your current plan dynamically. Selected upgrades will redirect to Razorpay hosted Mandate setup.
           </p>
         </div>
 
@@ -485,7 +457,7 @@ export function BillingClient() {
                     {status?.invoices.map((inv) => (
                       <tr key={inv.id} className="border-b border-zinc-150 hover:bg-zinc-50/50">
                         <td className="p-4 text-zinc-700">
-                          {new Date(inv.paid_at).toLocaleDateString("en-IN", {
+                           {new Date(inv.paid_at).toLocaleDateString("en-IN", {
                             day: "2-digit",
                             month: "short",
                             year: "numeric"
