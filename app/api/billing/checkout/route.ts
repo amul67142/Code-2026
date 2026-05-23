@@ -86,7 +86,12 @@ export async function POST(request: Request) {
         }
       } catch (createPlanError: any) {
         console.error("❌ Failed to create plan on Razorpay:", createPlanError);
-        throw new Error(`Razorpay plan creation failed: ${createPlanError.message}`);
+        const errorMsg = 
+          createPlanError.error?.description || 
+          createPlanError.description || 
+          createPlanError.message || 
+          JSON.stringify(createPlanError);
+        throw new Error(`Razorpay plan creation failed: ${errorMsg}`);
       }
     }
 

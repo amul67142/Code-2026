@@ -82,6 +82,15 @@ export function BillingClient() {
   const [status, setStatus] = useState<BillingStatus | null>(null);
   const [plans, setPlans] = useState<PricingPlan[]>([]);
   const [isPending, startTransition] = useTransition();
+  const [activationState, setActivationState] = useState<"idle" | "verifying" | "success" | "pending">("idle");
+  const [polledCount, setPolledCount] = useState(0);
+
+  const handleCloseActivation = () => {
+    setActivationState("idle");
+    const url = new URL(window.location.href);
+    url.search = "";
+    window.history.replaceState({}, document.title, url.pathname);
+  };
 
   const fetchBillingData = async () => {
     try {
@@ -111,10 +120,42 @@ export function BillingClient() {
 
     // Check if session redirect has completed with standard parameters
     const params = new URLSearchParams(window.location.search);
-    if (params.get("session_id")) {
-      toast.success("Mandate setup completed! We are waiting for Razorpay/your bank to approve and activate the subscription.");
-      // Clear the query parameter cleanly to keep URL pristine
-      window.history.replaceState({}, document.title, window.location.pathname);
+    const hasRazorpay = params.get("razorpay_subscription_id") || params.get("razorpay_payment_id");
+    const hasSession = params.get("session_id");
+
+    if (hasRazorpay || hasSession) {
+      setActivationState("verifying");
+      
+      let count = 0;
+      const interval = setInterval(async () => {
+        count++;
+        setPolledCount(count);
+        
+        try {
+          const res = await fetch("/api/billing/status");
+          const statusData = await res.json();
+          
+          if (statusData && !statusData.error) {
+            setStatus(statusData);
+            
+            if (statusData.subscription?.status === "ACTIVE" || statusData.company?.status === "ACTIVE") {
+              clearInterval(interval);
+              setActivationState("success");
+              toast.success("🎉 Plan activated successfully! Now you can access all features!");
+              return;
+            }
+          }
+        } catch (err) {
+          console.error("Polling error:", err);
+        }
+        
+        if (count >= 6) {
+          clearInterval(interval);
+          setActivationState("pending");
+        }
+      }, 2500);
+
+      return () => clearInterval(interval);
     }
   }, []);
 
@@ -179,7 +220,93 @@ export function BillingClient() {
   const daysRemaining = status?.trial.daysRemaining || 0;
 
   return (
-    <div className="space-y-8 max-w-6xl">
+    <div className="space-y-8 max-w-6xl relative">
+      {/* Dynamic Billing activation overlay */}
+      {activationState !== "idle" && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm transition-all duration-300 animate-in fade-in">
+          <div className="w-full max-w-md p-6 mx-4 rounded-2xl bg-white border border-zinc-200 shadow-2xl relative overflow-hidden animate-in zoom-in-95 duration-200">
+            {/* Sparkles background styling */}
+            <div className="absolute top-0 right-0 p-4 opacity-10">
+              <Sparkles className="size-32 text-indigo-600 animate-pulse" />
+            </div>
+
+            {activationState === "verifying" && (
+              <div className="flex flex-col items-center text-center space-y-4 py-4">
+                <div className="relative">
+                  <div className="size-16 rounded-full bg-indigo-50 flex items-center justify-center border border-indigo-100">
+                    <Loader2 className="size-8 text-indigo-600 animate-spin" />
+                  </div>
+                  <div className="absolute -top-1 -right-1 bg-amber-500 text-white rounded-full p-1 border border-white">
+                    <Sparkles className="size-3" />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <h3 className="text-lg font-bold text-zinc-900">Activating Premium Workspace</h3>
+                  <p className="text-sm text-zinc-500 max-w-xs">
+                    We are verifying your mandate and setting up your workspace credentials. This will only take a moment...
+                  </p>
+                </div>
+                <div className="w-full bg-zinc-100 h-1.5 rounded-full overflow-hidden mt-2">
+                  <div 
+                    className="bg-indigo-600 h-full rounded-full transition-all duration-500" 
+                    style={{ width: `${Math.min(100, (polledCount / 6) * 100)}%` }} 
+                  />
+                </div>
+                <p className="text-[10px] text-zinc-400 font-medium">Securing payment connection (Attempt {polledCount}/6)</p>
+              </div>
+            )}
+
+            {activationState === "success" && (
+              <div className="flex flex-col items-center text-center space-y-4 py-4">
+                <div className="size-16 rounded-full bg-emerald-50 flex items-center justify-center border border-emerald-100 relative animate-bounce">
+                  <Check className="size-8 text-emerald-600" />
+                  {/* Small floating sparkles */}
+                  <span className="absolute -top-1 -right-1 text-emerald-500 animate-ping">✨</span>
+                </div>
+                <div className="space-y-2">
+                  <h3 className="text-xl font-extrabold text-zinc-900 tracking-tight">🎉 Subscription Activated!</h3>
+                  <p className="text-sm text-zinc-600 font-medium max-w-xs">
+                    Your mandate is complete. You now have full premium access to all lead intelligence, auto-dialers, pipelines, and integrations.
+                  </p>
+                  <p className="text-xs text-indigo-600 font-semibold bg-indigo-50/70 py-1 px-3 rounded-full inline-block mt-2 animate-pulse">
+                    🚀 Now u can access these things!
+                  </p>
+                </div>
+                <Button 
+                  onClick={handleCloseActivation} 
+                  className="w-full mt-4 bg-zinc-900 text-white hover:bg-zinc-800 rounded-xl py-4 font-bold shadow-md hover:shadow-lg transition-all"
+                >
+                  Awesome, Let's Go!
+                </Button>
+              </div>
+            )}
+
+            {activationState === "pending" && (
+              <div className="flex flex-col items-center text-center space-y-4 py-4">
+                <div className="size-16 rounded-full bg-amber-50 flex items-center justify-center border border-amber-100">
+                  <Clock className="size-8 text-amber-600 animate-pulse" />
+                </div>
+                <div className="space-y-2">
+                  <h3 className="text-lg font-bold text-zinc-900">Mandate Setup Registered</h3>
+                  <p className="text-sm text-zinc-500 max-w-xs">
+                    We received your setup details. Your bank or Razorpay is processing the mandate. Your features will activate automatically in a few minutes!
+                  </p>
+                  <p className="text-xs text-indigo-600 font-semibold bg-indigo-50/70 py-1 px-3 rounded-full inline-block mt-2">
+                    🌟 You'll get access as soon as it clears!
+                  </p>
+                </div>
+                <Button 
+                  onClick={handleCloseActivation} 
+                  className="w-full mt-4 bg-zinc-900 text-white hover:bg-zinc-800 rounded-xl py-4 font-bold shadow-sm transition-all"
+                >
+                  Got it, thank you!
+                </Button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Page Title Header */}
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Billing & Subscriptions</h1>
