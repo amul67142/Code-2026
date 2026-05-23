@@ -16,14 +16,54 @@ export async function POST(request: Request) {
     }
 
     // 2. Fetch user profile
-    const { data: userProfile, error: profileError } = await supabase
+    let { data: userProfile, error: profileError } = await supabase
       .from("users")
       .select("id, role, company_id, name, email, phone")
       .eq("auth_user_id", user.id)
-      .single();
+      .maybeSingle();
 
-    if (profileError || !userProfile) {
-      return NextResponse.json({ error: "User profile not found" }, { status: 404 });
+    if (!userProfile) {
+      // User has just signed up and hasn't paid or onboarded yet.
+      // Let's create a pending company and a pending user profile so they can pay.
+      const baseSubdomain = `pending-${Math.floor(Math.random() * 1000000)}`;
+      const { data: newCompany, error: compErr } = await supabase
+        .from("companies")
+        .insert({
+          name: "Pending Onboarding",
+          subdomain: baseSubdomain,
+          status: "PENDING_PAYMENT",
+          timezone: "Asia/Kolkata",
+          currency: "INR",
+        })
+        .select("id")
+        .single();
+
+      if (compErr || !newCompany) {
+        console.error("❌ Failed to create pending company:", compErr);
+        return NextResponse.json({ error: "Failed to initialize company for checkout" }, { status: 500 });
+      }
+
+      const { data: newUserProfile, error: usrErr } = await supabase
+        .from("users")
+        .insert({
+          auth_user_id: user.id,
+          company_id: newCompany.id,
+          name: user.email?.split("@")[0] || "User",
+          email: user.email,
+          role: "SUPER_ADMIN",
+          status: "ACTIVE",
+        })
+        .select("id, role, company_id, name, email, phone")
+        .single();
+
+      if (usrErr || !newUserProfile) {
+        console.error("❌ Failed to create pending user profile:", usrErr);
+        // rollback
+        await supabase.from("companies").delete().eq("id", newCompany.id);
+        return NextResponse.json({ error: "Failed to initialize user profile for checkout" }, { status: 500 });
+      }
+
+      userProfile = newUserProfile;
     }
 
     // 3. Ensure role is SUPER_ADMIN

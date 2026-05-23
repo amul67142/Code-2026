@@ -10,6 +10,7 @@ const PROTECTED_ROUTES = [
   "/reports",
   "/settings",
   "/onboarding",
+  "/select-plan",
 ];
 
 /** Routes that authenticated users should be redirected away from */

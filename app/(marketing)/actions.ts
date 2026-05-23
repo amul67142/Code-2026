@@ -59,7 +59,7 @@ export async function signup(formData: FormData) {
     const name = email.split("@")[0];
     await sendWelcomeEmail(email, name);
     revalidatePath("/", "layout");
-    redirect("/onboarding");
+    redirect("/select-plan");
   }
 
   // Email confirmation is still enabled (fallback)

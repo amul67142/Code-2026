@@ -5,27 +5,28 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { LoginForm } from "./login-form";
 export const metadata = {
-  title: "Log In — Big Lead CRM",
-  description: "Sign in to your Big Lead CRM account",
+  title: "Log In — BigLead CRM",
+  description: "Sign in to your BigLead CRM account",
 };
 
 /**
- * Login page — placeholder form.
- * Full authentication will be built in Phase 3.
+ * Login page.
  */
 export default function LoginPage() {
   return (
     <div className="flex items-center justify-center min-h-screen px-4 bg-[#F7F8FA]">
       <Card className="w-full max-w-[400px] border-gray-200 shadow-sm">
         <CardHeader className="text-center pb-2">
-          <div className="flex items-center justify-center size-10 rounded-lg bg-gray-900 text-white text-sm font-bold mx-auto mb-3">
-            B
+          <div className="flex items-center justify-center gap-1.5 mx-auto mb-3">
+            <span className="text-2xl font-black tracking-tight text-zinc-900">
+              BigLead<span className="text-zinc-500">CRM</span>
+            </span>
           </div>
           <CardTitle className="text-lg font-semibold text-gray-900">
             Welcome back
           </CardTitle>
           <p className="text-sm text-gray-500">
-            Sign in to your Big Lead account
+            Sign in to your BigLead account
           </p>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
@@ -36,7 +37,7 @@ export default function LoginPage() {
               href="/signup"
               className="text-gray-900 font-medium hover:underline"
             >
-              Start free trial
+              Sign up
             </Link>
           </p>
         </CardContent>

@@ -33,80 +33,135 @@ export async function completeOnboarding(data: OnboardingData) {
   const adminClient = createAdminClient();
 
   try {
-    // 1. Check if user already exists in public.users to prevent double-onboarding
+    // 1. Check if user profile already exists
     const { data: existingUser } = await adminClient
       .from("users")
-      .select("id")
+      .select("id, company_id, companies(name)")
       .eq("auth_user_id", user.id)
-      .single();
+      .maybeSingle();
 
-    if (existingUser) {
-      // Already fully onboarded, just redirect
-      revalidatePath("/", "layout");
-    } else {
-
-    // 2. Insert Company
     const baseSubdomain = data.companyName.toLowerCase().replace(/[^a-z0-9]/g, '');
     const subdomain = `${baseSubdomain}-${Math.floor(Math.random() * 10000)}`;
 
-    const { data: company, error: companyError } = await adminClient
-      .from("companies")
-      .insert({
-        name: data.companyName,
-        subdomain,
-        status: "ACTIVE",
-        timezone: data.timezone || "Asia/Kolkata",
-        currency: data.currency || "INR",
-        settings: {
-          industry: data.industry,
-          team_size: data.teamSize,
-          lead_sources: data.leadSources,
-        },
-      })
-      .select("id")
-      .single();
+    let companyId = existingUser?.company_id;
 
-    if (companyError || !company) {
-      console.error("Company Error:", companyError);
-      return { error: "Failed to create workspace" };
-    }
+    if (existingUser && existingUser.companies && (existingUser.companies as any).name !== "Pending Onboarding") {
+      // Already fully onboarded, just redirect
+      revalidatePath("/", "layout");
+    } else if (existingUser) {
+      // Update pre-created company
+      const { error: companyError } = await adminClient
+        .from("companies")
+        .update({
+          name: data.companyName,
+          subdomain,
+          status: "ACTIVE",
+          timezone: data.timezone || "Asia/Kolkata",
+          currency: data.currency || "INR",
+          settings: {
+            industry: data.industry,
+            team_size: data.teamSize,
+            lead_sources: data.leadSources,
+          },
+        })
+        .eq("id", companyId);
 
-    // 3. Insert User as SUPER_ADMIN
-    const { error: userError } = await adminClient
-      .from("users")
-      .insert({
-        auth_user_id: user.id,
-        company_id: company.id,
-        name: `${data.firstName} ${data.lastName}`.trim(),
-        email: user.email,
-        role: "SUPER_ADMIN",
-        status: "ACTIVE",
-        phone: data.phone || null,
-      });
+      if (companyError) {
+        console.error("Company Update Error:", companyError);
+        return { error: "Failed to update workspace details" };
+      }
 
-    if (userError) {
-      console.error("User Error:", userError);
-      // Rollback: delete the company we just created to avoid orphaned data
-      await adminClient.from("companies").delete().eq("id", company.id);
-      return { error: "Failed to create user profile. Please try again." };
-    }
+      // Update pre-created user
+      const { error: userError } = await adminClient
+        .from("users")
+        .update({
+          name: `${data.firstName} ${data.lastName}`.trim(),
+          phone: data.phone || null,
+        })
+        .eq("id", existingUser.id);
 
-    // 4. Create default pipeline stages if user selected them
-    const stages = data.pipelineStages.length > 0
-      ? data.pipelineStages
-      : ["New Lead", "Contacted", "Qualified", "Site Visit", "Negotiation", "Won", "Lost"];
+      if (userError) {
+        console.error("User Update Error:", userError);
+        return { error: "Failed to update profile details" };
+      }
 
-    for (let i = 0; i < stages.length; i++) {
-      await adminClient.from("pipeline_stages").insert({
-        company_id: company.id,
-        name: stages[i],
-        stage_order: i,
-        color: ["#6366f1", "#3b82f6", "#f59e0b", "#10b981", "#8b5cf6", "#22c55e", "#ef4444"][i % 7],
-      });
-    }
+      // Create default pipeline stages for the company
+      const stages = data.pipelineStages.length > 0
+        ? data.pipelineStages
+        : ["New Lead", "Contacted", "Qualified", "Site Visit", "Negotiation", "Won", "Lost"];
+
+      // Clear standard placeholder pipeline stages if any exist
+      await adminClient.from("pipeline_stages").delete().eq("company_id", companyId);
+
+      for (let i = 0; i < stages.length; i++) {
+        await adminClient.from("pipeline_stages").insert({
+          company_id: companyId,
+          name: stages[i],
+          stage_order: i,
+          color: ["#6366f1", "#3b82f6", "#f59e0b", "#10b981", "#8b5cf6", "#22c55e", "#ef4444"][i % 7],
+        });
+      }
 
       revalidatePath("/", "layout");
-    } // end else
+    } else {
+      // Regular onboarding flow fallback: insert brand new rows
+      const { data: company, error: companyError } = await adminClient
+        .from("companies")
+        .insert({
+          name: data.companyName,
+          subdomain,
+          status: "ACTIVE",
+          timezone: data.timezone || "Asia/Kolkata",
+          currency: data.currency || "INR",
+          settings: {
+            industry: data.industry,
+            team_size: data.teamSize,
+            lead_sources: data.leadSources,
+          },
+        })
+        .select("id")
+        .single();
+
+      if (companyError || !company) {
+        console.error("Company Error:", companyError);
+        return { error: "Failed to create workspace" };
+      }
+
+      companyId = company.id;
+
+      const { error: userError } = await adminClient
+        .from("users")
+        .insert({
+          auth_user_id: user.id,
+          company_id: companyId,
+          name: `${data.firstName} ${data.lastName}`.trim(),
+          email: user.email,
+          role: "SUPER_ADMIN",
+          status: "ACTIVE",
+          phone: data.phone || null,
+        });
+
+      if (userError) {
+        console.error("User Error:", userError);
+        await adminClient.from("companies").delete().eq("id", companyId);
+        return { error: "Failed to create user profile. Please try again." };
+      }
+
+      const stages = data.pipelineStages.length > 0
+        ? data.pipelineStages
+        : ["New Lead", "Contacted", "Qualified", "Site Visit", "Negotiation", "Won", "Lost"];
+
+      for (let i = 0; i < stages.length; i++) {
+        await adminClient.from("pipeline_stages").insert({
+          company_id: companyId,
+          name: stages[i],
+          stage_order: i,
+          color: ["#6366f1", "#3b82f6", "#f59e0b", "#10b981", "#8b5cf6", "#22c55e", "#ef4444"][i % 7],
+        });
+      }
+
+      revalidatePath("/", "layout");
+    }
 
   } catch (err: any) {
     console.error("Onboarding Error:", err);

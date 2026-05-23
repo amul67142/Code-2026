@@ -22,27 +22,46 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const headersList = await headers();
   const pathname = headersList.get("x-pathname") || "";
 
-  // Check if user has completed onboarding (has a public.users profile)
+  // Check if user has completed onboarding (has a public.users profile AND company name is not "Pending Onboarding")
   const adminClient = createAdminClient();
   const { data: userProfile } = await adminClient
     .from("users")
-    .select("id, role, company_id, name, email")
+    .select("id, role, company_id, name, email, companies(name)")
     .eq("auth_user_id", user.id)
-    .single();
+    .maybeSingle();
 
-  const isOnboarded = !!userProfile;
-
-  // Enforce onboarding route logic
-  if (!isOnboarded && pathname !== "/onboarding") {
-    redirect("/onboarding");
+  // Check subscription status
+  let hasPaid = false;
+  if (userProfile?.company_id) {
+    const { data: sub } = await adminClient
+      .from("subscriptions")
+      .select("status")
+      .eq("company_id", userProfile.company_id)
+      .maybeSingle();
+    hasPaid = sub?.status === "ACTIVE";
   }
 
-  if (isOnboarded && pathname === "/onboarding") {
-    redirect("/dashboard");
+  const companyName = (userProfile?.companies as any)?.name;
+  const isOnboarded = !!userProfile && companyName && companyName !== "Pending Onboarding";
+
+  // Enforce payment redirect if they haven't paid yet
+  if (!hasPaid) {
+    if (pathname !== "/select-plan") {
+      redirect("/select-plan");
+    }
+  } else {
+    // If they have paid, but haven't onboarded yet
+    if (!isOnboarded && pathname !== "/onboarding") {
+      redirect("/onboarding");
+    }
+    // If they have paid AND onboarded, they shouldn't go to onboarding or select-plan
+    if (isOnboarded && (pathname === "/onboarding" || pathname === "/select-plan")) {
+      redirect("/dashboard");
+    }
   }
 
-  // If not onboarded and on the onboarding page, ONLY render the children (no sidebar/header)
-  if (!isOnboarded) {
+  // If not fully onboarded (either not paid or on the onboarding page), ONLY render the children (no sidebar/header)
+  if (!hasPaid || !isOnboarded) {
     return <>{children}</>;
   }
 
