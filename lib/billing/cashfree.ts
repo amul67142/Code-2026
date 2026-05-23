@@ -66,7 +66,7 @@ export interface SubscriptionPlanDetails {
   plan_max_amount?: number;
   plan_recurring_amount?: number;
   plan_intervals?: number;
-  plan_interval_type?: "WEEK" | "MONTH" | "YEAR";
+  plan_interval_type?: "WEEK" | "MONTH" | "YEAR" | "week" | "month" | "year";
 }
 
 export interface CreateSubscriptionParams {
@@ -79,7 +79,7 @@ export interface CreateSubscriptionParams {
 
 export const cashfree = {
   /**
-   * Create a Subscription with either inline plan details or a specific plan_id.
+   * Create a Subscription with either inline plan details (via planInfo) or a specific plan_id (via plan_details).
    * Returns details including the customer's authorization/checkout link.
    */
   async createSubscription(params: CreateSubscriptionParams) {
@@ -90,7 +90,6 @@ export const cashfree = {
         customer_email: params.customer_details.customer_email,
         customer_phone: params.customer_details.customer_phone,
       },
-      plan_details: params.plan_details,
       authorization_details: {
         authorization_amount: 1, // Standard authorization charge (typically refunded)
         authorization_amount_refund: true,
@@ -101,9 +100,28 @@ export const cashfree = {
       },
     };
 
+    // If a pre-registered plan ID is provided, use plan_details
+    if (params.plan_details.plan_id) {
+      payload.plan_details = {
+        plan_id: params.plan_details.plan_id,
+      };
+    } else {
+      // Otherwise, build the camelCase planInfo schema for inline subscriptions
+      payload.planInfo = {
+        type: params.plan_details.plan_type || "PERIODIC",
+        planName: params.plan_details.plan_name || "Subscription Plan",
+        recurringAmount: params.plan_details.plan_recurring_amount,
+        maxAmount: params.plan_details.plan_max_amount || (params.plan_details.plan_recurring_amount ? params.plan_details.plan_recurring_amount * 12 : 5000), // Default limit to 12 cycles or 5000 if not set
+        intervals: params.plan_details.plan_intervals || 1,
+        intervalType: (params.plan_details.plan_interval_type || "month").toLowerCase(),
+      };
+    }
+
     if (params.expiry_time) {
       payload.subscription_expiry_time = params.expiry_time;
     }
+
+    console.log("📤 Cashfree Subscriptions request payload:", JSON.stringify(payload, null, 2));
 
     return cashfreeRequest({
       method: "POST",
