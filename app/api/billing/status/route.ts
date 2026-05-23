@@ -42,7 +42,6 @@ export async function GET() {
         razorpay_sub_id,
         current_period_start,
         current_period_end,
-        cancelled_at,
         amount_inr,
         plan_id,
         pricing_plans:plan_id (

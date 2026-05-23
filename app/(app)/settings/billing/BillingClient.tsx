@@ -50,7 +50,7 @@ interface BillingStatus {
     razorpay_sub_id: string;
     current_period_start: string | null;
     current_period_end: string | null;
-    cancelled_at: string | null;
+    cancelled_at?: string | null;
     amount_inr: number;
     plan_id: string;
     pricing_plans: {

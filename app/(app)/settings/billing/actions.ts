@@ -40,7 +40,6 @@ export async function cancelSubscriptionAction(subscriptionId: string) {
       .from("subscriptions")
       .update({
         status: "CANCELLED",
-        cancelled_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
       .eq("razorpay_sub_id", subscriptionId);
