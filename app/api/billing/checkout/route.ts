@@ -84,7 +84,7 @@ export async function POST(request: Request) {
       try {
         await cashfree.createPlan({
           plan_id: planIdOnCashfree,
-          plan_name: `${plan.name} Plan - ${plan.price_inr} INR/mo`,
+          plan_name: `${plan.name} Plan ${plan.price_inr} INR`,
           plan_type: "PERIODIC",
           plan_currency: "INR",
           plan_max_amount: plan.price_inr,
