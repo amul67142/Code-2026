@@ -173,7 +173,7 @@ export function generateInvoiceHtml({
                 <a href="${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/settings/billing" class="button">Manage Billing Dashboard</a>
               </div>
 
-              <p style="margin-bottom: 0; font-size: 13px; text-align: center; color: #a1a1aa;">If you have any questions or did not authorize this charge, please contact <a href="mailto:support@biglead.site" style="color: #71717a; text-decoration: underline;">support@biglead.site</a>.</p>
+              <p style="margin-bottom: 0; font-size: 13px; text-align: center; color: #a1a1aa;">If you have any questions or did not authorize this charge, please contact <a href="mailto:info@bigleads.site" style="color: #71717a; text-decoration: underline;">info@bigleads.site</a>.</p>
             </div>
             <div class="footer">
               &copy; 2026 BigLead CRM. All rights reserved.<br>

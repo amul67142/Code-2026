@@ -3,6 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 import { razorpayClient } from "@/lib/billing/razorpay";
 import { UserRole } from "@/types";
 
+const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID;
+
 export async function POST(request: Request) {
   try {
     const supabase = await createClient();
@@ -126,10 +128,20 @@ export async function POST(request: Request) {
       throw upsertError;
     }
 
-    // 12. Return the hosted redirect short_url to the frontend!
+    // 12. Return subscription data for frontend Razorpay Checkout.js inline popup
     return NextResponse.json({
       subscriptionId: rzpSubscription.id,
-      shortUrl: rzpSubscription.short_url,
+      razorpayKeyId: RAZORPAY_KEY_ID,
+      plan: {
+        name: plan.name,
+        price_inr: plan.price_inr,
+        description: plan.description,
+      },
+      customer: {
+        name: userProfile.name || company?.name || "Company Admin",
+        email: company?.billing_email || userProfile.email,
+        phone: userProfile.phone || "",
+      },
     });
 
   } catch (err: any) {

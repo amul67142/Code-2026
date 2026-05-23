@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useState, useTransition, useCallback } from "react";
+import Script from "next/script";
 import { cancelSubscriptionAction } from "./actions";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,7 +15,10 @@ import {
   XCircle,
   Clock,
   Loader2,
-  Receipt
+  Receipt,
+  Download,
+  X,
+  ArrowRight
 } from "lucide-react";
 
 interface PlanFeature {
@@ -84,6 +88,13 @@ export function BillingClient() {
   const [isPending, startTransition] = useTransition();
   const [activationState, setActivationState] = useState<"idle" | "verifying" | "success" | "pending">("idle");
   const [polledCount, setPolledCount] = useState(0);
+  const [selectedPlan, setSelectedPlan] = useState<PricingPlan | null>(null);
+  const [checkoutData, setCheckoutData] = useState<{
+    subscriptionId: string;
+    razorpayKeyId: string;
+    customer: { name: string; email: string; phone: string };
+  } | null>(null);
+  const [confirmLoading, setConfirmLoading] = useState(false);
 
   const handleCloseActivation = () => {
     setActivationState("idle");
@@ -91,6 +102,35 @@ export function BillingClient() {
     url.search = "";
     window.history.replaceState({}, document.title, url.pathname);
   };
+
+  const startActivationPolling = useCallback(() => {
+    setActivationState("verifying");
+    let count = 0;
+    const interval = setInterval(async () => {
+      count++;
+      setPolledCount(count);
+      try {
+        const res = await fetch("/api/billing/status");
+        const statusData = await res.json();
+        if (statusData && !statusData.error) {
+          setStatus(statusData);
+          if (statusData.subscription?.status === "ACTIVE" || statusData.company?.status === "ACTIVE") {
+            clearInterval(interval);
+            setActivationState("success");
+            toast.success("🎉 Plan activated successfully! Now you can access all features!");
+            return;
+          }
+        }
+      } catch (err) {
+        console.error("Polling error:", err);
+      }
+      if (count >= 6) {
+        clearInterval(interval);
+        setActivationState("pending");
+      }
+    }, 2500);
+    return () => clearInterval(interval);
+  }, []);
 
   const fetchBillingData = async () => {
     try {
@@ -118,55 +158,32 @@ export function BillingClient() {
   useEffect(() => {
     fetchBillingData();
 
-    // Check if session redirect has completed with standard parameters
+    // Check if returning from a Razorpay redirect
     const params = new URLSearchParams(window.location.search);
     const hasRazorpay = params.get("razorpay_subscription_id") || params.get("razorpay_payment_id");
     const hasSession = params.get("session_id");
 
     if (hasRazorpay || hasSession) {
-      setActivationState("verifying");
-      
-      let count = 0;
-      const interval = setInterval(async () => {
-        count++;
-        setPolledCount(count);
-        
-        try {
-          const res = await fetch("/api/billing/status");
-          const statusData = await res.json();
-          
-          if (statusData && !statusData.error) {
-            setStatus(statusData);
-            
-            if (statusData.subscription?.status === "ACTIVE" || statusData.company?.status === "ACTIVE") {
-              clearInterval(interval);
-              setActivationState("success");
-              toast.success("🎉 Plan activated successfully! Now you can access all features!");
-              return;
-            }
-          }
-        } catch (err) {
-          console.error("Polling error:", err);
-        }
-        
-        if (count >= 6) {
-          clearInterval(interval);
-          setActivationState("pending");
-        }
-      }, 2500);
-
-      return () => clearInterval(interval);
+      startActivationPolling();
     }
-  }, []);
+  }, [startActivationPolling]);
 
-  const handleCheckout = async (plan: PricingPlan) => {
-    setCheckoutLoadingId(plan.id);
+  // Step 1: User clicks upgrade → opens confirmation modal
+  const handleCheckout = (plan: PricingPlan) => {
+    setSelectedPlan(plan);
+    setCheckoutData(null);
+    setConfirmLoading(false);
+  };
+
+  // Step 2: User confirms → create subscription on backend + open Razorpay popup
+  const handleProceedToPay = async () => {
+    if (!selectedPlan) return;
+    setConfirmLoading(true);
     try {
-      // 1. Request Subscription Checkout session from backend
       const res = await fetch("/api/billing/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ planId: plan.id })
+        body: JSON.stringify({ planId: selectedPlan.id })
       });
 
       const data = await res.json();
@@ -174,17 +191,52 @@ export function BillingClient() {
         throw new Error(data.error || "Failed to initiate payment session.");
       }
 
-      if (data.shortUrl) {
-        toast.info("Redirecting you to Razorpay secure checkout...");
-        // Bypasses React SDK dynamic scripts entirely! Pure secure hosted redirect.
-        window.location.href = data.shortUrl;
-      } else {
-        throw new Error("No payment link returned by checkout provider.");
+      // Open Razorpay inline checkout popup
+      const win = window as any;
+      if (!win.Razorpay) {
+        throw new Error("Razorpay SDK not loaded. Please refresh and try again.");
       }
+
+      const options = {
+        key: data.razorpayKeyId,
+        subscription_id: data.subscriptionId,
+        name: "BigLead CRM",
+        description: `${selectedPlan.name} Plan — Monthly Subscription`,
+        prefill: {
+          name: data.customer.name,
+          email: data.customer.email,
+          contact: data.customer.phone,
+        },
+        theme: {
+          color: "#09090b",
+          backdrop_color: "rgba(0,0,0,0.6)",
+        },
+        modal: {
+          ondismiss: () => {
+            toast.info("Payment window closed. You can retry anytime.");
+            setConfirmLoading(false);
+          },
+        },
+        handler: () => {
+          // Payment succeeded — close modal and start polling
+          setSelectedPlan(null);
+          setCheckoutData(null);
+          setConfirmLoading(false);
+          startActivationPolling();
+        },
+      };
+
+      const rzp = new win.Razorpay(options);
+      rzp.on("payment.failed", (response: any) => {
+        console.error("Payment failed:", response.error);
+        toast.error(response.error?.description || "Payment failed. Please try again.");
+        setConfirmLoading(false);
+      });
+      rzp.open();
     } catch (err: any) {
       console.error(err);
       toast.error(err.message || "An unexpected error occurred.");
-      setCheckoutLoadingId(null);
+      setConfirmLoading(false);
     }
   };
 
@@ -448,6 +500,75 @@ export function BillingClient() {
         </Card>
       </div>
 
+      {/* Razorpay Checkout.js Script */}
+      <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="lazyOnload" />
+
+      {/* ═══ Plan Confirmation Modal ═══ */}
+      {selectedPlan && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-lg mx-4 bg-white rounded-2xl border border-zinc-200 shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-6 py-4 bg-zinc-50 border-b border-zinc-100">
+              <h3 className="text-base font-bold text-zinc-900">Confirm Your Upgrade</h3>
+              <button onClick={() => { setSelectedPlan(null); setConfirmLoading(false); }} className="p-1.5 rounded-lg hover:bg-zinc-200/60 transition-colors">
+                <X className="size-4 text-zinc-500" />
+              </button>
+            </div>
+
+            {/* Plan Details */}
+            <div className="px-6 py-5 space-y-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-zinc-400 font-bold uppercase tracking-wider">Selected Plan</p>
+                  <h4 className="text-xl font-extrabold text-zinc-900 mt-1">{selectedPlan.name}</h4>
+                  <p className="text-xs text-zinc-500 mt-0.5">{selectedPlan.description}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-3xl font-black text-zinc-900">₹{selectedPlan.price_inr}</p>
+                  <p className="text-xs text-zinc-500 font-medium">/month</p>
+                </div>
+              </div>
+
+              {/* Features checklist */}
+              <div className="bg-zinc-50 rounded-xl border border-zinc-100 p-4">
+                <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider mb-3">What's Included</p>
+                <ul className="space-y-2">
+                  {selectedPlan.features.map((f, i) => (
+                    <li key={i} className="flex items-center gap-2.5 text-xs">
+                      <Check className={`size-3.5 shrink-0 ${f.included ? "text-emerald-500" : "text-zinc-300"}`} />
+                      <span className={f.included ? "text-zinc-700" : "text-zinc-400 line-through"}>{f.text}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              {/* Total */}
+              <div className="flex items-center justify-between px-4 py-3 bg-zinc-900 rounded-xl">
+                <span className="text-sm font-semibold text-zinc-400">Total Due Today</span>
+                <span className="text-xl font-black text-white">₹{selectedPlan.price_inr}</span>
+              </div>
+
+              {/* CTA */}
+              <Button
+                onClick={handleProceedToPay}
+                disabled={confirmLoading}
+                className="w-full bg-zinc-900 hover:bg-zinc-800 text-white font-bold py-5 rounded-xl shadow-md hover:shadow-lg transition-all text-sm"
+              >
+                {confirmLoading ? (
+                  <><Loader2 className="size-4 animate-spin mr-2" /> Processing...</>
+                ) : (
+                  <><CreditCard className="size-4 mr-2" /> Proceed to Pay <ArrowRight className="size-4 ml-1" /></>
+                )}
+              </Button>
+
+              <p className="text-[10px] text-zinc-400 text-center">
+                🔒 Secured by Razorpay. Your card details are never stored on our servers.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Pricing Comparison Plan Grid */}
       <div>
         <div className="mb-6">
@@ -456,7 +577,7 @@ export function BillingClient() {
             Available Pricing Plans
           </h2>
           <p className="text-sm text-zinc-500">
-            Upgrade or change your current plan dynamically. Selected upgrades will redirect to Razorpay hosted Mandate setup.
+            Upgrade or change your current plan. Review features before checkout.
           </p>
         </div>
 
@@ -527,15 +648,10 @@ export function BillingClient() {
                       disabled={isCurrent || isLoading}
                       onClick={() => handleCheckout(plan)}
                     >
-                      {isLoading ? (
-                        <>
-                          <Loader2 className="size-4 animate-spin mr-2" />
-                          Redirecting...
-                        </>
-                      ) : isCurrent ? (
+                      {isCurrent ? (
                         "Current Plan"
                       ) : (
-                        `Upgrade to ${plan.name}`
+                        <><Sparkles className="size-3.5 mr-1.5" /> Upgrade to {plan.name}</>
                       )}
                     </Button>
                   )}
@@ -578,6 +694,7 @@ export function BillingClient() {
                       <th className="p-4">Billing Window</th>
                       <th className="p-4">Amount</th>
                       <th className="p-4">Status</th>
+                      <th className="p-4 text-center">Receipt</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -610,6 +727,17 @@ export function BillingClient() {
                             }`} />
                             {inv.status}
                           </span>
+                        </td>
+                        <td className="p-4 text-center">
+                          <a
+                            href={`/api/billing/invoice/${inv.id}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-zinc-100 hover:bg-zinc-200 text-zinc-700 text-[10px] font-bold transition-colors"
+                          >
+                            <Download className="size-3" />
+                            Download
+                          </a>
                         </td>
                       </tr>
                     ))}
