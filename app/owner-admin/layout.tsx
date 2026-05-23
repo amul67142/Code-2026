@@ -19,7 +19,7 @@ const navigation = [
   { name: "Companies", href: "/owner-admin/companies", icon: Building2 },
   { name: "Users", href: "/owner-admin/users", icon: Users },
   { name: "Pricing", href: "/owner-admin/pricing", icon: Tag },
-  { name: "Payments", href: "/owner-admin/payments", icon: CreditCard, locked: true },
+  { name: "Payments", href: "/owner-admin/payments", icon: CreditCard },
   { name: "Tickets", href: "/owner-admin/tickets", icon: LifeBuoy, locked: true },
 ];
 

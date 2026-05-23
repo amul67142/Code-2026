@@ -125,3 +125,101 @@ export async function deletePricingPlan(id: string) {
   revalidatePath("/owner-admin/pricing");
   revalidatePath("/");
 }
+
+export async function getOwnerRevenueMetrics() {
+  const supabase = createAdminClient();
+
+  // 1. Fetch Invoices with joined company names
+  const { data: invoices, error: invoicesError } = await supabase
+    .from("invoices")
+    .select(`
+      id,
+      invoice_number,
+      amount_inr,
+      status,
+      paid_at,
+      companies:company_id (
+        name
+      )
+    `)
+    .order("paid_at", { ascending: false });
+
+  if (invoicesError) {
+    console.error("❌ Failed to query invoices:", invoicesError);
+    throw new Error("Failed to fetch invoices metrics");
+  }
+
+  // 2. Fetch Active Subscriptions with dynamic plans
+  const { data: subscriptions, error: subsError } = await supabase
+    .from("subscriptions")
+    .select(`
+      id,
+      status,
+      amount_inr,
+      pricing_plans:plan_id (name)
+    `)
+    .eq("status", "ACTIVE");
+
+  if (subsError) {
+    console.error("❌ Failed to query active subscriptions:", subsError);
+    throw new Error("Failed to fetch active subscriptions metrics");
+  }
+
+  // 3. Compute Metrics
+  const paidInvoices = invoices?.filter(i => i.status === "PAID") || [];
+  const totalRevenue = paidInvoices.reduce((acc, curr) => acc + curr.amount_inr, 0);
+  const activeMrr = subscriptions?.reduce((acc, curr) => acc + curr.amount_inr, 0) || 0;
+  
+  const totalTransactions = invoices?.length || 0;
+
+  // Plan Distribution of active subscriptions
+  const planDistribution = subscriptions?.reduce((acc: Record<string, number>, curr) => {
+    const planName = (curr.pricing_plans as any)?.name || "Unknown";
+    acc[planName] = (acc[planName] || 0) + 1;
+    return acc;
+  }, {}) || {};
+
+  // Formatted Plan distribution for charts
+  const planDistributionArray = Object.keys(planDistribution).map(name => ({
+    name,
+    value: planDistribution[name]
+  }));
+
+  // 4. Compute monthly revenue logs for drawing Recharts charts
+  // Group paid invoices by month (YYYY-MM)
+  const monthlyRevenueMap: Record<string, number> = {};
+  paidInvoices.forEach(inv => {
+    if (!inv.paid_at) return;
+    const date = new Date(inv.paid_at);
+    const key = date.toLocaleDateString("en-IN", { month: "short", year: "numeric" });
+    monthlyRevenueMap[key] = (monthlyRevenueMap[key] || 0) + inv.amount_inr;
+  });
+
+  // Convert map to sorted array
+  const monthlyRevenueArray = Object.keys(monthlyRevenueMap).map(month => ({
+    month,
+    revenue: monthlyRevenueMap[month]
+  })).reverse(); // Order from oldest to newest
+
+  // Format invoices to guarantee singular company object structure
+  const formattedInvoices = (invoices?.slice(0, 20) || []).map((inv: any) => {
+    const company = Array.isArray(inv.companies) ? inv.companies[0] : inv.companies;
+    return {
+      id: inv.id,
+      invoice_number: inv.invoice_number,
+      amount_inr: inv.amount_inr,
+      status: inv.status,
+      paid_at: inv.paid_at,
+      companies: company ? { name: company.name } : null
+    };
+  });
+
+  return {
+    totalRevenue,
+    activeMrr,
+    totalTransactions,
+    recentInvoices: formattedInvoices,
+    planDistribution: planDistributionArray,
+    monthlyRevenue: monthlyRevenueArray.length > 0 ? monthlyRevenueArray : [{ month: "No Sales", revenue: 0 }]
+  };
+}

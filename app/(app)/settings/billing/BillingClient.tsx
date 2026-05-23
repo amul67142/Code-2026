@@ -1,0 +1,498 @@
+"use client";
+
+import { useEffect, useState, useTransition } from "react";
+import { cancelSubscriptionAction } from "./actions";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
+import { 
+  CreditCard, 
+  Check, 
+  Sparkles, 
+  Calendar, 
+  Receipt, 
+  AlertTriangle, 
+  Loader2, 
+  ExternalLink,
+  ShieldCheck,
+  XCircle,
+  Clock
+} from "lucide-react";
+
+interface PlanFeature {
+  text: string;
+  included: boolean;
+}
+
+interface PricingPlan {
+  id: string;
+  name: string;
+  description: string;
+  price_inr: number;
+  priceINR: string;
+  priceUSD: string;
+  period: string;
+  is_popular: boolean;
+  is_custom_price: boolean;
+  cta_text: string;
+  features: PlanFeature[];
+}
+
+interface BillingStatus {
+  company: {
+    id: string;
+    name: string;
+    legacyPlan: string;
+    status: "TRIAL" | "ACTIVE" | "PAUSED" | "CANCELLED";
+    billingEmail: string | null;
+  };
+  subscription: {
+    id: string;
+    status: "ACTIVE" | "PAST_DUE" | "CANCELLED" | "TRIALING";
+    cashfree_sub_id: string;
+    current_period_start: string | null;
+    current_period_end: string | null;
+    cancelled_at: string | null;
+    amount_inr: number;
+    plan_id: string;
+    pricing_plans: {
+      id: string;
+      name: string;
+      description: string;
+      price_inr: number;
+    } | null;
+  } | null;
+  trial: {
+    endsAt: string | null;
+    isActive: boolean;
+    daysRemaining: number;
+  };
+  invoices: Array<{
+    id: string;
+    invoice_number: string;
+    amount_inr: number;
+    status: string;
+    paid_at: string;
+    billing_period_start: string;
+    billing_period_end: string;
+  }>;
+}
+
+export function BillingClient() {
+  const [loading, setLoading] = useState(true);
+  const [checkoutLoadingId, setCheckoutLoadingId] = useState<string | null>(null);
+  const [status, setStatus] = useState<BillingStatus | null>(null);
+  const [plans, setPlans] = useState<PricingPlan[]>([]);
+  const [isPending, startTransition] = useTransition();
+
+  const fetchBillingData = async () => {
+    try {
+      const [statusRes, plansRes] = await Promise.all([
+        fetch("/api/billing/status"),
+        fetch("/api/pricing")
+      ]);
+
+      const statusData = await statusRes.json();
+      const plansData = await plansRes.json();
+
+      if (statusData.error) throw new Error(statusData.error);
+      if (plansData.error) throw new Error(plansData.error);
+
+      setStatus(statusData);
+      setPlans(plansData);
+    } catch (err: any) {
+      console.error("Failed to load billing context:", err);
+      toast.error(err.message || "Failed to load billing metrics.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchBillingData();
+
+    // Check if session redirect has completed with standard parameters
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("session_id")) {
+      toast.success("Subscription authorization link completed! We are waiting for your bank/Cashfree to approve the mandate.");
+      // Clear the query parameter cleanly to keep URL pristine
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, []);
+
+  const handleCheckout = async (plan: PricingPlan) => {
+    setCheckoutLoadingId(plan.id);
+    try {
+      const res = await fetch("/api/billing/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ planId: plan.id })
+      });
+
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        throw new Error(data.error || "Failed to initiate payment session.");
+      }
+
+      if (data.authLink) {
+        toast.info("Redirecting you to Cashfree secure authorization...");
+        window.location.href = data.authLink;
+      } else {
+        throw new Error("No payment link returned by checkout provider.");
+      }
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "An unexpected error occurred.");
+      setCheckoutLoadingId(null);
+    }
+  };
+
+  const handleCancelSubscription = async () => {
+    if (!status?.subscription?.cashfree_sub_id) return;
+    
+    if (!confirm("Are you absolutely sure you want to cancel your CRM subscription? Your pipeline and automated workflows will be paused at the end of the billing cycle.")) {
+      return;
+    }
+
+    startTransition(async () => {
+      const res = await cancelSubscriptionAction(status.subscription!.cashfree_sub_id);
+      if (res.success) {
+        toast.success("Subscription cancelled successfully.");
+        fetchBillingData();
+      } else {
+        toast.error(res.error || "Failed to process cancellation.");
+      }
+    });
+  };
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
+        <Loader2 className="size-8 text-zinc-900 animate-spin" />
+        <p className="text-sm text-zinc-500 font-medium">Retrieving billing status & pricing details...</p>
+      </div>
+    );
+  }
+
+  const activeSub = status?.subscription;
+  const isTrialActive = status?.trial.isActive;
+  const daysRemaining = status?.trial.daysRemaining || 0;
+
+  return (
+    <div className="space-y-8 max-w-6xl">
+      {/* Page Title Header */}
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight">Billing & Subscriptions</h1>
+        <p className="text-sm text-zinc-500">
+          Manage your subscription plans, view invoice transactions, and configure payment options.
+        </p>
+      </div>
+
+      {/* Trial Alert Notice Banner */}
+      {isTrialActive && (
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 p-5 rounded-2xl bg-amber-50/50 border border-amber-200/60 shadow-sm">
+          <div className="flex gap-3 items-start">
+            <Clock className="size-5 text-amber-600 mt-0.5 shrink-0" />
+            <div>
+              <h3 className="text-sm font-semibold text-amber-900">Your Free Trial is Active</h3>
+              <p className="text-xs text-amber-700/90 mt-0.5">
+                You are on the trial period. You have <strong>{daysRemaining} days remaining</strong>. Upgrade to an active paid plan to secure continuous API integration.
+              </p>
+            </div>
+          </div>
+          <div className="w-full md:w-auto flex items-center gap-2">
+            <div className="flex-1 md:w-28 bg-amber-200/50 h-2 rounded-full overflow-hidden">
+              <div 
+                className="bg-amber-600 h-full rounded-full transition-all duration-500" 
+                style={{ width: `${Math.min(100, (daysRemaining / 30) * 100)}%` }} 
+              />
+            </div>
+            <span className="text-xs font-bold text-amber-800 shrink-0">{daysRemaining}d left</span>
+          </div>
+        </div>
+      )}
+
+      {/* Subscription Summary Details Row */}
+      <div className="grid gap-6 md:grid-cols-3">
+        {/* Active plan column */}
+        <Card className="md:col-span-2 shadow-sm border-zinc-200">
+          <CardHeader>
+            <CardTitle className="text-lg">Subscription Overview</CardTitle>
+            <CardDescription>Details of your currently active workspace plan.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            <div className="flex flex-col sm:flex-row justify-between gap-4 items-start sm:items-center p-4 rounded-xl bg-zinc-50 border border-zinc-150">
+              <div>
+                <span className="text-xs text-zinc-400 font-bold uppercase tracking-wider">Current Plan</span>
+                <h3 className="text-xl font-bold text-zinc-900 mt-1">
+                  {activeSub?.pricing_plans?.name || (isTrialActive ? "Free Trial" : "No Active Plan")}
+                </h3>
+                <p className="text-xs text-zinc-500 mt-0.5">
+                  {isTrialActive 
+                    ? "Evaluating features on our complimentary tier"
+                    : activeSub?.status === "ACTIVE" 
+                    ? "Premium access fully enabled"
+                    : "No billing authorization found"}
+                </p>
+              </div>
+              <div className="sm:text-right shrink-0">
+                <span className="text-xs text-zinc-400 font-bold uppercase tracking-wider">Plan Cost</span>
+                <p className="text-xl font-black text-zinc-900 mt-1">
+                  {activeSub?.amount_inr ? `₹${activeSub.amount_inr}/mo` : isTrialActive ? "₹0 (Trial)" : "—"}
+                </p>
+              </div>
+            </div>
+
+            {activeSub && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm pt-1">
+                <div className="flex items-center gap-3 p-3 rounded-lg bg-zinc-50/50 border border-zinc-100">
+                  <Calendar className="size-4.5 text-zinc-500 shrink-0" />
+                  <div>
+                    <p className="text-[10px] text-zinc-400 font-bold uppercase">Billing Period</p>
+                    <p className="text-xs font-semibold text-zinc-800 mt-0.5">
+                      {activeSub.current_period_start 
+                        ? new Date(activeSub.current_period_start).toLocaleDateString()
+                        : "—"}
+                      {" to "}
+                      {activeSub.current_period_end
+                        ? new Date(activeSub.current_period_end).toLocaleDateString()
+                        : "—"}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3 p-3 rounded-lg bg-zinc-50/50 border border-zinc-100">
+                  <ShieldCheck className="size-4.5 text-zinc-500 shrink-0" />
+                  <div>
+                    <p className="text-[10px] text-zinc-400 font-bold uppercase">Subscription Status</p>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <span className={`size-2 rounded-full ${
+                        activeSub.status === "ACTIVE" ? "bg-emerald-500" : "bg-amber-500"
+                      }`} />
+                      <span className="text-xs font-bold text-zinc-800 uppercase tracking-wide">
+                        {activeSub.status}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Cancellation and settings card */}
+        <Card className="shadow-sm border-zinc-200">
+          <CardHeader>
+            <CardTitle className="text-lg">Subscription Actions</CardTitle>
+            <CardDescription>Configure or cancel billing details.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="text-xs text-zinc-500 space-y-2">
+              <p>For custom Enterprise terms, manual bank wire receipts, or custom contract quotes, contact support.</p>
+              <p className="font-semibold text-zinc-700">Billing Admin Email:</p>
+              <p className="font-mono text-zinc-600 truncate bg-zinc-50 p-2 rounded border">{status?.company.billingEmail || "Not configured"}</p>
+            </div>
+            
+            {activeSub && activeSub.status === "ACTIVE" ? (
+              <Button 
+                variant="outline" 
+                className="w-full text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 font-semibold"
+                onClick={handleCancelSubscription}
+                disabled={isPending}
+              >
+                {isPending ? (
+                  <>
+                    <Loader2 className="size-4 animate-spin mr-2" />
+                    Cancelling...
+                  </>
+                ) : (
+                  <>
+                    <XCircle className="size-4 mr-2" />
+                    Cancel Subscription
+                  </>
+                )}
+              </Button>
+            ) : (
+              <div className="text-center p-3 rounded-lg bg-zinc-50 border border-dashed border-zinc-200">
+                <span className="text-xs text-zinc-400">No active card or auto-debit configurations.</span>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Pricing Comparison Plan Grid */}
+      <div>
+        <div className="mb-6">
+          <h2 className="text-xl font-bold tracking-tight text-zinc-900 flex items-center gap-2">
+            <Sparkles className="size-5 text-indigo-600" />
+            Available Pricing Plans
+          </h2>
+          <p className="text-sm text-zinc-500">
+            Upgrade or change your current plan dynamically. Selected upgrades will redirect to Cashfree Autopay setup.
+          </p>
+        </div>
+
+        <div className="grid gap-6 md:grid-cols-3">
+          {plans.map((plan) => {
+            const isCurrent = activeSub?.plan_id === plan.id;
+            const isLoading = checkoutLoadingId === plan.id;
+
+            return (
+              <div 
+                key={plan.id}
+                className={`relative flex flex-col justify-between p-6 bg-white border rounded-2xl shadow-sm ${
+                  plan.is_popular 
+                    ? "border-zinc-900 ring-1 ring-zinc-900" 
+                    : "border-zinc-200"
+                }`}
+              >
+                {plan.is_popular && (
+                  <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-zinc-900 text-white text-[10px] font-bold tracking-wider uppercase px-3 py-1 rounded-full">
+                    Most Popular
+                  </span>
+                )}
+                
+                <div>
+                  <h3 className="text-lg font-bold text-zinc-900">{plan.name}</h3>
+                  <p className="text-xs text-zinc-500 mt-1 min-h-[32px]">{plan.description}</p>
+                  
+                  <div className="my-5 flex items-baseline gap-1">
+                    <span className="text-3xl font-black text-zinc-900">
+                      {plan.is_custom_price ? "Custom" : `₹${plan.price_inr}`}
+                    </span>
+                    {!plan.is_custom_price && (
+                      <span className="text-xs text-zinc-500 font-medium">/month</span>
+                    )}
+                  </div>
+
+                  <ul className="space-y-2.5 my-6 text-xs text-zinc-600 border-t border-zinc-100 pt-5">
+                    {plan.features.map((feature, i) => (
+                      <li key={i} className="flex gap-2 items-center">
+                        <Check className={`size-4 shrink-0 ${
+                          feature.included ? "text-emerald-500" : "text-zinc-300"
+                        }`} />
+                        <span className={feature.included ? "" : "line-through text-zinc-400"}>
+                          {feature.text}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                <div className="mt-4 pt-4 border-t border-zinc-100">
+                  {plan.is_custom_price ? (
+                    <a 
+                      href="mailto:sales@biglead.site?subject=Enterprise Plan Inquiry"
+                      className="inline-flex items-center justify-center w-full h-8 px-2.5 rounded-lg border border-zinc-300 bg-white text-sm font-semibold hover:bg-zinc-50 text-zinc-900 transition-all text-center"
+                    >
+                      Contact Sales
+                    </a>
+                  ) : (
+                    <Button 
+                      className={`w-full font-semibold ${
+                        isCurrent 
+                          ? "bg-zinc-100 hover:bg-zinc-150 text-zinc-600 cursor-default" 
+                          : plan.is_popular 
+                          ? "bg-zinc-900 hover:bg-zinc-850 text-white" 
+                          : "bg-white hover:bg-zinc-50 text-zinc-900 border border-zinc-300 shadow-sm"
+                      }`}
+                      disabled={isCurrent || isLoading}
+                      onClick={() => handleCheckout(plan)}
+                    >
+                      {isLoading ? (
+                        <>
+                          <Loader2 className="size-4 animate-spin mr-2" />
+                          Redirecting...
+                        </>
+                      ) : isCurrent ? (
+                        "Current Plan"
+                      ) : (
+                        `Upgrade to ${plan.name}`
+                      )}
+                    </Button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Invoice Receipts Table Log */}
+      <div>
+        <div className="mb-4">
+          <h2 className="text-xl font-bold tracking-tight text-zinc-900 flex items-center gap-2">
+            <Receipt className="size-5 text-indigo-600" />
+            Billing & Invoices History
+          </h2>
+          <p className="text-sm text-zinc-500">
+            Past payments and dynamic printable receipt logs.
+          </p>
+        </div>
+
+        <Card className="shadow-sm border-zinc-200">
+          <CardContent className="p-0">
+            {status?.invoices.length === 0 ? (
+              <div className="text-center py-12 px-4 space-y-2">
+                <Receipt className="size-10 text-zinc-300 mx-auto" />
+                <p className="text-sm font-semibold text-zinc-900">No Invoices Available</p>
+                <p className="text-xs text-zinc-500 max-w-sm mx-auto">
+                  Once your subscription is successfully charged, invoices will populate here for direct view and printing.
+                </p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="bg-zinc-50 border-b border-zinc-250 text-zinc-400 font-bold uppercase tracking-wider text-[10px]">
+                      <th className="p-4">Paid Date</th>
+                      <th className="p-4">Invoice #</th>
+                      <th className="p-4">Billing Window</th>
+                      <th className="p-4">Amount</th>
+                      <th className="p-4">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {status?.invoices.map((inv) => (
+                      <tr key={inv.id} className="border-b border-zinc-150 hover:bg-zinc-50/50">
+                        <td className="p-4 text-zinc-700">
+                          {new Date(inv.paid_at).toLocaleDateString("en-IN", {
+                            day: "2-digit",
+                            month: "short",
+                            year: "numeric"
+                          })}
+                        </td>
+                        <td className="p-4 font-mono font-bold text-zinc-900">
+                          {inv.invoice_number}
+                        </td>
+                        <td className="p-4 text-zinc-500">
+                          {new Date(inv.billing_period_start).toLocaleDateString()} to {new Date(inv.billing_period_end).toLocaleDateString()}
+                        </td>
+                        <td className="p-4 font-black text-zinc-900">
+                          ₹{inv.amount_inr}
+                        </td>
+                        <td className="p-4">
+                          <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide ${
+                            inv.status === "PAID" 
+                              ? "bg-emerald-50 text-emerald-700 border border-emerald-100" 
+                              : "bg-amber-50 text-amber-700 border border-amber-100"
+                          }`}>
+                            <span className={`size-1.5 rounded-full ${
+                              inv.status === "PAID" ? "bg-emerald-500" : "bg-amber-500"
+                            }`} />
+                            {inv.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}

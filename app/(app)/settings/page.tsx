@@ -83,7 +83,7 @@ const settingsItems = [
     description: "Manage subscription, plans, and invoices.",
     icon: CreditCard,
     href: "/settings/billing",
-    ready: false,
+    ready: true,
     minRole: "SUPER_ADMIN",
   },
   {
