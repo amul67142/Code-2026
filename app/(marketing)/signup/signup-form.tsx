@@ -47,6 +47,20 @@ export function SignupForm() {
         />
       </div>
       <div className="flex flex-col gap-1.5">
+        <Label htmlFor="phone" className="text-sm text-gray-700">
+          Phone Number
+        </Label>
+        <Input
+          id="phone"
+          name="phone"
+          type="tel"
+          placeholder="+91 98765 43210"
+          className="h-9"
+          required
+          disabled={isPending}
+        />
+      </div>
+      <div className="flex flex-col gap-1.5">
         <Label htmlFor="password" className="text-sm text-gray-700">
           Password
         </Label>

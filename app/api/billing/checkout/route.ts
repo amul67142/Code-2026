@@ -52,6 +52,7 @@ export async function POST(request: Request) {
           email: user.email,
           role: "SUPER_ADMIN",
           status: "ACTIVE",
+          phone: user.user_metadata?.phone || null,
         })
         .select("id, role, company_id, name, email, phone")
         .single();
