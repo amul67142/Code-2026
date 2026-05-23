@@ -136,9 +136,19 @@ export async function POST(request: Request) {
     }
 
     // 12. Return the authorization checkout link to frontend redirect
+    const authLink = 
+      response.authLink ||
+      response.auth_link ||
+      response.authorization_link ||
+      response.subscription_meta?.authorization_link ||
+      response.subscription_meta?.authLink ||
+      response.subscription_meta?.auth_link;
+
+    console.log(`ℹ️ Resolved checkout redirect link: ${authLink}`);
+
     return NextResponse.json({
       subscriptionId,
-      authLink: response.subscription_meta?.authorization_link || response.authorization_link,
+      authLink,
     });
 
   } catch (err: any) {
