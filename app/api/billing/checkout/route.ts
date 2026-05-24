@@ -28,13 +28,13 @@ export async function POST(request: Request) {
       // Let's create a pending company and a pending user profile so they can pay.
       // Use Admin Client to bypass RLS policies for initial guest checkout.
       const adminClient = createAdminClient();
-      const baseSubdomain = `pending-${Math.floor(Math.random() * 1000000)}`;
+      const baseSubdomain = `pending-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
       const { data: newCompany, error: compErr } = await adminClient
         .from("companies")
         .insert({
           name: "Pending Onboarding",
           subdomain: baseSubdomain,
-          status: "PENDING_PAYMENT",
+          status: "TRIAL",
           timezone: "Asia/Kolkata",
           currency: "INR",
         })
