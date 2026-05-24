@@ -36,6 +36,7 @@ export async function cancelSubscriptionAction(subscriptionId: string) {
     }
 
     // 4. Update local subscriptions table to status CANCELLED
+    //    The user retains dashboard access until current_period_end expires.
     const { error: subError } = await supabase
       .from("subscriptions")
       .update({
@@ -49,21 +50,11 @@ export async function cancelSubscriptionAction(subscriptionId: string) {
       return { success: false, error: "Failed to update subscription row" };
     }
 
-    // 5. Update companies table to status CANCELLED
-    const { error: companyError } = await supabase
-      .from("companies")
-      .update({
-        status: "CANCELLED",
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", userProfile.company_id);
+    // NOTE: We intentionally do NOT update the company status to CANCELLED here.
+    // The user keeps full dashboard access until the current billing period ends.
+    // The hasActiveAccess() utility checks current_period_end to enforce expiration.
 
-    if (companyError) {
-      console.error("❌ Failed to update company status to CANCELLED in DB:", companyError);
-      return { success: false, error: "Failed to update company row" };
-    }
-
-    console.log(`✅ Subscription ${subscriptionId} cancelled successfully.`);
+    console.log(`✅ Subscription ${subscriptionId} cancelled. Access continues until billing period ends.`);
     revalidatePath("/settings/billing");
     return { success: true };
 

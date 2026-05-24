@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { UserProvider, type UserProfile } from "@/lib/user-context";
+import { hasActiveAccess } from "@/lib/billing/access";
 
 export const metadata = {
   robots: {
@@ -38,15 +39,15 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     .eq("auth_user_id", user.id)
     .maybeSingle();
 
-  // Check subscription status
+  // Check subscription status (include current_period_end for cancelled grace period)
   let hasPaid = false;
   if (userProfile?.company_id) {
     const { data: sub } = await adminClient
       .from("subscriptions")
-      .select("status")
+      .select("status, current_period_end")
       .eq("company_id", userProfile.company_id)
       .maybeSingle();
-    hasPaid = sub?.status === "ACTIVE";
+    hasPaid = hasActiveAccess(sub);
   }
 
   const companyName = (userProfile?.companies as any)?.name;

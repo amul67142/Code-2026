@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { SelectPlanClient } from "./select-plan-client";
+import { hasActiveAccess } from "@/lib/billing/access";
 
 export const metadata = {
   title: "Unlock Your Workspace — BigLead CRM",
@@ -25,15 +26,15 @@ export default async function SelectPlanPage() {
     .eq("auth_user_id", user.id)
     .maybeSingle();
 
-  // 2. Fetch subscription status
+  // 2. Fetch subscription status (include current_period_end for cancelled grace period)
   let hasPaid = false;
   if (userProfile?.company_id) {
     const { data: sub } = await adminClient
       .from("subscriptions")
-      .select("status")
+      .select("status, current_period_end")
       .eq("company_id", userProfile.company_id)
       .maybeSingle();
-    hasPaid = sub?.status === "ACTIVE";
+    hasPaid = hasActiveAccess(sub);
   }
 
   // 3. Fetch pricing plans

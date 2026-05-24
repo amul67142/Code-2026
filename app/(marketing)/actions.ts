@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 
 import { getURL } from "@/lib/utils";
 import { sendWelcomeEmail } from "@/lib/email";
+import { hasActiveAccess } from "@/lib/billing/access";
 
 export async function login(formData: FormData) {
   const email = formData.get("email") as string;
@@ -37,10 +38,10 @@ export async function login(formData: FormData) {
   if (userProfile?.company_id) {
     const { data: sub } = await supabase
       .from("subscriptions")
-      .select("status")
+      .select("status, current_period_end")
       .eq("company_id", userProfile.company_id)
       .maybeSingle();
-    hasPaid = sub?.status === "ACTIVE";
+    hasPaid = hasActiveAccess(sub);
   }
 
   const companyName = (userProfile?.companies as any)?.name;

@@ -243,14 +243,18 @@ export function BillingClient() {
   const handleCancelSubscription = async () => {
     if (!status?.subscription?.razorpay_sub_id) return;
     
-    if (!confirm("Are you absolutely sure you want to cancel your CRM subscription? Your pipeline and automated workflows will be paused at the end of the billing cycle.")) {
+    const periodEnd = status.subscription.current_period_end 
+      ? new Date(status.subscription.current_period_end).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })
+      : "the end of the current billing cycle";
+
+    if (!confirm(`Are you sure you want to cancel your subscription?\n\nYou will retain full dashboard access until ${periodEnd}. After that, your workspace will be locked.`)) {
       return;
     }
 
     startTransition(async () => {
       const res = await cancelSubscriptionAction(status.subscription!.razorpay_sub_id);
       if (res.success) {
-        toast.success("Subscription cancelled successfully.");
+        toast.success(`Subscription cancelled. You have full access until ${periodEnd}.`);
         fetchBillingData();
       } else {
         toast.error(res.error || "Failed to process cancellation.");
@@ -471,7 +475,27 @@ export function BillingClient() {
               <p className="font-semibold text-zinc-700">Billing Admin Email:</p>
               <p className="font-mono text-zinc-600 truncate bg-zinc-50 p-2 rounded border">{status?.company.billingEmail || "Not configured"}</p>
             </div>
-            
+
+            {/* Grace period banner for cancelled subscriptions */}
+            {activeSub && activeSub.status === "CANCELLED" && activeSub.current_period_end && new Date(activeSub.current_period_end) > new Date() && (
+              <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 space-y-2">
+                <div className="flex items-center gap-2">
+                  <Clock className="size-5 text-amber-600 shrink-0" />
+                  <p className="text-sm font-semibold text-amber-800">Subscription Cancelled — Grace Period Active</p>
+                </div>
+                <p className="text-xs text-amber-700 leading-relaxed">
+                  Your subscription has been cancelled, but you still have <span className="font-bold">full dashboard access</span> until{" "}
+                  <span className="font-bold">
+                    {new Date(activeSub.current_period_end).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}
+                  </span>. After this date, your workspace will be locked and you'll need to resubscribe.
+                </p>
+                <p className="text-xs text-amber-600 mt-1">
+                  Changed your mind? You can resubscribe anytime from the plans section above.
+                </p>
+              </div>
+            )}
+
+            {/* Show cancel button only for ACTIVE subscriptions */}
             {activeSub && activeSub.status === "ACTIVE" ? (
               <Button 
                 variant="outline" 
@@ -491,6 +515,10 @@ export function BillingClient() {
                   </>
                 )}
               </Button>
+            ) : activeSub && activeSub.status === "CANCELLED" ? (
+              <div className="text-center p-3 rounded-lg bg-zinc-50 border border-dashed border-zinc-200">
+                <span className="text-xs text-zinc-500">Subscription already cancelled. Access expires at the end of the billing period.</span>
+              </div>
             ) : (
               <div className="text-center p-3 rounded-lg bg-zinc-50 border border-dashed border-zinc-200">
                 <span className="text-xs text-zinc-400">No active card or auto-debit configurations.</span>
