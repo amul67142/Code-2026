@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { razorpayClient } from "@/lib/billing/razorpay";
 import { UserRole } from "@/types";
 
@@ -25,8 +26,10 @@ export async function POST(request: Request) {
     if (!userProfile) {
       // User has just signed up and hasn't paid or onboarded yet.
       // Let's create a pending company and a pending user profile so they can pay.
+      // Use Admin Client to bypass RLS policies for initial guest checkout.
+      const adminClient = createAdminClient();
       const baseSubdomain = `pending-${Math.floor(Math.random() * 1000000)}`;
-      const { data: newCompany, error: compErr } = await supabase
+      const { data: newCompany, error: compErr } = await adminClient
         .from("companies")
         .insert({
           name: "Pending Onboarding",
@@ -43,7 +46,7 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: "Failed to initialize company for checkout" }, { status: 500 });
       }
 
-      const { data: newUserProfile, error: usrErr } = await supabase
+      const { data: newUserProfile, error: usrErr } = await adminClient
         .from("users")
         .insert({
           auth_user_id: user.id,
@@ -60,7 +63,7 @@ export async function POST(request: Request) {
       if (usrErr || !newUserProfile) {
         console.error("❌ Failed to create pending user profile:", usrErr);
         // rollback
-        await supabase.from("companies").delete().eq("id", newCompany.id);
+        await adminClient.from("companies").delete().eq("id", newCompany.id);
         return NextResponse.json({ error: "Failed to initialize user profile for checkout" }, { status: 500 });
       }
 
@@ -151,7 +154,8 @@ export async function POST(request: Request) {
     console.log("✅ Razorpay Subscription created successfully:", rzpSubscription);
 
     // 11. Write/Upsert record to local database under company context
-    const { error: upsertError } = await supabase
+    const adminClient = createAdminClient();
+    const { error: upsertError } = await adminClient
       .from("subscriptions")
       .upsert({
         company_id: userProfile.company_id,
