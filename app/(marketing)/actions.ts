@@ -17,17 +17,44 @@ export async function login(formData: FormData) {
 
   const supabase = await createClient();
 
-  const { error } = await supabase.auth.signInWithPassword({
+  const { data: authData, error } = await supabase.auth.signInWithPassword({
     email,
     password,
   });
 
-  if (error) {
-    return { error: error.message };
+  if (error || !authData.user) {
+    return { error: error?.message || "Invalid credentials" };
   }
 
+  // Check subscription and onboarding status immediately to redirect directly
+  const { data: userProfile } = await supabase
+    .from("users")
+    .select("company_id, companies(name)")
+    .eq("auth_user_id", authData.user.id)
+    .maybeSingle();
+
+  let hasPaid = false;
+  if (userProfile?.company_id) {
+    const { data: sub } = await supabase
+      .from("subscriptions")
+      .select("status")
+      .eq("company_id", userProfile.company_id)
+      .maybeSingle();
+    hasPaid = sub?.status === "ACTIVE";
+  }
+
+  const companyName = (userProfile?.companies as any)?.name;
+  const isOnboarded = !!userProfile && companyName && companyName !== "Pending Onboarding";
+
   revalidatePath("/", "layout");
-  redirect("/dashboard");
+
+  if (!hasPaid) {
+    redirect("/select-plan");
+  } else if (!isOnboarded) {
+    redirect("/onboarding");
+  } else {
+    redirect("/dashboard");
+  }
 }
 
 export async function signup(formData: FormData) {

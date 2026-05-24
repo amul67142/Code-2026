@@ -17,13 +17,19 @@ import { buttonVariants } from "@/components/ui/button";
 import Link from "next/link";
 import { getDashboardData } from "./actions";
 import { format } from "date-fns";
+import { redirect } from "next/navigation";
 
 export const metadata = {
   title: "Dashboard | Big Lead CRM",
 };
 
 export default async function DashboardPage() {
-  const data = await getDashboardData();
+  let data;
+  try {
+    data = await getDashboardData();
+  } catch (err) {
+    redirect("/select-plan");
+  }
 
   const stats = [
     {
