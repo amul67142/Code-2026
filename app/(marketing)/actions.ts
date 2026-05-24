@@ -39,8 +39,30 @@ export async function signup(formData: FormData) {
     return { error: "Email, password, and phone number are required." };
   }
 
+  // 1. Email format verification
+  const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailPattern.test(email)) {
+    return { error: "Invalid email format. Please provide a valid email." };
+  }
+
+  // 2. Password length & complexity (at least 1 letter, 1 number)
   if (password.length < 8) {
-    return { error: "Password must be at least 8 characters long" };
+    return { error: "Password must be at least 8 characters long." };
+  }
+  const passwordPattern = /^(?=.*[A-Za-z])(?=.*\d)/;
+  if (!passwordPattern.test(password)) {
+    return { error: "Password must contain at least one letter and one number." };
+  }
+
+  // 3. Phone validation - must start with '+' and have standard digits
+  const cleanPhone = phone.trim().replace(/\s+/g, "");
+  if (!cleanPhone.startsWith("+")) {
+    return { error: "Phone number must include an international country prefix starting with '+'." };
+  }
+  
+  const phoneDigits = cleanPhone.slice(1);
+  if (phoneDigits.replace(/\D/g, "").length < 7 || phoneDigits.replace(/\D/g, "").length > 15) {
+    return { error: "Phone number digits must be between 7 and 15 numbers long." };
   }
 
   const supabase = await createClient();
