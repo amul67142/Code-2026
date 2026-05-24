@@ -5,6 +5,14 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { UserProvider, type UserProfile } from "@/lib/user-context";
 
+export const metadata = {
+  robots: {
+    index: false,
+    follow: false,
+    nocache: true,
+  },
+};
+
 /**
  * Authenticated app layout.
  * Sidebar + Header + scrollable content area.
