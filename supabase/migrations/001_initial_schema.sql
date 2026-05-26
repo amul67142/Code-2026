@@ -4,8 +4,12 @@
 -- ============================================================================
 
 -- ── Extensions ──────────────────────────────────────────────────────────────
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp" WITH SCHEMA extensions;
+CREATE EXTENSION IF NOT EXISTS "pgcrypto" WITH SCHEMA extensions;
+
+-- Make extension functions (uuid_generate_v4, gen_random_bytes, etc.) available
+-- in this session without schema prefix
+SET search_path TO public, extensions;
 
 -- ── Enum Types ──────────────────────────────────────────────────────────────
 

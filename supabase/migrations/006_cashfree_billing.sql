@@ -1,3 +1,6 @@
+-- Ensure extension functions are accessible
+SET search_path TO public, extensions;
+
 -- Add Cashfree columns to companies table
 ALTER TABLE companies
   ADD COLUMN IF NOT EXISTS cashfree_customer_id TEXT;
