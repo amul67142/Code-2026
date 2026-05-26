@@ -62,6 +62,7 @@ export default function IntegrationsClient({
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [selectedProject, setSelectedProject] = useState("");
   const [sourceLabel, setSourceLabel] = useState("GENERIC");
+  const [customSource, setCustomSource] = useState("");
 
   // State to hold the newly generated secret so the user can copy it
   const [newSecret, setNewSecret] = useState<{ id: string; secret: string } | null>(null);
@@ -70,10 +71,14 @@ export default function IntegrationsClient({
     e.preventDefault();
     if (!selectedProject) return toast.error("Please select a project");
 
+    const finalSourceLabel = sourceLabel === "GENERIC" && customSource.trim()
+      ? customSource.trim()
+      : sourceLabel;
+
     startTransition(async () => {
       const res = await createWebhook({
         project_id: selectedProject,
-        source_label: sourceLabel,
+        source_label: finalSourceLabel,
         assignment_rule: "ROUND_ROBIN",
         duplicate_rule: "SKIP",
       });
@@ -87,6 +92,7 @@ export default function IntegrationsClient({
         setIsCreateOpen(false);
         setSelectedProject("");
         setSourceLabel("GENERIC");
+        setCustomSource("");
       }
     });
   }
@@ -213,7 +219,12 @@ export default function IntegrationsClient({
                           </div>
                         </div>
                       ) : (
-                        <span className="text-xs font-mono text-muted-foreground">{w.secret_key_display}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-mono text-muted-foreground">{w.secret_key_display}</span>
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-zinc-900" title="Copy Secret Key" onClick={() => copyToClipboard(w.secret_key_hash)}>
+                            <Copy className="size-3.5" />
+                          </Button>
+                        </div>
                       )}
                     </TableCell>
                     <TableCell>
@@ -262,6 +273,21 @@ export default function IntegrationsClient({
                 </SelectContent>
               </Select>
             </div>
+            
+            {sourceLabel === "GENERIC" && (
+              <div className="space-y-2 animate-in fade-in slide-in-from-top-1 duration-200">
+                <Label htmlFor="customSource">Custom Source Name (Optional)</Label>
+                <Input
+                  id="customSource"
+                  placeholder="e.g., Zapier, Facebook NCR Campaign, Landing Page"
+                  value={customSource}
+                  onChange={(e) => setCustomSource(e.target.value)}
+                />
+                <p className="text-[10px] text-muted-foreground">
+                  Give this generic webhook a specific name to track where these leads originate.
+                </p>
+              </div>
+            )}
             
             <div className="space-y-2">
               <Label>Destination Project</Label>

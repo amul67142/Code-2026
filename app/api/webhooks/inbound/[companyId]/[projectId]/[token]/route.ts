@@ -148,13 +148,14 @@ export async function POST(
       }
     }
 
-    // Map UI source label to PostgreSQL 'lead_source' enum
+    // Map UI source label dynamically to PostgreSQL 'lead_source' enum
     let source = "OTHER";
-    if (webhook.source_label === "FACEBOOK") {
+    const labelUpper = (webhook.source_label || "OTHER").toUpperCase();
+    if (labelUpper.includes("FACEBOOK")) {
       source = "FACEBOOK_ADS";
-    } else if (webhook.source_label === "GOOGLE") {
+    } else if (labelUpper.includes("GOOGLE")) {
       source = "GOOGLE_ADS";
-    } else if (webhook.source_label === "WEBSITE") {
+    } else if (labelUpper.includes("WEBSITE") || labelUpper.includes("FORM")) {
       source = "WEBSITE_FORM";
     }
 
