@@ -148,8 +148,15 @@ export async function POST(
       }
     }
 
-    // Default to 'OTHER' source if not explicitly mapped
-    const source = webhook.source_label || "OTHER";
+    // Map UI source label to PostgreSQL 'lead_source' enum
+    let source = "OTHER";
+    if (webhook.source_label === "FACEBOOK") {
+      source = "FACEBOOK_ADS";
+    } else if (webhook.source_label === "GOOGLE") {
+      source = "GOOGLE_ADS";
+    } else if (webhook.source_label === "WEBSITE") {
+      source = "WEBSITE_FORM";
+    }
 
     const { data: lead, error: leadError } = await supabase
       .from("leads")
