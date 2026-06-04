@@ -35,6 +35,38 @@ export async function getProjects() {
   return projects;
 }
 
+export async function getProject(projectId: string) {
+  const supabase = await createClient();
+
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) {
+    throw new Error("Unauthorized");
+  }
+
+  const { data: profile, error: profileError } = await supabase
+    .from("users")
+    .select("company_id")
+    .eq("auth_user_id", user.id)
+    .single();
+
+  if (profileError || !profile) {
+    throw new Error("Profile not found");
+  }
+
+  const { data: project, error } = await supabase
+    .from("projects")
+    .select("*")
+    .eq("id", projectId)
+    .eq("company_id", profile.company_id)
+    .single();
+
+  if (error || !project) {
+    throw new Error("Project not found");
+  }
+
+  return project;
+}
+
 export async function createProject(formData: FormData) {
   const name = formData.get("name") as string;
   const type = formData.get("type") as string;

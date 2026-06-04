@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { Plus, Pencil } from "lucide-react";
 import Link from "next/link";
 import { format } from "date-fns";
 
@@ -44,12 +44,13 @@ export default async function ProjectsPage() {
               <TableHead>Location</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Created</TableHead>
+              <TableHead className="w-[80px]">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {projects.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="h-24 text-center">
+                <TableCell colSpan={6} className="h-24 text-center">
                   No projects found.
                 </TableCell>
               </TableRow>
@@ -66,6 +67,14 @@ export default async function ProjectsPage() {
                   </TableCell>
                   <TableCell className="text-muted-foreground">
                     {format(new Date(project.created_at), "MMM d, yyyy")}
+                  </TableCell>
+                  <TableCell>
+                    <Link
+                      href={`/projects/${project.id}/edit`}
+                      className={buttonVariants({ variant: "ghost", size: "icon" })}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Link>
                   </TableCell>
                 </TableRow>
               ))
