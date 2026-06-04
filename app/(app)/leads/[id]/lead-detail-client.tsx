@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { updateLeadStatus, addLeadActivity } from "./actions";
+import { updateLeadStatus, addLeadActivity, updateLeadQualification } from "./actions";
 import { updateLeadAssignment } from "../actions";
 import { updateTaskStatus } from "../../tasks/actions";
 import { TaskDialog } from "@/components/tasks/task-dialog";
@@ -33,6 +33,9 @@ import {
   UserCheck,
   Clock,
   CheckCircle2,
+  ShieldCheck,
+  ThumbsUp,
+  ThumbsDown,
 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -114,6 +117,27 @@ export function LeadDetailClient({
   const [status2, setStatus2] = useState(lead.status_2 || "");
   const [status2Remark, setStatus2Remark] = useState(lead.status_2_remark || "");
   const [savingStatus, setSavingStatus] = useState(false);
+
+  // Qualification status state
+  const [savingQualification, setSavingQualification] = useState(false);
+
+  async function handleUpdateQualification(isQualified: boolean) {
+    if (!canEdit) return;
+    setSavingQualification(true);
+    try {
+      const result = await updateLeadQualification(lead.id, isQualified);
+      if (result.error) {
+        toast.error(result.error);
+      } else {
+        toast.success(`Lead successfully marked as ${isQualified ? "Qualified" : "Not Qualified"}`);
+        router.refresh();
+      }
+    } catch {
+      toast.error("Failed to update qualification status");
+    } finally {
+      setSavingQualification(false);
+    }
+  }
 
   // Activity form
   const [activityType, setActivityType] = useState("CALL");
@@ -329,6 +353,69 @@ export function LeadDetailClient({
                   <span className="text-sm text-muted-foreground">Notes</span>
                   <p className="text-sm mt-1">{lead.notes}</p>
                 </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Lead Qualification Card */}
+          <Card className="border-blue-500/20 shadow-sm overflow-hidden">
+            <CardHeader className="bg-zinc-50/50 border-b border-zinc-100/85 pb-3 flex flex-row items-center justify-between space-y-0 py-3.5">
+              <div className="flex items-center space-x-2">
+                <div className="bg-blue-600/10 p-1.5 rounded-lg text-blue-600">
+                  <ShieldCheck className="h-4.5 w-4.5" />
+                </div>
+                <div>
+                  <CardTitle className="text-sm font-bold">Ad Optimization Feedback</CardTitle>
+                  <CardDescription className="text-[10px] leading-snug">
+                    Send qualification feedback directly to Meta Conversions API (CAPI).
+                  </CardDescription>
+                </div>
+              </div>
+              <div>
+                {lead.is_qualified === true && (
+                  <Badge className="bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] py-0.5 px-2">Qualified</Badge>
+                )}
+                {lead.is_qualified === false && (
+                  <Badge variant="destructive" className="text-[10px] py-0.5 px-2">Not Qualified</Badge>
+                )}
+                {lead.is_qualified === null && (
+                  <Badge variant="outline" className="text-[10px] py-0.5 px-2 text-zinc-500">Pending Review</Badge>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent className="pt-4">
+              <div className="flex gap-3">
+                <Button
+                  variant={lead.is_qualified === true ? "default" : "outline"}
+                  onClick={() => handleUpdateQualification(true)}
+                  disabled={savingQualification || !canEdit}
+                  className={`flex-1 gap-1.5 h-9 text-xs font-semibold ${
+                    lead.is_qualified === true
+                      ? "bg-emerald-600 hover:bg-emerald-700 text-white"
+                      : "text-zinc-700 hover:bg-emerald-50 hover:text-emerald-700 border-zinc-200"
+                  }`}
+                >
+                  <ThumbsUp className="h-3.5 w-3.5" />
+                  Qualified
+                </Button>
+                <Button
+                  variant={lead.is_qualified === false ? "destructive" : "outline"}
+                  onClick={() => handleUpdateQualification(false)}
+                  disabled={savingQualification || !canEdit}
+                  className={`flex-1 gap-1.5 h-9 text-xs font-semibold ${
+                    lead.is_qualified === false
+                      ? "bg-red-600 hover:bg-red-700 text-white"
+                      : "text-zinc-700 hover:bg-red-50 hover:text-red-700 border-zinc-200"
+                  }`}
+                >
+                  <ThumbsDown className="h-3.5 w-3.5" />
+                  Not Qualified
+                </Button>
+              </div>
+              {!canEdit && (
+                <p className="text-[10px] text-muted-foreground text-center mt-2.5">
+                  Only the assigned agent or Super Admin can change qualification.
+                </p>
               )}
             </CardContent>
           </Card>

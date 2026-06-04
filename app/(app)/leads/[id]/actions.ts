@@ -191,3 +191,94 @@ export async function getAgentsForReassignment() {
 
   return agents || [];
 }
+
+import { sendFacebookCAPIEvent } from "@/lib/integrations/facebook-capi";
+
+export async function updateLeadQualification(leadId: string, isQualified: boolean) {
+  const supabase = await createClient();
+  const profile = await getUserProfile();
+  if (!profile) return { error: "Unauthorized" };
+
+  // Fetch lead details and associated project details
+  const { data: lead, error: fetchError } = await supabase
+    .from("leads")
+    .select(`
+      id,
+      name,
+      email,
+      phone,
+      project_id,
+      projects (
+        id,
+        name,
+        facebook_pixel_id,
+        facebook_conversions_token,
+        facebook_test_event_code,
+        facebook_integration_active
+      )
+    `)
+    .eq("id", leadId)
+    .eq("company_id", profile.company_id)
+    .single();
+
+  if (fetchError || !lead) {
+    return { error: "Lead not found" };
+  }
+
+  // Update lead qualification status
+  const { error: updateError } = await supabase
+    .from("leads")
+    .update({ is_qualified: isQualified, updated_at: new Date().toISOString() })
+    .eq("id", leadId)
+    .eq("company_id", profile.company_id);
+
+  if (updateError) {
+    console.error("updateLeadQualification error:", updateError);
+    return { error: "Failed to update qualification status" };
+  }
+
+  // Log qualification action in Activity History
+  const statusStr = isQualified ? "Qualified" : "Not Qualified";
+  await supabase.from("activities").insert({
+    lead_id: leadId,
+    user_id: profile.id,
+    type: "SYSTEM",
+    description: `Lead marked as ${statusStr}`,
+  });
+
+  // Call Conversions API asynchronously in the background (fail-safe)
+  const project: any = lead.projects;
+  if (
+    project &&
+    project.facebook_integration_active &&
+    project.facebook_pixel_id &&
+    project.facebook_conversions_token
+  ) {
+    // Fire event asynchronously (non-blocking)
+    sendFacebookCAPIEvent({
+      pixelId: project.facebook_pixel_id,
+      token: project.facebook_conversions_token,
+      eventName: isQualified ? "Lead" : "Contact",
+      email: lead.email,
+      phone: lead.phone,
+      customData: {
+        content_name: project.name,
+        lead_id: lead.id,
+        status: statusStr,
+      },
+      testEventCode: project.facebook_test_event_code,
+    }).then((res) => {
+      if (!res.success) {
+        console.warn(`Meta CAPI qualification signal failed: ${res.error}`);
+      } else {
+        console.log(`Meta CAPI qualification signal sent: ${isQualified ? 'Lead' : 'Contact'}`);
+      }
+    }).catch((err) => {
+      console.error("Meta CAPI async call failed:", err);
+    });
+  }
+
+  revalidatePath(`/leads/${leadId}`);
+  revalidatePath("/leads");
+  return { success: true };
+}

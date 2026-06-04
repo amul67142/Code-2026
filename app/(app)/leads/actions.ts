@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import { sendFacebookCAPIEvent } from "@/lib/integrations/facebook-capi";
 
 // ── Helper: get current user's profile ──────────────────────────
 async function getUserProfile() {
@@ -196,6 +197,74 @@ export async function updateLeadStage(leadId: string, stageId: string) {
   if (error) {
     console.error("updateLeadStage error:", error);
     return { error: "Failed to update stage" };
+  }
+
+  // Check if destination stage is won, and fire Purchase CAPI signal if enabled
+  try {
+    const { data: stage } = await supabase
+      .from("pipeline_stages")
+      .select("is_won, name")
+      .eq("id", stageId)
+      .single();
+
+    if (stage?.is_won) {
+      const { data: lead } = await supabase
+        .from("leads")
+        .select(`
+          id,
+          name,
+          email,
+          phone,
+          budget_max,
+          project_id,
+          projects (
+            id,
+            name,
+            facebook_pixel_id,
+            facebook_conversions_token,
+            facebook_test_event_code,
+            facebook_integration_active
+          )
+        `)
+        .eq("id", leadId)
+        .eq("company_id", profile.company_id)
+        .single();
+
+      if (lead) {
+        const project: any = lead.projects;
+        if (
+          project &&
+          project.facebook_integration_active &&
+          project.facebook_pixel_id &&
+          project.facebook_conversions_token
+        ) {
+          sendFacebookCAPIEvent({
+            pixelId: project.facebook_pixel_id,
+            token: project.facebook_conversions_token,
+            eventName: "Purchase",
+            email: lead.email,
+            phone: lead.phone,
+            customData: {
+              currency: "INR",
+              value: lead.budget_max || 0,
+              content_name: project.name,
+              lead_id: lead.id,
+            },
+            testEventCode: project.facebook_test_event_code,
+          }).then((res) => {
+            if (!res.success) {
+              console.warn(`Meta CAPI Purchase signal failed: ${res.error}`);
+            } else {
+              console.log(`Meta CAPI Purchase signal sent for lead ${lead.id}`);
+            }
+          }).catch((err) => {
+            console.error("Meta CAPI Purchase async call failed:", err);
+          });
+        }
+      }
+    }
+  } catch (err) {
+    console.error("Error processing CAPI stage change event:", err);
   }
 
   revalidatePath("/leads");
