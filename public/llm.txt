@@ -1,0 +1,68 @@
+# BigLead CRM
+
+> The affordable, intelligent CRM built for modern sales teams. Capture, route, and close leads faster with one unified pipeline.
+
+BigLead is a cloud-based Customer Relationship Management (CRM) platform designed for small and medium businesses, real estate companies, B2B agencies, and automotive dealerships. It is one of the most affordable CRM solutions available, with a free tier and paid plans starting at under $10/month.
+
+## Website
+
+https://biglead.site
+
+## Key Features
+
+- Instant Lead Capture: Pulls leads from every source — web forms, Meta Ads, Google Ads, webhooks, and APIs — the moment they arrive.
+- Smart Auto-Routing: New leads are assigned instantly to the right agent based on location, source, or workload.
+- Visual Kanban Pipeline: Drag-and-drop leads across stages. See your entire funnel at a glance.
+- Follow-up on Autopilot: Emails, WhatsApp, and tasks fire automatically when a lead moves.
+- Role-Based Access: Agents see only their leads. Managers get the full picture.
+- Real-Time Analytics: Track conversion rates, pipeline value, and agent performance with live dashboards.
+- Mobile-First Design: Update pipelines, add notes, and call leads from any device.
+- API & CRM Integrations: Connect to existing tools via Zapier, webhooks, and native integrations.
+- Meta Conversions API (CAPI): Built-in Facebook/Meta ad optimization — send qualified lead signals back to Meta per project.
+- Multi-Project Support: Manage multiple properties, clients, or campaigns under one account.
+- Team Management: Invite team members with different roles (Admin, Manager, Agent).
+- Custom Pipeline Stages: Configure pipeline stages per project with won/lost tracking.
+- Webhook Ingestion: Accept leads from any source via secure webhooks with secret-key validation.
+- Lead Qualification Tracking: Mark leads as qualified or disqualified with one click.
+
+## Use Cases
+
+- Real Estate: Track site visits, inventory preferences, and broker networks.
+- B2B Agencies: Manage client onboarding, discovery, and contract negotiations.
+- Automotive: Handle test drive bookings, financing stages, and handovers.
+- Any sales team that needs a simple, affordable CRM to manage leads and close deals.
+
+## Pricing
+
+BigLead offers simple, transparent pricing with no hidden fees:
+
+- Free Tier: Get started at no cost with core CRM features.
+- Paid Plans: Start at under $10/month (or equivalent in INR) with advanced features.
+- Enterprise: Custom pricing for large teams with dedicated support.
+
+All plans include lead capture, pipeline management, and team collaboration.
+
+## Why BigLead?
+
+- Affordable: One of the cheapest CRM platforms available — free tier included.
+- Easy to Use: No complex setup. Start managing leads in minutes.
+- Built for Small Teams: Designed specifically for startups, small businesses, and growing sales teams.
+- Modern Stack: Built with Next.js, Supabase, and modern web technologies for fast performance.
+- Indian Market Friendly: Supports INR pricing, Indian phone numbers, and local business workflows.
+- No Lock-in: Simple data export and API access.
+
+## Contact
+
+- Website: https://biglead.site
+- Email: support@biglead.site
+- Demo: https://biglead.site (click "Get Demo")
+
+## Documentation
+
+- Pricing: https://biglead.site/pricing
+- Blog: https://biglead.site/blog
+- Help Center: https://biglead.site/help
+- Integrations: https://biglead.site/integrations
+- Security: https://biglead.site/security
+- Privacy Policy: https://biglead.site/privacy
+- Terms of Service: https://biglead.site/terms

@@ -95,6 +95,9 @@ export default function HomePage() {
           70% { box-shadow: 0 0 0 15px rgba(59, 130, 246, 0); }
           100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
         }
+        @media (max-width: 639px) {
+          .lead-anim, .lead-anim-2, .lead-anim-3 { display: none !important; }
+        }
       `}} />
 
       {/* ── BUBBLE NAV ── */}
@@ -174,7 +177,7 @@ export default function HomePage() {
 
       <main>
         {/* ── HERO ── */}
-        <section className="relative pt-36 pb-28 overflow-hidden">
+        <section className="relative pt-28 sm:pt-36 pb-16 sm:pb-28 overflow-hidden">
           {/* Futuristic background grids & dots */}
           <div className={cn(
             "absolute inset-0 transition-all duration-700 pointer-events-none opacity-50",
@@ -223,14 +226,14 @@ export default function HomePage() {
 
 
             <h1 className={cn(
-              "text-center text-5xl md:text-7xl font-bold tracking-tight leading-tight mb-6 transition-colors duration-300",
+              "text-center text-3xl sm:text-5xl md:text-7xl font-bold tracking-tight leading-tight mb-4 sm:mb-6 transition-colors duration-300",
               isDark ? "text-white" : "text-gray-900"
             )}>
               Turn Prospects into{" "}
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-gray-700 via-gray-500 to-gray-900 dark:from-gray-300 dark:via-zinc-100 dark:to-white">Profits</span>.
             </h1>
             <p className={cn(
-              "text-center text-lg md:text-xl max-w-2xl mx-auto mb-10 transition-colors duration-300",
+              "text-center text-sm sm:text-lg md:text-xl max-w-2xl mx-auto mb-8 sm:mb-10 px-2 transition-colors duration-300",
               isDark ? "text-gray-400" : "text-gray-500"
             )}>
               The intelligent CRM built for modern sales teams. Capture, route, and close leads faster with one unified pipeline.
@@ -262,14 +265,14 @@ export default function HomePage() {
               </Link>
             </div>
             <p className={cn(
-              "text-center text-sm transition-colors duration-300",
+              "text-center text-xs sm:text-sm transition-colors duration-300",
               isDark ? "text-gray-500" : "text-gray-400"
             )}>
               Personalized walkthrough · Custom integrations · Smart site-visit scheduling
             </p>
 
             {/* ── ANIMATED PIPELINE VISUAL ── */}
-            <div id="pipeline" className="mt-20 relative max-w-5xl mx-auto">
+            <div id="pipeline" className="mt-12 sm:mt-20 relative max-w-5xl mx-auto">
               {/* fade bottom */}
               <div className={cn(
                 "absolute bottom-0 left-0 right-0 h-24 z-10 pointer-events-none rounded-b-3xl transition-all duration-500",
@@ -279,18 +282,18 @@ export default function HomePage() {
               )} />
 
               <div className={cn(
-                "rounded-3xl border p-5 md:p-7 overflow-hidden transition-all duration-500 shadow-2xl",
+                "rounded-2xl sm:rounded-3xl border p-3 sm:p-5 md:p-7 overflow-hidden transition-all duration-500 shadow-2xl",
                 isDark 
                   ? "border-gray-800 bg-gray-900/40 shadow-black/80" 
                   : "border-gray-200 bg-white shadow-gray-100"
               )}>
                 {/* window chrome */}
-                <div className="flex items-center gap-2 mb-6">
-                  <span className="size-3 rounded-full bg-red-400" />
-                  <span className="size-3 rounded-full bg-yellow-400" />
-                  <span className="size-3 rounded-full bg-green-400" />
+                <div className="flex items-center gap-1.5 sm:gap-2 mb-3 sm:mb-6">
+                  <span className="size-2 sm:size-3 rounded-full bg-red-400" />
+                  <span className="size-2 sm:size-3 rounded-full bg-yellow-400" />
+                  <span className="size-2 sm:size-3 rounded-full bg-green-400" />
                   <span className={cn(
-                    "ml-4 text-xs font-mono transition-colors",
+                    "ml-2 sm:ml-4 text-[10px] sm:text-xs font-mono transition-colors",
                     isDark ? "text-gray-600" : "text-gray-400"
                   )}>
                     biglead.site / pipeline
@@ -298,20 +301,20 @@ export default function HomePage() {
                 </div>
 
                 {/* Stage columns */}
-                <div className="grid grid-cols-4 gap-3 relative">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 relative">
                   {stages.map((s, i) => (
                     <div 
                       key={s.label} 
                       className={cn(
-                        "rounded-2xl border p-3 min-h-[260px] transition-colors duration-300", 
+                        "rounded-xl sm:rounded-2xl border p-2 sm:p-3 min-h-[140px] sm:min-h-[260px] transition-colors duration-300", 
                         isDark 
                           ? "border-gray-800/80 bg-gray-950/40" 
                           : cn(s.border, s.bg)
                       )}
                     >
-                      <div className="flex items-center gap-2 mb-3">
-                        <span className={cn("size-2.5 rounded-full", s.color)} />
-                        <span className={cn("text-xs font-bold uppercase tracking-wide", isDark ? "text-gray-400" : s.text)}>
+                      <div className="flex items-center gap-1.5 sm:gap-2 mb-2 sm:mb-3">
+                        <span className={cn("size-2 sm:size-2.5 rounded-full", s.color)} />
+                        <span className={cn("text-[9px] sm:text-xs font-bold uppercase tracking-wide leading-tight", isDark ? "text-gray-400" : s.text)}>
                           {s.label}
                         </span>
                       </div>
@@ -320,15 +323,15 @@ export default function HomePage() {
                         <div 
                           key={j} 
                           className={cn(
-                            "rounded-xl border p-2.5 mb-2 shadow-sm transition-colors",
+                            "rounded-lg sm:rounded-xl border p-1.5 sm:p-2.5 mb-1.5 sm:mb-2 shadow-sm transition-colors",
                             isDark 
                               ? "bg-gray-900/60 border-gray-800/50" 
                               : "bg-white border-white/80"
                           )} 
                           style={{opacity: op}}
                         >
-                          <div className={cn("h-2 rounded-full mb-1.5", i===0?"bg-blue-200 dark:bg-blue-900/40":i===1?"bg-amber-200 dark:bg-amber-900/40":i===2?"bg-violet-200 dark:bg-violet-900/40":"bg-emerald-200 dark:bg-emerald-900/40")} style={{width:`${75-j*15}%`}} />
-                          <div className={cn("h-1.5 rounded-full w-1/2", isDark ? "bg-gray-800" : "bg-gray-200")} />
+                          <div className={cn("h-1.5 sm:h-2 rounded-full mb-1 sm:mb-1.5", i===0?"bg-blue-200 dark:bg-blue-900/40":i===1?"bg-amber-200 dark:bg-amber-900/40":i===2?"bg-violet-200 dark:bg-violet-900/40":"bg-emerald-200 dark:bg-emerald-900/40")} style={{width:`${75-j*15}%`}} />
+                          <div className={cn("h-1 sm:h-1.5 rounded-full w-1/2", isDark ? "bg-gray-800" : "bg-gray-200")} />
                         </div>
                       ))}
                     </div>
@@ -417,9 +420,9 @@ export default function HomePage() {
                 </div>
 
                 {/* Stage progress bar */}
-                <div className="mt-5 flex gap-1.5">
+                <div className="mt-3 sm:mt-5 flex gap-1 sm:gap-1.5">
                   {stages.map((s) => (
-                    <div key={s.label} className={cn("flex-1 h-1.5 rounded-full", s.color)} />
+                    <div key={s.label} className={cn("flex-1 h-1 sm:h-1.5 rounded-full", s.color)} />
                   ))}
                 </div>
               </div>
@@ -433,15 +436,15 @@ export default function HomePage() {
           isDark ? "bg-black border-gray-900" : "bg-white border-gray-100"
         )}>
           <div className="container mx-auto px-4 max-w-5xl">
-            <div className="text-center max-w-2xl mx-auto mb-14">
+            <div className="text-center max-w-2xl mx-auto mb-8 sm:mb-14">
               <h2 className={cn(
-                "text-3xl md:text-4xl font-bold mb-3 transition-colors",
+                "text-2xl sm:text-3xl md:text-4xl font-bold mb-3 transition-colors",
                 isDark ? "text-white" : "text-gray-900"
               )}>
                 Everything your sales team needs
               </h2>
               <p className={cn(
-                "text-lg transition-colors",
+                "text-sm sm:text-lg transition-colors px-2",
                 isDark ? "text-gray-500" : "text-gray-400"
               )}>
                 From first touch to closed deal — BigLead handles the entire pipeline so your team can focus on selling.
@@ -564,10 +567,10 @@ export default function HomePage() {
                 )}>
                   Use Cases
                 </div>
-                <h2 className={cn("text-3xl md:text-4xl font-bold transition-colors", isDark ? "text-white" : "text-gray-900")}>
+                <h2 className={cn("text-2xl sm:text-3xl md:text-4xl font-bold transition-colors", isDark ? "text-white" : "text-gray-900")}>
                   Built for industries that <em className="not-italic text-zinc-700 dark:text-zinc-300 font-extrabold">move fast</em>
                 </h2>
-                <p className={cn("text-lg transition-colors", isDark ? "text-gray-400" : "text-gray-500")}>
+                <p className={cn("text-sm sm:text-lg transition-colors", isDark ? "text-gray-400" : "text-gray-500")}>
                   Customize fields, stages, and automation rules for your specific niche.
                 </p>
                 <div className="space-y-3 pt-2">
@@ -625,16 +628,16 @@ export default function HomePage() {
               <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 text-sm font-semibold mb-4 border border-blue-200 dark:border-blue-900/30">
                 <Smartphone className="size-4" /> Smart Callback System
               </div>
-              <h2 className={cn("text-3xl md:text-5xl font-bold mb-4 transition-colors", isDark ? "text-white" : "text-gray-900")}>
+              <h2 className={cn("text-2xl sm:text-3xl md:text-5xl font-bold mb-4 transition-colors", isDark ? "text-white" : "text-gray-900")}>
                 Convert prospects faster with <em className="not-italic text-zinc-500">Telephony Automation</em>
               </h2>
-              <p className={cn("text-lg transition-colors", isDark ? "text-gray-400" : "text-gray-500")}>
+              <p className={cn("text-sm sm:text-lg transition-colors px-2", isDark ? "text-gray-400" : "text-gray-500")}>
                 Our automated telephony router triggers callbacks instantly, qualifies prospects, and books site visits directly into your calendar. Watch the flow below.
               </p>
             </div>
 
             <div className={cn(
-              "relative p-8 md:p-16 rounded-3xl border overflow-hidden",
+              "relative p-4 sm:p-8 md:p-16 rounded-2xl sm:rounded-3xl border overflow-hidden",
               isDark ? "bg-gray-900/20 border-gray-800 shadow-xl" : "bg-gray-50 border-gray-200 shadow-lg"
             )}>
               {/* Desktop Connecting Line */}
@@ -643,7 +646,7 @@ export default function HomePage() {
               {/* Animated dot on the line */}
               <div className="hidden md:block absolute top-1/2 left-0 size-3 bg-blue-500 rounded-full -translate-y-1/2 shadow-[0_0_12px_rgba(59,130,246,0.8)]" style={{ animation: "slideRight 4s infinite cubic-bezier(0.4,0,0.2,1)" }} />
 
-              <div className="relative flex flex-col md:flex-row items-center justify-between gap-12 md:gap-4 z-10">
+              <div className="relative flex flex-col md:flex-row items-center justify-between gap-8 sm:gap-12 md:gap-4 z-10">
                 
                 {/* Step 1: Lead Capture */}
                 <div className={cn(
@@ -653,7 +656,7 @@ export default function HomePage() {
                   <div className="size-16 rounded-full bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400 flex items-center justify-center mb-4 border border-emerald-200 dark:border-emerald-800">
                     <Users className="size-8" />
                   </div>
-                  <h3 className={cn("text-xl font-bold mb-2 transition-colors", isDark ? "text-white" : "text-gray-900")}>1. Lead Captured</h3>
+                  <h3 className={cn("text-base sm:text-xl font-bold mb-2 transition-colors", isDark ? "text-white" : "text-gray-900")}>1. Lead Captured</h3>
                   <p className={cn("text-sm transition-colors", isDark ? "text-gray-400" : "text-gray-500")}>
                     Lead enters via Facebook, Google Ads, or your website.
                   </p>
@@ -670,7 +673,7 @@ export default function HomePage() {
                   <div className="size-16 rounded-full bg-blue-600 text-white flex items-center justify-center mb-4" style={{ animation: "call-wave 2s infinite" }}>
                     <Mic className="size-8" />
                   </div>
-                  <h3 className={cn("text-xl font-bold mb-2 transition-colors", isDark ? "text-white" : "text-gray-900")}>2. Automated Telephony Call</h3>
+                  <h3 className={cn("text-base sm:text-xl font-bold mb-2 transition-colors", isDark ? "text-white" : "text-gray-900")}>2. Automated Telephony Call</h3>
                   <p className={cn("text-sm transition-colors", isDark ? "text-gray-400" : "text-gray-500")}>
                     "Connecting you to our next available sales representative to schedule your exclusive site visit."
                   </p>
@@ -684,7 +687,7 @@ export default function HomePage() {
                   <div className="size-16 rounded-full bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400 flex items-center justify-center mb-4 border border-amber-200 dark:border-amber-800">
                     <MapPin className="size-8" />
                   </div>
-                  <h3 className={cn("text-xl font-bold mb-2 transition-colors", isDark ? "text-white" : "text-gray-900")}>3. Site Visit Booked</h3>
+                  <h3 className={cn("text-base sm:text-xl font-bold mb-2 transition-colors", isDark ? "text-white" : "text-gray-900")}>3. Site Visit Booked</h3>
                   <p className={cn("text-sm transition-colors", isDark ? "text-gray-400" : "text-gray-500")}>
                     Meeting added to calendar and sales rep notified instantly.
                   </p>
@@ -724,10 +727,10 @@ export default function HomePage() {
             <div className="flex justify-center gap-2 mb-6">
               {stages.map(s => <span key={s.label} className={cn("size-3 rounded-full", s.color)} />)}
             </div>
-            <h2 className={cn("text-4xl font-bold mb-4 transition-colors", isDark ? "text-white" : "text-gray-900")}>
+            <h2 className={cn("text-2xl sm:text-4xl font-bold mb-4 transition-colors", isDark ? "text-white" : "text-gray-900")}>
               Ready to transform your pipeline?
             </h2>
-            <p className={cn("text-lg mb-10 transition-colors", isDark ? "text-gray-400" : "text-gray-500")}>
+            <p className={cn("text-sm sm:text-lg mb-8 sm:mb-10 transition-colors", isDark ? "text-gray-400" : "text-gray-500")}>
               Join thousands of high-performing teams using BigLead to close deals faster.
             </p>
             <div className="flex flex-col sm:flex-row justify-center gap-4">
@@ -841,12 +844,12 @@ export default function HomePage() {
                 Email: info@biglead.site | Phone: +91 79828 94432
               </p>
             </div>
-            <div className="flex gap-3">
+            <div className="flex flex-wrap justify-center md:justify-end gap-2 sm:gap-3">
               {stages.map(s => (
                 <span 
                   key={s.label} 
                   className={cn(
-                    "text-[9px] font-bold px-2.5 py-1 rounded-full border transition-colors", 
+                    "text-[8px] sm:text-[9px] font-bold px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full border transition-colors", 
                     isDark 
                       ? "border-gray-800 bg-black text-gray-400" 
                       : cn(s.bg, s.text, s.border)

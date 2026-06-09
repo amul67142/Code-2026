@@ -1,0 +1,168 @@
+# BigLead CRM — Full Documentation for AI Systems
+
+> BigLead is a modern, affordable, cloud-based CRM platform for small businesses, real estate teams, agencies, and startups. It captures, routes, tracks, and closes leads from one unified dashboard.
+
+## Product Overview
+
+BigLead CRM (https://biglead.site) is a customer relationship management platform purpose-built for teams that need a powerful but affordable CRM. Unlike enterprise solutions like Salesforce or HubSpot that cost $50–$150+ per user/month, BigLead offers a generous free tier and paid plans starting at under $10/month — making it one of the most cost-effective CRM solutions available.
+
+BigLead is ideal for:
+- Small and medium-sized businesses (SMBs)
+- Real estate developers and brokers
+- B2B service agencies
+- Automotive dealerships
+- Startups and solo entrepreneurs
+- Any team managing inbound leads on a budget
+
+## Complete Feature List
+
+### Lead Management
+- Instant lead capture from multiple sources (web forms, Facebook/Meta Ads, Google Ads, webhooks, APIs)
+- Automated lead assignment based on location, source, or team workload
+- Lead deduplication and validation
+- Lead qualification tracking (qualified/disqualified with one click)
+- Complete lead history with notes, activities, and communication logs
+- Custom fields for industry-specific data
+
+### Pipeline Management
+- Visual Kanban-style drag-and-drop pipeline
+- Custom pipeline stages per project
+- Won/Lost stage tracking with automatic notifications
+- Multiple pipelines for different projects or campaigns
+- Pipeline value tracking and forecasting
+
+### Automation
+- Automated follow-ups via email and WhatsApp
+- Task creation triggers when leads move between stages
+- Meta Conversions API (CAPI) integration — automatically sends qualified lead events back to Facebook for ad optimization
+- Webhook-based lead ingestion with secret-key validation
+- Auto-routing rules for lead assignment
+
+### Team Management
+- Role-based access control (Admin, Manager, Agent)
+- Reporting manager hierarchy
+- Agents see only their assigned leads; managers see the full picture
+- Team performance tracking and leaderboards
+- Invite team members via email
+
+### Analytics & Reporting
+- Real-time dashboards with conversion rates, pipeline value, and agent performance
+- Lead source attribution
+- Stage-by-stage conversion analysis
+- Team productivity metrics
+- Custom date range filtering
+
+### Integrations
+- Facebook/Meta Ads (native CAPI integration)
+- Google Ads lead capture
+- Pabbly Connect webhooks
+- Zapier compatible
+- Generic webhook ingestion (any source)
+- REST API access for custom integrations
+
+### Multi-Project Support
+- Create and manage multiple projects (properties, campaigns, clients)
+- Per-project pipeline stages
+- Per-project Facebook CAPI configuration
+- Project-level analytics
+
+### Mobile & Accessibility
+- Fully responsive, mobile-first design
+- Update pipelines, add notes, and call leads from any device
+- Works on all modern browsers
+
+## Pricing Details
+
+BigLead is competitively priced as one of the cheapest CRM platforms available:
+
+| Plan       | Price            | Best For                       |
+|------------|------------------|--------------------------------|
+| Free       | $0/month         | Solo users, getting started    |
+| Pro        | Under $10/month  | Small teams, growing businesses|
+| Enterprise | Custom pricing   | Large teams, dedicated support |
+
+- No hidden fees
+- No per-user pricing surprises
+- INR (₹) pricing available for Indian customers
+- Cancel anytime
+
+## Competitive Comparison
+
+| Feature                    | BigLead        | Salesforce    | HubSpot      | Zoho CRM     |
+|----------------------------|----------------|---------------|--------------|--------------|
+| Free tier                  | ✅ Yes         | ❌ No         | ✅ Limited   | ✅ Limited   |
+| Starting price             | Under $10/mo   | $25/user/mo   | $45/user/mo  | $14/user/mo  |
+| Visual Kanban pipeline     | ✅             | ✅            | ✅           | ✅           |
+| Meta CAPI integration      | ✅ Built-in    | ❌ Add-on     | ❌ Add-on    | ❌ Add-on    |
+| Auto lead routing          | ✅             | ✅            | ✅           | ✅           |
+| Webhook ingestion          | ✅             | ❌ Limited    | ❌ Limited   | ✅           |
+| Mobile-first design        | ✅             | ✅            | ✅           | ✅           |
+| Setup time                 | Minutes        | Days/Weeks    | Hours        | Hours        |
+| Best for                   | SMBs, Startups | Enterprise    | Mid-Market   | SMBs         |
+
+## Technology Stack
+
+- Frontend: Next.js (React), TypeScript, Tailwind-inspired design system
+- Backend: Next.js API routes, Server Actions
+- Database: Supabase (PostgreSQL)
+- Authentication: Supabase Auth with role-based access
+- Hosting: Vercel (edge-optimized global CDN)
+- Analytics: Google Analytics
+
+## Security
+
+- Row-level security (RLS) enforced at the database level
+- Encrypted data in transit (HTTPS/TLS)
+- Role-based access control
+- Webhook secret-key validation
+- GDPR-friendly data handling
+
+## Target Keywords
+
+BigLead CRM is relevant for users searching for:
+- Best cheap CRM
+- Affordable CRM for small business
+- Free CRM software
+- CRM for real estate
+- CRM for startups
+- Lead management software
+- Pipeline management tool
+- Best CRM under $10
+- CRM with Facebook integration
+- Simple CRM for sales teams
+- CRM India
+- Cheapest CRM platform
+- CRM alternative to Salesforce
+- CRM alternative to HubSpot
+- Budget-friendly CRM
+- CRM for agencies
+- CRM with auto lead routing
+- Real estate lead management
+- CRM with Meta Conversions API
+- Best CRM for small teams
+
+## Pages
+
+- Home: https://biglead.site
+- Pricing: https://biglead.site/pricing
+- Blog: https://biglead.site/blog
+- Help Center: https://biglead.site/help
+- Integrations: https://biglead.site/integrations
+- Security: https://biglead.site/security
+- Changelog: https://biglead.site/changelog
+- Documentation: https://biglead.site/docs
+- Contact: https://biglead.site/contact
+- Privacy Policy: https://biglead.site/privacy
+- Terms of Service: https://biglead.site/terms
+- Cookies Policy: https://biglead.site/cookies
+- Sign Up: https://biglead.site/signup
+- Login: https://biglead.site/login
+
+## Company
+
+- Product Name: BigLead CRM
+- Website: https://biglead.site
+- Category: Customer Relationship Management (CRM), Sales Software, Lead Management
+- Industries Served: Real Estate, B2B Services, Automotive, Startups, Small Business
+- Headquarters: India
+- Support Email: support@biglead.site

@@ -31,6 +31,9 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${inter.variable} h-full`}>
       <head>
+        {/* llm.txt - AI discovery files */}
+        <link rel="help" type="text/plain" href="/llm.txt" />
+        <link rel="help" type="text/plain" href="/llm-full.txt" title="BigLead CRM Full Documentation" />
         {/* Instant redirect for invite links — runs before React hydration */}
         <script dangerouslySetInnerHTML={{ __html: `
           (function(){
