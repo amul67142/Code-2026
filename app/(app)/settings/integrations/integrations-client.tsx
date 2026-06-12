@@ -1,7 +1,11 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import { createWebhook, deleteWebhook, regenerateToken } from "./actions";
+import { startFacebookOAuth, disconnectFacebookPage } from "./facebook-actions";
+import { FacebookFormsManager } from "./facebook-forms-manager";
+import { WhatsAppCard } from "./whatsapp-card";
 import {
   Table,
   TableBody,
@@ -38,6 +42,9 @@ import {
   CheckCircle2,
   AlertCircle,
   Eye,
+  Unplug,
+  ExternalLink,
+  Loader2,
 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
@@ -47,17 +54,63 @@ type Webhook = any;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Project = any;
 
+interface FacebookConnection {
+  id: string;
+  page_id: string;
+  page_name: string | null;
+  status: string;
+  subscribed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+interface Agent {
+  id: string;
+  name: string;
+}
+
 interface IntegrationsClientProps {
   initialWebhooks: Webhook[];
   projects: Project[];
+  facebookConnections: FacebookConnection[];
+  agents: Agent[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  whatsappConnection?: any;
 }
 
 export default function IntegrationsClient({
   initialWebhooks,
   projects,
+  facebookConnections: initialFbConnections,
+  agents,
+  whatsappConnection,
 }: IntegrationsClientProps) {
   const [webhooks, setWebhooks] = useState<Webhook[]>(initialWebhooks);
+  const [fbConnections, setFbConnections] = useState<FacebookConnection[]>(initialFbConnections);
   const [isPending, startTransition] = useTransition();
+  const [isFbConnecting, setIsFbConnecting] = useState(false);
+
+  const searchParams = useSearchParams();
+  const router = useRouter();
+
+  // Handle Facebook OAuth redirect result
+  useEffect(() => {
+    const fb = searchParams.get("fb");
+    if (fb === "connected") {
+      const pages = searchParams.get("pages") || "1";
+      const warnings = searchParams.get("warnings");
+      toast.success(`Successfully connected ${pages} Facebook Page${Number(pages) > 1 ? "s" : ""}!`);
+      if (warnings) {
+        toast.warning(decodeURIComponent(warnings));
+      }
+      // Clean up URL params
+      router.replace("/settings/integrations", { scroll: false });
+    } else if (fb === "error") {
+      const msg = searchParams.get("msg") || "Failed to connect Facebook";
+      toast.error(decodeURIComponent(msg));
+      router.replace("/settings/integrations", { scroll: false });
+    }
+  }, [searchParams, router]);
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [selectedProject, setSelectedProject] = useState("");
@@ -131,6 +184,37 @@ export default function IntegrationsClient({
     toast.success("Copied to clipboard");
   }
 
+  async function handleFacebookConnect() {
+    setIsFbConnecting(true);
+    try {
+      const result = await startFacebookOAuth();
+      if (result.error) {
+        toast.error(result.error);
+        setIsFbConnecting(false);
+      } else if (result.url) {
+        // Redirect to Facebook OAuth dialog
+        window.location.href = result.url;
+      }
+    } catch {
+      toast.error("Failed to start Facebook connection");
+      setIsFbConnecting(false);
+    }
+  }
+
+  function handleFacebookDisconnect(connectionId: string, pageName: string | null) {
+    if (!confirm(`Disconnect "${pageName || "this page"}" from Facebook Lead Ads? New leads from this page will stop flowing in.`)) return;
+
+    startTransition(async () => {
+      const res = await disconnectFacebookPage(connectionId);
+      if (res.error) {
+        toast.error(res.error);
+      } else {
+        toast.success(`Disconnected "${pageName || "page"}" from Facebook`);
+        setFbConnections(fbConnections.filter((c) => c.id !== connectionId));
+      }
+    });
+  }
+
   function getWebhookUrl(companyId: string, projectId: string, token: string) {
     if (typeof window !== "undefined") {
       return `${window.location.origin}/api/webhooks/inbound/${companyId}/${projectId}/${token}`;
@@ -140,14 +224,118 @@ export default function IntegrationsClient({
 
   return (
     <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight">Integrations</h1>
+        <p className="text-muted-foreground">
+          Connect your lead sources — Facebook Lead Ads, Google Ads, Zapier, and more.
+        </p>
+      </div>
+
+      {/* ── Facebook Lead Ads Section ── */}
+      <div className="rounded-lg border bg-card p-5">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <div className="bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 p-2.5 rounded-lg">
+              <svg className="size-5" fill="currentColor" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.469h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.469h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+            </div>
+            <div>
+              <h3 className="font-semibold">Facebook Lead Ads</h3>
+              <p className="text-xs text-muted-foreground">
+                Connect your Facebook Page to receive Lead Ad submissions directly — no Zapier needed.
+              </p>
+            </div>
+          </div>
+          <Button
+            onClick={handleFacebookConnect}
+            disabled={isFbConnecting || isPending}
+            variant={fbConnections.filter(c => c.status === "ACTIVE").length > 0 ? "outline" : "default"}
+            className={fbConnections.filter(c => c.status === "ACTIVE").length === 0 ? "bg-[#1877F2] hover:bg-[#166FE5] text-white" : ""}
+          >
+            {isFbConnecting ? (
+              <><Loader2 className="mr-2 size-4 animate-spin" /> Connecting...</>
+            ) : (
+              <>
+                <svg className="mr-2 size-4" fill="currentColor" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.469h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.469h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+                {fbConnections.filter(c => c.status === "ACTIVE").length > 0 ? "Connect Another Page" : "Connect Facebook Page"}
+              </>
+            )}
+          </Button>
+        </div>
+
+        {/* Connected Pages */}
+        {fbConnections.length > 0 && (
+          <div className="space-y-2">
+            {fbConnections.map((conn) => (
+              <div
+                key={conn.id}
+                className="rounded-md border px-4 py-3 bg-muted/30"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 p-1.5 rounded">
+                      <svg className="size-4" fill="currentColor" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.469h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.469h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium">{conn.page_name || `Page ${conn.page_id}`}</p>
+                      <p className="text-xs text-muted-foreground">
+                        Connected {format(new Date(conn.created_at), "MMM d, yyyy")}
+                        {conn.subscribed_at && " · Webhook subscribed"}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge
+                      variant={conn.status === "ACTIVE" ? "default" : "secondary"}
+                      className={conn.status === "ACTIVE" ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 hover:bg-emerald-100" : ""}
+                    >
+                      {conn.status === "ACTIVE" && <CheckCircle2 className="mr-1 size-3" />}
+                      {conn.status === "EXPIRED" && <AlertCircle className="mr-1 size-3" />}
+                      {conn.status}
+                    </Badge>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      title="Disconnect Page"
+                      onClick={() => handleFacebookDisconnect(conn.id, conn.page_name)}
+                      disabled={isPending}
+                    >
+                      <Unplug className="size-4 text-red-500" />
+                    </Button>
+                  </div>
+                </div>
+
+                {conn.status === "ACTIVE" && (
+                  <FacebookFormsManager
+                    connectionId={conn.id}
+                    projects={projects}
+                    agents={agents}
+                  />
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {fbConnections.length === 0 && (
+          <div className="text-center py-6 text-muted-foreground text-sm border rounded-md border-dashed">
+            <p>No Facebook Pages connected yet.</p>
+            <p className="text-xs mt-1">Click &quot;Connect Facebook Page&quot; above to get started.</p>
+          </div>
+        )}
+      </div>
+
+      {/* ── WhatsApp Auto-Reply Section ── */}
+      <WhatsAppCard initial={whatsappConnection || null} />
+
+      {/* ── Webhooks Section ── */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Integrations</h1>
-          <p className="text-muted-foreground">
-            Manage inbound webhooks from Google Ads, Facebook Ads, and Zapier.
+          <h2 className="text-lg font-semibold tracking-tight">Generic Webhooks</h2>
+          <p className="text-sm text-muted-foreground">
+            Inbound webhooks for Zapier, Google Ads, or custom integrations.
           </p>
         </div>
-        <Button onClick={() => setIsCreateOpen(true)} disabled={isPending}>
+        <Button onClick={() => setIsCreateOpen(true)} disabled={isPending} size="sm">
           <Plus className="mr-2 size-4" />
           Add Webhook
         </Button>

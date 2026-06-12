@@ -1,4 +1,4 @@
-import { getLeadDetail, getLeadActivities, getAgentsForReassignment } from "./actions";
+import { getLeadDetail, getLeadActivities, getAgentsForReassignment, getLeadEmailStatus } from "./actions";
 import { getLeadTasks } from "@/app/(app)/tasks/actions";
 import { LeadDetailClient } from "./lead-detail-client";
 import { notFound } from "next/navigation";
@@ -19,11 +19,12 @@ export async function generateMetadata({ params }: Props) {
 
 export default async function LeadDetailPage({ params }: Props) {
   const { id } = await params;
-  const [result, activities, agents, tasks] = await Promise.all([
+  const [result, activities, agents, tasks, emailStatus] = await Promise.all([
     getLeadDetail(id),
     getLeadActivities(id),
     getAgentsForReassignment(),
     getLeadTasks(id),
+    getLeadEmailStatus(id),
   ]);
 
   if (!result) notFound();
@@ -35,6 +36,7 @@ export default async function LeadDetailPage({ params }: Props) {
       activities={activities}
       agents={agents}
       tasks={tasks}
+      emailStatus={emailStatus}
     />
   );
 }

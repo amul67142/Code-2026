@@ -17,12 +17,12 @@ const PROTECTED_ROUTES = [
 const AUTH_ROUTES = ["/login", "/signup"];
 
 /**
- * Middleware — runs on every matched request.
+ * Proxy — runs on every matched request.
  * 1. Refreshes Supabase session
  * 2. Redirects unauthenticated users to /login on protected routes
  * 3. Redirects authenticated users away from /login and /signup
  */
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const hostname = request.headers.get("host") || "";
 

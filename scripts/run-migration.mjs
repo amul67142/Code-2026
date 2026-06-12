@@ -4,7 +4,7 @@
  */
 import pg from "pg";
 import { readFileSync } from "fs";
-import { join, dirname } from "path";
+import { join, dirname, resolve } from "path";
 import { fileURLToPath } from "url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -13,6 +13,8 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const DATABASE_URL = "postgresql://postgres.hqzyikjgxrswcsjelkra:amuldev2026@aws-1-ap-southeast-1.pooler.supabase.com:6543/postgres";
 
 async function main() {
+  const targetFileArg = process.argv[2];
+
   const client = new pg.Client({
     connectionString: DATABASE_URL,
     ssl: { rejectUnauthorized: false },
@@ -22,6 +24,33 @@ async function main() {
     console.log("🔌 Connecting to Supabase PostgreSQL (Transaction Pooler)...");
     await client.connect();
     console.log("✅ Connected!\n");
+
+    if (targetFileArg) {
+      let filePath = targetFileArg;
+      // If only filename is provided, look in supabase/migrations/
+      if (!filePath.includes("/") && !filePath.includes("\\")) {
+        filePath = join(__dirname, "..", "supabase", "migrations", targetFileArg);
+      } else {
+        filePath = resolve(process.cwd(), targetFileArg);
+      }
+
+      console.log(`🔄 Running specified migration (${targetFileArg})...`);
+      const sql = readFileSync(filePath, "utf-8");
+      await client.query(sql);
+      console.log(`✅ Migration (${targetFileArg}) complete!\n`);
+
+      // Verify the tables created or updated
+      const result = await client.query(`
+        SELECT table_name FROM information_schema.tables
+        WHERE table_schema = 'public'
+        ORDER BY table_name;
+      `);
+
+      console.log("📋 Tables current status:");
+      result.rows.forEach((row) => console.log("   ✓ " + row.table_name));
+      console.log("\n✨ Total: " + result.rows.length + " tables");
+      return;
+    }
 
     // Run schema migration
     const migrationSQL = readFileSync(

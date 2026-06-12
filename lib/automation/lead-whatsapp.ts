@@ -1,0 +1,130 @@
+/**
+ * Lead acknowledgment WhatsApp — sent automatically to a lead when they enter
+ * the CRM, FROM the company's own connected WhatsApp number. Logs every send to
+ * `message_log` so the lead detail page + Reports can show status.
+ *
+ * Business-initiated messages must use an approved template. The company's
+ * connection stores which template to use (default_template). For the welcome
+ * message we pass 3 body variables: {{1}} lead name, {{2}} project, {{3}} company.
+ * (For Meta's pre-approved `hello_world` test template, no variables are sent.)
+ */
+import { createAdminClient } from "@/lib/supabase/admin";
+import { decryptToken } from "@/lib/integrations/crypto";
+import { sendWhatsAppTemplate, normalizeWhatsAppNumber } from "@/lib/integrations/whatsapp";
+
+export interface LeadWhatsAppInput {
+  companyId: string;
+  leadId: string;
+  leadName: string | null;
+  leadPhone: string | null;
+  projectId?: string | null;
+  isAuto?: boolean;
+}
+
+export interface LeadWhatsAppResult {
+  status: "SENT" | "FAILED" | "SKIPPED_NO_PHONE" | "SKIPPED_NO_CONNECTION";
+  providerId?: string;
+  error?: string;
+}
+
+export async function sendLeadWhatsApp(
+  input: LeadWhatsAppInput
+): Promise<LeadWhatsAppResult> {
+  const admin = createAdminClient();
+
+  if (!input.leadPhone) return { status: "SKIPPED_NO_PHONE" };
+
+  // The company must have an active WhatsApp connection.
+  const { data: conn } = await admin
+    .from("whatsapp_connections")
+    .select("phone_number_id, access_token_enc, default_template, template_language, status")
+    .eq("company_id", input.companyId)
+    .eq("status", "ACTIVE")
+    .maybeSingle();
+
+  if (!conn) return { status: "SKIPPED_NO_CONNECTION" };
+
+  // Resolve company + project names for template variables.
+  const [{ data: company }, projectRes] = await Promise.all([
+    admin.from("companies").select("name").eq("id", input.companyId).maybeSingle(),
+    input.projectId
+      ? admin.from("projects").select("name").eq("id", input.projectId).maybeSingle()
+      : Promise.resolve({ data: null }),
+  ]);
+  const companyName = company?.name || "Our Team";
+  const projectName = (projectRes?.data as { name?: string } | null)?.name || "our offerings";
+  const leadName = input.leadName || "there";
+
+  const to = normalizeWhatsAppNumber(input.leadPhone);
+  const templateName = conn.default_template || "hello_world";
+  const language = conn.template_language || "en_US";
+
+  // hello_world is the pre-approved Meta test template (no variables).
+  const components =
+    templateName === "hello_world"
+      ? []
+      : [
+          {
+            type: "body",
+            parameters: [
+              { type: "text", text: leadName },
+              { type: "text", text: projectName },
+              { type: "text", text: companyName },
+            ],
+          },
+        ];
+
+  try {
+    const res = await sendWhatsAppTemplate(
+      conn.phone_number_id,
+      decryptToken(conn.access_token_enc),
+      to,
+      templateName,
+      language,
+      components
+    );
+    const providerId = res.messages?.[0]?.id;
+
+    await admin.from("message_log").insert({
+      company_id: input.companyId,
+      lead_id: input.leadId,
+      channel: "WHATSAPP",
+      direction: "OUTBOUND",
+      to_address: to,
+      subject: templateName,
+      status: "SENT",
+      provider_id: providerId || null,
+      is_auto: input.isAuto !== false,
+    });
+    await admin.from("activities").insert({
+      lead_id: input.leadId,
+      user_id: null,
+      type: "WHATSAPP",
+      description: `${input.isAuto !== false ? "Auto-WhatsApp" : "WhatsApp"} sent to ${to}`,
+      metadata: { channel: "WHATSAPP", template: templateName },
+    });
+
+    return { status: "SENT", providerId };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "WhatsApp send failed";
+    await admin.from("message_log").insert({
+      company_id: input.companyId,
+      lead_id: input.leadId,
+      channel: "WHATSAPP",
+      direction: "OUTBOUND",
+      to_address: to,
+      subject: templateName,
+      status: "FAILED",
+      error_message: msg,
+      is_auto: input.isAuto !== false,
+    });
+    await admin.from("activities").insert({
+      lead_id: input.leadId,
+      user_id: null,
+      type: "WHATSAPP",
+      description: `WhatsApp to ${to} failed`,
+      metadata: { channel: "WHATSAPP", error: msg },
+    });
+    return { status: "FAILED", error: msg };
+  }
+}

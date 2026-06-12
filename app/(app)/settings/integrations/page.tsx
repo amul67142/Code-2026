@@ -1,5 +1,8 @@
 import { getWebhooks } from "./actions";
+import { getFacebookConnections } from "./facebook-actions";
+import { getWhatsAppConnection } from "./whatsapp-actions";
 import { getProjects } from "../../projects/actions";
+import { getAgentsForAssignment } from "../../leads/actions";
 import IntegrationsClient from "./integrations-client";
 
 export const metadata = {
@@ -7,16 +10,21 @@ export const metadata = {
 };
 
 export default async function IntegrationsPage() {
-  const [webhooks, projects] = await Promise.all([
+  const [webhooks, projects, facebookConnections, agents, whatsappConnection] = await Promise.all([
     getWebhooks(),
-    getProjects()
+    getProjects(),
+    getFacebookConnections(),
+    getAgentsForAssignment(),
+    getWhatsAppConnection(),
   ]);
 
-  // Pass user's company info to construct webhook URLs
   return (
-    <IntegrationsClient 
-      initialWebhooks={webhooks} 
+    <IntegrationsClient
+      initialWebhooks={webhooks}
       projects={projects}
+      facebookConnections={facebookConnections}
+      agents={agents}
+      whatsappConnection={whatsappConnection}
     />
   );
 }

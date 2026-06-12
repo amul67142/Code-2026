@@ -6,6 +6,7 @@ import { updateLeadStatus, addLeadActivity, updateLeadQualification } from "./ac
 import { updateLeadAssignment } from "../actions";
 import { updateTaskStatus } from "../../tasks/actions";
 import { TaskDialog } from "@/components/tasks/task-dialog";
+import { LeadEmailCard } from "./lead-email-card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -95,6 +96,8 @@ interface LeadDetailClientProps {
   activities: Activity[];
   agents: Agent[];
   tasks: any[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  emailStatus?: any;
 }
 
 export function LeadDetailClient({
@@ -103,6 +106,7 @@ export function LeadDetailClient({
   activities: initialActivities,
   agents,
   tasks: initialTasks,
+  emailStatus,
 }: LeadDetailClientProps) {
   const router = useRouter();
 
@@ -356,6 +360,13 @@ export function LeadDetailClient({
               )}
             </CardContent>
           </Card>
+
+          {/* Welcome Email status + resend */}
+          <LeadEmailCard
+            leadId={lead.id}
+            leadEmail={lead.email || null}
+            initial={emailStatus || null}
+          />
 
           {/* Lead Qualification Card */}
           <Card className="border-blue-500/20 shadow-sm overflow-hidden">

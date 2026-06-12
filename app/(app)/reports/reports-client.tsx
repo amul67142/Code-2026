@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { getDashboardMetrics } from "./actions";
+import { getDashboardMetrics, getEmailAnalytics } from "./actions";
 import {
   BarChart,
   Bar,
@@ -20,19 +20,23 @@ import {
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2 } from "lucide-react";
+import { Loader2, Mail, Send, CheckCircle2, Eye, MessageSquare, AlertCircle } from "lucide-react";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type MetricsData = any;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type EmailData = any;
 
 interface ReportsClientProps {
   initialData: MetricsData;
+  initialEmail: EmailData;
 }
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8b5cf6', '#ec4899', '#14b8a6', '#f43f5e'];
 
-export default function ReportsClient({ initialData }: ReportsClientProps) {
+export default function ReportsClient({ initialData, initialEmail }: ReportsClientProps) {
   const [data, setData] = useState<MetricsData>(initialData);
+  const [emailData, setEmailData] = useState<EmailData>(initialEmail);
   const [daysFilter, setDaysFilter] = useState("30");
   const [isPending, startTransition] = useTransition();
 
@@ -41,8 +45,13 @@ export default function ReportsClient({ initialData }: ReportsClientProps) {
     setDaysFilter(val);
     startTransition(async () => {
       try {
-        const newData = await getDashboardMetrics(parseInt(val, 10));
+        const n = parseInt(val, 10);
+        const [newData, newEmail] = await Promise.all([
+          getDashboardMetrics(n),
+          getEmailAnalytics(n),
+        ]);
         setData(newData);
+        setEmailData(newEmail);
       } catch (err) {
         console.error(err);
       }
@@ -96,6 +105,7 @@ export default function ReportsClient({ initialData }: ReportsClientProps) {
           <TabsTrigger value="pipeline">Pipeline</TabsTrigger>
           <TabsTrigger value="sources">Sources</TabsTrigger>
           <TabsTrigger value="agents">Agents</TabsTrigger>
+          <TabsTrigger value="email">Email</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
@@ -203,6 +213,61 @@ export default function ReportsClient({ initialData }: ReportsClientProps) {
                     <Tooltip />
                     <Bar dataKey="count" name="Assigned Leads" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
                   </BarChart>
+                </ResponsiveContainer>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="email" className="space-y-4">
+          {/* KPI cards */}
+          <div className="grid gap-4 grid-cols-2 lg:grid-cols-5">
+            {[
+              { label: "Sent", value: emailData?.sent ?? 0, sub: `${emailData?.failed ?? 0} failed`, icon: Send, color: "text-blue-600" },
+              { label: "Delivered", value: emailData?.delivered ?? 0, sub: `${emailData?.deliveryRate ?? 0}% of sent`, icon: CheckCircle2, color: "text-emerald-600" },
+              { label: "Opened", value: emailData?.opened ?? 0, sub: `${emailData?.openRate ?? 0}% open rate`, icon: Eye, color: "text-emerald-600" },
+              { label: "Replied", value: emailData?.replied ?? 0, sub: `${emailData?.replyRate ?? 0}% reply rate`, icon: MessageSquare, color: "text-violet-600" },
+              { label: "Failed", value: emailData?.failed ?? 0, sub: "delivery issues", icon: AlertCircle, color: "text-red-600" },
+            ].map((kpi) => (
+              <Card key={kpi.label}>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">{kpi.label}</CardTitle>
+                  <kpi.icon className={`h-4 w-4 ${kpi.color}`} />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{kpi.value}</div>
+                  <p className="text-xs text-muted-foreground">{kpi.sub}</p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Mail className="h-4 w-4" /> Emails Sent Over Time
+              </CardTitle>
+              <CardDescription>
+                Automated welcome emails sent to leads.{" "}
+                <span className="text-xs">
+                  (Open & reply tracking require the Resend webhook — see docs.)
+                </span>
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="h-[360px]">
+              {!emailData?.trend || emailData.trend.length === 0 ? (
+                <div className="h-full flex items-center justify-center text-muted-foreground">
+                  No emails sent yet in this period.
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={emailData.trend}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                    <XAxis dataKey="date" />
+                    <YAxis allowDecimals={false} />
+                    <Tooltip />
+                    <Line type="monotone" dataKey="count" name="Emails" stroke="#10b981" strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+                  </LineChart>
                 </ResponsiveContainer>
               )}
             </CardContent>

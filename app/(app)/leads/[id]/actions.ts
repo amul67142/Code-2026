@@ -176,6 +176,59 @@ export async function addLeadActivity(
   return { success: true };
 }
 
+// ── Get the latest email status for a lead ─────────────────────
+export async function getLeadEmailStatus(leadId: string) {
+  const supabase = await createClient();
+  const profile = await getUserProfile();
+  if (!profile) return null;
+
+  const { data } = await supabase
+    .from("message_log")
+    .select("id, status, to_address, subject, error_message, is_auto, created_at, opened_at, replied_at")
+    .eq("lead_id", leadId)
+    .eq("company_id", profile.company_id)
+    .eq("channel", "EMAIL")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  return data;
+}
+
+// ── Manually (re)send the acknowledgment email to a lead ───────
+export async function resendLeadEmail(leadId: string) {
+  const profile = await getUserProfile();
+  if (!profile) return { error: "Unauthorized" };
+
+  const supabase = await createClient();
+  const { data: lead } = await supabase
+    .from("leads")
+    .select("id, name, email, project_id, company_id")
+    .eq("id", leadId)
+    .eq("company_id", profile.company_id)
+    .single();
+
+  if (!lead) return { error: "Lead not found" };
+  if (!lead.email) return { error: "This lead has no email address" };
+
+  const { sendLeadAcknowledgmentEmail } = await import("@/lib/automation/lead-email");
+  const res = await sendLeadAcknowledgmentEmail({
+    companyId: lead.company_id,
+    leadId: lead.id,
+    leadName: lead.name,
+    leadEmail: lead.email,
+    projectId: lead.project_id,
+    isAuto: false,
+  });
+
+  if (res.status === "FAILED") {
+    return { error: res.error || "Failed to send email" };
+  }
+
+  revalidatePath(`/leads/${leadId}`);
+  return { success: true, status: res.status };
+}
+
 // ── Get agents for reassignment ────────────────────────────────
 export async function getAgentsForReassignment() {
   const supabase = await createClient();

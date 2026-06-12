@@ -3,6 +3,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { sendFacebookCAPIEvent } from "@/lib/integrations/facebook-capi";
+import { sendLeadAcknowledgmentEmail } from "@/lib/automation/lead-email";
+import { sendLeadWhatsApp } from "@/lib/automation/lead-whatsapp";
 
 // ── Helper: get current user's profile ──────────────────────────
 async function getUserProfile() {
@@ -154,7 +156,7 @@ export async function createLead(formData: FormData) {
     resolvedStageId = firstStage?.id;
   }
 
-  const { error: insertError } = await supabase.from("leads").insert({
+  const { data: newLead, error: insertError } = await supabase.from("leads").insert({
     company_id: profile.company_id,
     name,
     phone: phone || null,
@@ -170,11 +172,33 @@ export async function createLead(formData: FormData) {
     location_preference: locationPref || null,
     status: "ACTIVE",
     score: 0,
-  });
+  }).select("id").single();
 
-  if (insertError) {
+  if (insertError || !newLead) {
     console.error("createLead error:", insertError);
     return { error: "Failed to create lead" };
+  }
+
+  // Automation: acknowledge the lead via email + WhatsApp (best-effort)
+  if (email) {
+    await sendLeadAcknowledgmentEmail({
+      companyId: profile.company_id,
+      leadId: newLead.id,
+      leadName: name,
+      leadEmail: email,
+      projectId: projectId || null,
+      isAuto: true,
+    }).catch((e) => console.error("createLead: lead email failed:", e));
+  }
+  if (phone) {
+    await sendLeadWhatsApp({
+      companyId: profile.company_id,
+      leadId: newLead.id,
+      leadName: name,
+      leadPhone: phone,
+      projectId: projectId || null,
+      isAuto: true,
+    }).catch((e) => console.error("createLead: lead WhatsApp failed:", e));
   }
 
   revalidatePath("/leads");

@@ -34,7 +34,7 @@ export function getWelcomeEmailHtml(name: string) {
     <div class="highlight">
       <p style="margin:0"><strong>👥 Invite your team</strong> — Add agents from Settings → Team</p>
     </div>
-    <p style="margin-top:24px"><a href="${process.env.NEXT_PUBLIC_APP_URL || "https://bigload.site"}/dashboard" class="btn">Go to Dashboard →</a></p>
+    <p style="margin-top:24px"><a href="${process.env.NEXT_PUBLIC_APP_URL || "https://biglead.site"}/dashboard" class="btn">Go to Dashboard →</a></p>
   `);
 }
 
@@ -113,7 +113,7 @@ export function getTaskOverdueEmailHtml(agentName: string, overdueCount: number)
     <h1>Overdue Tasks 🚨</h1>
     <p>Hi ${agentName}, you have <strong>${overdueCount} overdue task(s)</strong> that need your attention.</p>
     <p>Please review and complete them as soon as possible to keep your leads engaged.</p>
-    <p><a href="${process.env.NEXT_PUBLIC_APP_URL || "https://bigload.site"}/tasks" class="btn">View Tasks →</a></p>
+    <p><a href="${process.env.NEXT_PUBLIC_APP_URL || "https://biglead.site"}/tasks" class="btn">View Tasks →</a></p>
   `);
 }
 
@@ -139,7 +139,7 @@ export function getDailyDigestEmailHtml(name: string, stats: { newLeads: number;
     ${stats.overdueCount > 0 ? `<div class="highlight" style="border-color:#ef4444">
       <p style="margin:0;color:#ef4444">🚨 <strong>${stats.overdueCount}</strong> overdue task(s)</p>
     </div>` : ""}
-    <p><a href="${process.env.NEXT_PUBLIC_APP_URL || "https://bigload.site"}/dashboard" class="btn">Open Dashboard →</a></p>
+    <p><a href="${process.env.NEXT_PUBLIC_APP_URL || "https://biglead.site"}/dashboard" class="btn">Open Dashboard →</a></p>
   `);
 }
 
@@ -172,6 +172,27 @@ export async function sendStageChangeEmail(to: string, agentName: string, leadNa
   });
 }
 
+// ── 7b. Lead Acknowledgment Email (sent TO the lead/prospect) ───
+export function getLeadAcknowledgmentEmailHtml(
+  leadName: string,
+  companyName: string,
+  projectName?: string
+) {
+  const heading = projectName
+    ? `Thanks for your interest in ${projectName}! 🏡`
+    : `Thanks for reaching out, ${leadName || "there"}! 👋`;
+  return layout(`
+    <h1>${heading}</h1>
+    <p>Hi ${leadName || "there"},</p>
+    <p>Thank you for showing interest${projectName ? ` in <strong>${projectName}</strong>` : ""}. One of our advisors from <strong>${companyName}</strong> will connect with you shortly to share all the details and answer any questions you have.</p>
+    <div class="highlight">
+      <p style="margin:0">⏱️ <strong>We usually respond within minutes</strong> — please keep an eye on your phone!</p>
+    </div>
+    <p>If anything is urgent, simply reply to this email and we'll be glad to help.</p>
+    <p style="margin-top:20px">Warm regards,<br/><strong>${companyName} Team</strong></p>
+  `);
+}
+
 // ── 8. Password Reset Email ─────────────────────────────────────────
 export function getPasswordResetEmailHtml(userName: string, resetUrl: string) {
   return layout(`
@@ -197,7 +218,7 @@ export function getTrialExpiryEmailHtml(name: string, daysLeft: number) {
     <h1>Trial Ending Soon ⏳</h1>
     <p>Hi ${name}, your Big Lead CRM trial expires in <strong>${daysLeft} day(s)</strong>.</p>
     <p>Upgrade now to keep all your data, leads, and pipeline configured:</p>
-    <p style="text-align:center; margin-top:24px"><a href="${process.env.NEXT_PUBLIC_APP_URL || "https://bigload.site"}/settings/billing" class="btn">Upgrade Now →</a></p>
+    <p style="text-align:center; margin-top:24px"><a href="${process.env.NEXT_PUBLIC_APP_URL || "https://biglead.site"}/settings/billing" class="btn">Upgrade Now →</a></p>
   `);
 }
 
@@ -221,7 +242,7 @@ export function getWeeklyReportEmailHtml(name: string, stats: { totalLeads: numb
       <tr><td style="padding:8px 0; border-bottom:1px solid #e5e7eb; font-size:14px">✅ Tasks Completed</td><td style="padding:8px 0; border-bottom:1px solid #e5e7eb; font-size:14px; font-weight:700; text-align:right">${stats.tasksCompleted}</td></tr>
       <tr><td style="padding:8px 0; font-size:14px">📊 Total Pipeline</td><td style="padding:8px 0; font-size:14px; font-weight:700; text-align:right">${stats.totalLeads}</td></tr>
     </table>
-    <p><a href="${process.env.NEXT_PUBLIC_APP_URL || "https://bigload.site"}/reports" class="btn">View Full Reports →</a></p>
+    <p><a href="${process.env.NEXT_PUBLIC_APP_URL || "https://biglead.site"}/reports" class="btn">View Full Reports →</a></p>
   `);
 }
 

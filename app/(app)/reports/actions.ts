@@ -112,3 +112,72 @@ export async function getDashboardMetrics(days: number = 30) {
     agentMetrics
   };
 }
+
+// ── Email Analytics (message_log, channel = EMAIL) ──────────────
+export async function getEmailAnalytics(days: number = 30) {
+  const supabase = await createClient();
+  const profileRes = await getMyProfile();
+  if (!profileRes || !profileRes.profile) return redirect("/login");
+  const profile = profileRes.profile;
+
+  const cutoffDate = subDays(new Date(), days);
+
+  const { data: messages, error } = await supabase
+    .from("message_log")
+    .select("status, is_auto, created_at")
+    .eq("company_id", profile.company_id)
+    .eq("channel", "EMAIL")
+    .limit(10000);
+
+  if (error) {
+    console.error("getEmailAnalytics error:", error);
+    // Table may not exist yet (migration not run) — return zeros gracefully
+    return emptyEmailAnalytics();
+  }
+
+  const filtered = (messages || []).filter((m) =>
+    days === 0 ? true : isAfter(new Date(m.created_at), cutoffDate)
+  );
+
+  const has = (statuses: string[]) =>
+    filtered.filter((m) => statuses.includes(m.status)).length;
+
+  const total = filtered.length;
+  const sent = has(["SENT", "DELIVERED", "OPENED", "REPLIED"]); // successfully sent
+  const delivered = has(["DELIVERED", "OPENED", "REPLIED"]);
+  const opened = has(["OPENED", "REPLIED"]);
+  const replied = has(["REPLIED"]);
+  const failed = has(["FAILED", "BOUNCED"]);
+
+  const pct = (n: number, d: number) => (d > 0 ? Math.round((n / d) * 100) : 0);
+
+  // Daily trend of emails sent
+  const trendMap: Record<string, number> = {};
+  [...filtered]
+    .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+    .forEach((m) => {
+      const d = format(new Date(m.created_at), "MMM dd");
+      trendMap[d] = (trendMap[d] || 0) + 1;
+    });
+  const trend = Object.entries(trendMap).map(([date, count]) => ({ date, count }));
+
+  return {
+    total,
+    sent,
+    delivered,
+    opened,
+    replied,
+    failed,
+    deliveryRate: pct(delivered, sent),
+    openRate: pct(opened, sent),
+    replyRate: pct(replied, sent),
+    trend,
+  };
+}
+
+function emptyEmailAnalytics() {
+  return {
+    total: 0, sent: 0, delivered: 0, opened: 0, replied: 0, failed: 0,
+    deliveryRate: 0, openRate: 0, replyRate: 0, trend: [] as { date: string; count: number }[],
+  };
+}
