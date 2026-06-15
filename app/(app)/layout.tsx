@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { UserProvider, type UserProfile } from "@/lib/user-context";
 import { hasActiveAccess } from "@/lib/billing/access";
+import { AutoLogout } from "@/components/auto-logout";
 
 export const metadata = {
   robots: {
@@ -94,6 +95,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // Render full app shell for onboarded users
   return (
     <UserProvider user={userCtx}>
+      <AutoLogout />
       <div className="flex h-screen overflow-hidden bg-[#F7F8FA]">
         {/* Desktop sidebar */}
         <Sidebar />

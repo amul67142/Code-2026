@@ -1,8 +1,10 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 
 import { getURL } from "@/lib/utils";
 import { sendWelcomeEmail } from "@/lib/email";
@@ -34,6 +36,28 @@ export async function login(formData: FormData) {
     await supabase.auth.signOut({ scope: "others" });
   } catch (e) {
     console.error("single-device enforcement failed:", e);
+  }
+
+  // ── Capture the REAL browser IP for accurate session location ──
+  // (SSR login otherwise records the server's IP, not the user's.)
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.access_token) {
+      const payload = JSON.parse(
+        Buffer.from(session.access_token.split(".")[1], "base64").toString("utf8")
+      );
+      const sessionId = payload.session_id as string | undefined;
+      const h = await headers();
+      const fwd = h.get("x-forwarded-for") || "";
+      const realIp = fwd.split(",")[0].trim() || h.get("x-real-ip") || null;
+      if (sessionId && realIp) {
+        await createAdminClient()
+          .from("session_meta")
+          .upsert({ session_id: sessionId, user_id: authData.user.id, ip: realIp });
+      }
+    }
+  } catch (e) {
+    console.error("session IP capture failed:", e);
   }
 
   // Check subscription and onboarding status immediately to redirect directly
