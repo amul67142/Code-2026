@@ -27,6 +27,15 @@ export async function login(formData: FormData) {
     return { error: error?.message || "Invalid credentials" };
   }
 
+  // ── Single active device: revoke all OTHER sessions on every new login ──
+  // The just-created session stays active; any other device is signed out
+  // (its refresh token is revoked → it's logged out on its next token refresh).
+  try {
+    await supabase.auth.signOut({ scope: "others" });
+  } catch (e) {
+    console.error("single-device enforcement failed:", e);
+  }
+
   // Check subscription and onboarding status immediately to redirect directly
   const { data: userProfile } = await supabase
     .from("users")
