@@ -275,7 +275,15 @@ export function FacebookFormsManager({
             <strong>Leads Access Manager</strong>, Facebook silently blocks new CRMs until
             you grant access: open your <strong>Page Settings → Leads Access → CRMs</strong>{" "}
             and assign <strong>BigLead CRM</strong>. This is a one-time step required by
-            Facebook — without it, leads are delivered to Facebook but never reach BigLead.
+            Facebook — without it, leads are delivered to Facebook but never reach BigLead.{" "}
+            <a
+              href="/guides/facebook-lead-ads"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-semibold underline underline-offset-2 hover:text-amber-950"
+            >
+              Read the full setup guide →
+            </a>
           </div>
         </div>
       )}

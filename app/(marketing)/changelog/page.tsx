@@ -9,6 +9,47 @@ export const metadata = {
 export default function ChangelogPage() {
   const versions = [
     {
+      version: "v1.3.0",
+      date: "July 12, 2026",
+      title: "Performance & Reliability",
+      description: "A focused pass on speed and stability so the platform stays fast as your lead volume grows.",
+      badge: "Performance",
+      changes: [
+        "Deduplicated authentication so each page load makes a single auth check instead of several — noticeably faster navigation.",
+        "Added rate limiting on public and billing endpoints to protect the platform from floods and abuse.",
+        "Server-side caching for connected integration data (fewer repeat calls to external APIs).",
+        "New database indexes for the leads list, agent views, and search — keeps queries fast at scale.",
+        "Hardened the public demo form against invalid input and spam.",
+      ],
+    },
+    {
+      version: "v1.2.0",
+      date: "June 28, 2026",
+      title: "Messaging Automation — WhatsApp & Email",
+      description: "Every new lead can now be contacted automatically, on the channels customers actually reply to.",
+      badge: "New Feature",
+      changes: [
+        "Automatic WhatsApp welcome messages to new leads via the official WhatsApp Cloud API, sent from each company's own connected number.",
+        "Automatic project-specific welcome emails on new leads, with delivery logged to each lead's timeline.",
+        "Per-lead message status on the lead detail page, plus an Email tab in Reports.",
+        "Settings → Integrations: connect & test WhatsApp and Email per company, with secure encrypted token storage.",
+      ],
+    },
+    {
+      version: "v1.1.0",
+      date: "June 12, 2026",
+      title: "Native Facebook Lead Ads",
+      description: "Capture leads from Facebook & Instagram ads directly into BigLead — no Zapier or middleman tools required.",
+      badge: "New Feature",
+      changes: [
+        "One-click Facebook Page connection with secure OAuth and encrypted page tokens.",
+        "Real-time lead capture via webhooks — new leads appear in your pipeline within seconds of submission.",
+        "Map each Instant Form to a project with its own assignment rules (round-robin or specific agent).",
+        "Shared ingestion pipeline: automatic de-duplication, assignment, notifications and follow-up automation on every lead.",
+        "Step-by-step setup guide, including the Leads Access Manager grant that many CRMs miss.",
+      ],
+    },
+    {
       version: "v1.0.0",
       date: "May 20, 2026",
       title: "BigLead CRM Launch",

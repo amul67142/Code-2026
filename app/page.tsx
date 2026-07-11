@@ -870,14 +870,15 @@ export default function HomePage() {
                   { name: "Changelog", href: "/changelog" }
                 ] 
               },
-              { 
-                title: "Resources", 
+              {
+                title: "Resources",
                 links: [
                   { name: "Documentation", href: "/docs" },
+                  { name: "Facebook Setup Guide", href: "/guides/facebook-lead-ads" },
                   { name: "Blog", href: "/blog" },
                   { name: "Help Center", href: "/help" },
                   { name: "Contact", href: "/contact" }
-                ] 
+                ]
               },
               { 
                 title: "Legal",     
