@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { rateLimit } from "@/lib/rate-limit";
 
 export async function GET() {
   try {
@@ -9,6 +10,15 @@ export async function GET() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Rate limit: payment polling is ~24/min; anything beyond 40/min is abuse.
+    const rl = rateLimit(`billing-status:${user.id}`, 40, 60 * 1000);
+    if (!rl.ok) {
+      return NextResponse.json(
+        { error: "Too many requests" },
+        { status: 429, headers: { "Retry-After": String(rl.retryAfterSec) } }
+      );
     }
 
     // 2. Fetch user profile

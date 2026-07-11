@@ -7,6 +7,7 @@ import { cookies } from "next/headers";
 import crypto from "crypto";
 import { getFacebookRedirectUri, unsubscribePage, getLeadForms } from "@/lib/integrations/facebook-graph";
 import { decryptToken } from "@/lib/integrations/crypto";
+import { cached } from "@/lib/server-cache";
 
 // ── Helper: get current user's profile ──────────────────────────
 async function getUserProfile() {
@@ -191,10 +192,14 @@ export async function listFacebookForms(connectionId: string) {
   }
 
   // Fetch the Page's Instant Forms from Meta using the stored Page token.
+  // Cached for 2 minutes per page — opening this screen repeatedly no longer
+  // fires a fresh Graph API call every time (protects our rate limits + speed).
   let forms: Array<{ id: string; name: string; status: string }>;
   try {
     const pageToken = decryptToken(conn.page_access_token_enc);
-    const result = await getLeadForms(conn.page_id, pageToken);
+    const result = await cached(`fb-forms:${conn.page_id}`, 2 * 60 * 1000, () =>
+      getLeadForms(conn.page_id, pageToken)
+    );
     forms = result.data || [];
   } catch (err) {
     return {

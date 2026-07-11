@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { decryptToken } from "@/lib/integrations/crypto";
 import { getLeadData } from "@/lib/integrations/facebook-graph";
 import { ingestLead } from "@/lib/leads/ingest";
+import { rateLimit } from "@/lib/rate-limit";
 
 /**
  * Facebook Lead Ads webhook.
@@ -32,6 +33,17 @@ export async function GET(req: NextRequest) {
 
 // ── POST: leadgen notifications ───────────────────────────────────
 export async function POST(req: NextRequest) {
+  // Flood shield: cap per-IP request rate BEFORE doing any crypto/DB work.
+  // Meta's real deliveries stay far below this; it only sheds abuse bursts.
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+  const rl = rateLimit(`fb-webhook:${ip}`, 300, 60 * 1000);
+  if (!rl.ok) {
+    return new NextResponse("Too many requests", {
+      status: 429,
+      headers: { "Retry-After": String(rl.retryAfterSec) },
+    });
+  }
+
   const raw = await req.text();
 
   // 1. Verify the payload really came from Meta (HMAC-SHA256 over the raw body).

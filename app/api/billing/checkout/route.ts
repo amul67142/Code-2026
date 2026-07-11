@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { razorpayClient } from "@/lib/billing/razorpay";
+import { rateLimit } from "@/lib/rate-limit";
 import { UserRole } from "@/types";
 
 const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID;
@@ -9,11 +10,20 @@ const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID;
 export async function POST(request: Request) {
   try {
     const supabase = await createClient();
-    
+
     // 1. Authenticate user
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Rate limit: checkout creates Razorpay subscriptions — 5/min per user is plenty.
+    const rl = rateLimit(`billing-checkout:${user.id}`, 5, 60 * 1000);
+    if (!rl.ok) {
+      return NextResponse.json(
+        { error: "Too many checkout attempts. Please wait a minute and try again." },
+        { status: 429, headers: { "Retry-After": String(rl.retryAfterSec) } }
+      );
     }
 
     // 2. Fetch user profile

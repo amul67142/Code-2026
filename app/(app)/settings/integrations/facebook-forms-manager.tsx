@@ -268,6 +268,15 @@ export function FacebookFormsManager({
             <RefreshCw className="mr-2 size-3.5" />
             Reload forms
           </Button>
+
+          {/* Lead Access Manager gotcha — the #1 silent reason leads don't arrive */}
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900 leading-relaxed">
+            <strong>Leads not arriving?</strong> If your Facebook Page uses{" "}
+            <strong>Leads Access Manager</strong>, Facebook silently blocks new CRMs until
+            you grant access: open your <strong>Page Settings → Leads Access → CRMs</strong>{" "}
+            and assign <strong>BigLead CRM</strong>. This is a one-time step required by
+            Facebook — without it, leads are delivered to Facebook but never reach BigLead.
+          </div>
         </div>
       )}
     </div>

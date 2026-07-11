@@ -653,3 +653,32 @@ EDIT .env  (FACEBOOK_* + FACEBOOK_TOKEN_ENC_KEY + FACEBOOK_GRAPH_VERSION + NEXT_
 ```
 ```
 ```
+
+---
+
+## Troubleshooting: Lead Access Manager (LAM) — the #1 silent blocker
+
+**Symptom (verified live on 12 July 2026):** everything is wired correctly (page connected,
+`subscribed_apps` shows the app with `leadgen`, token valid, webhook active) but test leads
+show **Failure — "CRM access has been revoked from Lead Access Manager"** in the Lead Ads
+Testing Tool's Track Status, while other CRMs (e.g. leadSync) show Success.
+
+**Cause:** if a Facebook Page has customized **Leads Access Manager**, every CRM app must be
+*manually granted access* by a page admin before Meta will deliver lead data to it.
+Being subscribed to the page is NOT enough.
+
+**Fix (one-time, per page):**
+1. Facebook Page → **Settings → Leads Access** (or Meta Business Suite → Leads Access)
+2. **CRMs** tab → **Assign CRMs** → add **BigLead CRM**
+3. Delete old test lead in the Testing Tool → Create lead → Track Status should show Success.
+
+**Client onboarding implication:** any client whose page uses LAM will silently receive
+nothing until they do this. The Settings → Integrations UI shows an amber hint card about it.
+
+**Related quirks (also verified):**
+- The Lead Ads Testing Tool hides a page from its dropdown while that page is subscribed to
+  this (Live) app. Cosmetic only — delivery still works. Disconnecting makes it reappear.
+- The generic "Send to server" button always posts dummy `leadgen_id 444444444444`, which the
+  webhook's idempotency layer correctly skips. Use **Create lead** instead.
+- A lead whose form has no mapping in BigLead is recorded in `facebook_webhook_events` as
+  FAILED ("Form not mapped") — map the form in Settings → Integrations first.
