@@ -1,8 +1,8 @@
 import { Sidebar, MobileSidebar, Header } from "@/components/app-shell";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getCachedAuthUser } from "@/lib/auth/cached-user";
 import { UserProvider, type UserProfile } from "@/lib/user-context";
 import { hasActiveAccess } from "@/lib/billing/access";
 import { AutoLogout } from "@/components/auto-logout";
@@ -21,8 +21,8 @@ export const metadata = {
  * All routes inside (app) group use this layout.
  */
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  // Request-deduped auth — shares one auth round-trip with page actions.
+  const user = await getCachedAuthUser();
 
   if (!user) {
     redirect("/login");

@@ -2,24 +2,15 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+// Request-deduped auth: shares one auth round-trip with layout + sibling actions.
+import { getCachedUserProfile } from "@/lib/auth/cached-user";
 
 export async function getStages() {
   const supabase = await createClient();
 
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError || !user) {
+  const profile = await getCachedUserProfile();
+  if (!profile) {
     throw new Error("Unauthorized");
-  }
-
-  // Get user profile to find company_id
-  const { data: profile, error: profileError } = await supabase
-    .from("users")
-    .select("company_id")
-    .eq("auth_user_id", user.id)
-    .single();
-
-  if (profileError || !profile) {
-    throw new Error("Profile not found");
   }
 
   const { data: stages, error } = await supabase

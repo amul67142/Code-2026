@@ -5,24 +5,8 @@ import { revalidatePath } from "next/cache";
 import { sendFacebookCAPIEvent } from "@/lib/integrations/facebook-capi";
 import { sendLeadAcknowledgmentEmail } from "@/lib/automation/lead-email";
 import { sendLeadWhatsApp } from "@/lib/automation/lead-whatsapp";
-
-// ── Helper: get current user's profile ──────────────────────────
-async function getUserProfile() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
-  if (authError || !user) return null;
-
-  const { data: profile } = await supabase
-    .from("users")
-    .select("id, company_id, role")
-    .eq("auth_user_id", user.id)
-    .single();
-
-  return profile;
-}
+// Request-deduped auth: layout + all page actions share ONE auth round-trip.
+import { getCachedUserProfile as getUserProfile } from "@/lib/auth/cached-user";
 
 // ── Get leads with optional filters ─────────────────────────────
 export async function getLeads(filters?: {
