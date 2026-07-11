@@ -243,6 +243,7 @@ export default async function DashboardPage() {
                   <Link
                     key={lead.id}
                     href={`/leads/${lead.id}`}
+                    prefetch={false}
                     className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 transition-colors"
                   >
                     <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary text-xs font-bold">

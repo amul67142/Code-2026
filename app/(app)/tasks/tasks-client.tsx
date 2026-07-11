@@ -113,8 +113,9 @@ export function TasksClient({ initialTasks, leads }: TasksClientProps) {
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <Link 
+                  <Link
                     href={`/leads/${task.lead?.id}`}
+                    prefetch={false}
                     className="font-semibold text-sm hover:underline flex items-center gap-1"
                   >
                     {task.lead?.name || "Unknown Lead"}

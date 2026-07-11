@@ -175,6 +175,7 @@ export function MyLeadsClient({ initialLeads = [] }: { initialLeads?: any[] }) {
                     <CardTitle className="text-base truncate">
                       <Link
                         href={`/leads/${lead.id}`}
+                        prefetch={false}
                         className="text-primary hover:underline"
                       >
                         {lead.name}
@@ -195,6 +196,7 @@ export function MyLeadsClient({ initialLeads = [] }: { initialLeads?: any[] }) {
                   </div>
                   <Link
                     href={`/leads/${lead.id}`}
+                    prefetch={false}
                     className="text-muted-foreground hover:text-primary shrink-0 ml-2"
                   >
                     <ExternalLink className="size-4" />

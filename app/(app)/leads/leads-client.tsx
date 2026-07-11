@@ -333,6 +333,7 @@ export default function LeadsClient({
                   <TableCell className="font-medium">
                     <Link
                       href={`/leads/${lead.id}`}
+                      prefetch={false}
                       className="text-primary hover:underline"
                     >
                       {lead.name}
