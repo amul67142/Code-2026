@@ -108,13 +108,16 @@ export async function processInboundWhatsApp(msg: InboundWhatsApp): Promise<Inbo
 
   // 6. Notify the assigned agent (qualified or just replied).
   if (lead.assigned_to_id) {
+    const leadName = lead.name || "A lead";
     await admin.from("notifications").insert({
       company_id: conn.company_id,
       user_id: lead.assigned_to_id,
       title: qualified
-        ? `🔥 ${lead.name || "A lead"} qualified via WhatsApp`
-        : `💬 ${lead.name || "A lead"} replied on WhatsApp`,
-      message: msg.text.slice(0, 160),
+        ? `🔥 ${leadName} qualified on WhatsApp`
+        : `💬 ${leadName} replied on WhatsApp`,
+      message: qualified
+        ? `Your assigned lead ${leadName} was auto-qualified from their WhatsApp reply: "${msg.text.slice(0, 120)}"`
+        : `Your assigned lead ${leadName} replied: "${msg.text.slice(0, 130)}"`,
       type: "WHATSAPP_REPLY",
       metadata: { lead_id: lead.id, qualified },
     });

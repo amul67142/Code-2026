@@ -14,15 +14,51 @@ import {
 } from "@/app/(app)/notifications/actions";
 import { useRouter } from "next/navigation";
 import { formatDistanceToNow } from "date-fns";
+import { createClient } from "@/lib/supabase/client";
+import { useUser } from "@/lib/user-context";
+import { toast } from "sonner";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Notification = any;
+
+/** Short, pleasant two-note chime via the Web Audio API (no asset needed). */
+function playChime() {
+  try {
+    const AudioCtx =
+      window.AudioContext ||
+      (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    if (ctx.state === "suspended") ctx.resume();
+    const now = ctx.currentTime;
+    ([
+      [880, 0],
+      [1318.5, 0.12],
+    ] as const).forEach(([freq, t]) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0.0001, now + t);
+      gain.gain.exponentialRampToValueAtTime(0.18, now + t + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + t + 0.3);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now + t);
+      osc.stop(now + t + 0.32);
+    });
+    setTimeout(() => ctx.close().catch(() => {}), 900);
+  } catch {
+    // audio not available / blocked — ignore
+  }
+}
 
 export function NotificationBell() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [open, setOpen] = useState(false);
   const router = useRouter();
+  const { id: userId } = useUser();
 
   const fetchNotifications = useCallback(async () => {
     try {
@@ -34,12 +70,52 @@ export function NotificationBell() {
     }
   }, []);
 
-  // Poll every 30 seconds + fetch on mount
+  // Fetch on mount + a slow safety poll (realtime handles the live updates).
   useEffect(() => {
     fetchNotifications();
-    const interval = setInterval(fetchNotifications, 30000);
+    const interval = setInterval(fetchNotifications, 60000);
     return () => clearInterval(interval);
   }, [fetchNotifications]);
+
+  // ── Realtime: push new notifications instantly with a chime + toast ──
+  useEffect(() => {
+    if (!userId) return;
+    const supabase = createClient();
+    const channel = supabase
+      .channel(`notifications:${userId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "notifications",
+          filter: `user_id=eq.${userId}`,
+        },
+        (payload) => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const n = payload.new as any;
+          setNotifications((prev) =>
+            prev.some((x) => x.id === n.id) ? prev : [n, ...prev]
+          );
+          setUnreadCount((c) => c + 1);
+          playChime();
+          toast(n.title, {
+            description: n.message,
+            action: n.metadata?.lead_id
+              ? {
+                  label: "View",
+                  onClick: () => router.push(`/leads/${n.metadata.lead_id}`),
+                }
+              : undefined,
+          });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [userId, router]);
 
   // Refetch when popover opens
   useEffect(() => {
