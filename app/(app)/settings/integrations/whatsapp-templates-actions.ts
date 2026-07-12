@@ -66,6 +66,9 @@ export async function createWhatsAppTemplate(input: {
   bodyText: string;
   sampleValues: string[];
   buttons?: TemplateButton[];
+  /** From uploadTemplateHeaderImage — public URL (send time) + Meta handle (create time). */
+  headerImageUrl?: string;
+  headerImageHandle?: string;
 }) {
   const profile = await getCachedUserProfile();
   if (!profile?.company_id) return { error: "Unauthorized" };
@@ -133,6 +136,7 @@ export async function createWhatsAppTemplate(input: {
       bodyText,
       examples,
       buttons,
+      headerImageHandle: input.headerImageHandle,
     });
     metaId = res.id;
     metaStatus = (res.status || "PENDING").toUpperCase();
@@ -150,6 +154,7 @@ export async function createWhatsAppTemplate(input: {
       body_text: bodyText,
       sample_values: examples,
       buttons,
+      header_image_url: input.headerImageUrl || null,
       status: metaStatus,
       meta_template_id: metaId || null,
       created_by_id: profile.id,

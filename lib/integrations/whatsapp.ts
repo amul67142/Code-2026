@@ -88,6 +88,44 @@ export interface MetaTemplateInput {
   examples: string[];
   /** Optional interactive buttons (quick replies / URL / phone). */
   buttons?: TemplateButton[];
+  /** Meta media handle (from uploadMetaTemplateMedia) for an IMAGE header. */
+  headerImageHandle?: string;
+}
+
+/**
+ * Upload an image to Meta's Resumable Upload API and return the media handle
+ * required to create a template with an IMAGE header. (A plain URL is NOT
+ * accepted at template-creation time — only at send time.)
+ */
+export async function uploadMetaTemplateMedia(
+  appId: string,
+  token: string,
+  file: { buffer: ArrayBuffer; type: string; size: number }
+): Promise<string> {
+  // 1. Open an upload session.
+  const sessRes = await fetch(
+    `${BASE}/${appId}/uploads?file_length=${file.size}&file_type=${encodeURIComponent(file.type)}&access_token=${encodeURIComponent(token)}`,
+    { method: "POST" }
+  );
+  const sess = await sessRes.json();
+  if (!sessRes.ok || sess.error || !sess.id) {
+    throw new Error(sess?.error?.message || "Couldn't start media upload with Meta.");
+  }
+
+  // 2. Upload the bytes.
+  const upRes = await fetch(`https://graph.facebook.com/${V}/${sess.id}`, {
+    method: "POST",
+    headers: {
+      Authorization: `OAuth ${token}`,
+      file_offset: "0",
+    },
+    body: file.buffer,
+  });
+  const up = await upRes.json();
+  if (!upRes.ok || up.error || !up.h) {
+    throw new Error(up?.error?.message || "Media upload to Meta failed.");
+  }
+  return up.h as string;
 }
 
 /** Submit a new message template to Meta for review. */
@@ -104,7 +142,17 @@ export async function createMetaTemplate(
     body.example = { body_text: [tpl.examples] };
   }
 
-  const components: Record<string, unknown>[] = [body];
+  const components: Record<string, unknown>[] = [];
+
+  if (tpl.headerImageHandle) {
+    components.push({
+      type: "HEADER",
+      format: "IMAGE",
+      example: { header_handle: [tpl.headerImageHandle] },
+    });
+  }
+
+  components.push(body);
 
   if (tpl.buttons && tpl.buttons.length > 0) {
     components.push({

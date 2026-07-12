@@ -60,19 +60,35 @@ export async function sendLeadWhatsApp(
   const language = conn.template_language || "en_US";
 
   // hello_world is the pre-approved Meta test template (no variables).
-  const components =
-    templateName === "hello_world"
-      ? []
-      : [
-          {
-            type: "body",
-            parameters: [
-              { type: "text", text: leadName },
-              { type: "text", text: projectName },
-              { type: "text", text: companyName },
-            ],
-          },
-        ];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const components: any[] = [];
+  if (templateName !== "hello_world") {
+    // If the template has an image header, it must be supplied at send time.
+    const { data: tplRow } = await admin
+      .from("whatsapp_templates")
+      .select("header_image_url, body_text")
+      .eq("company_id", input.companyId)
+      .eq("name", templateName)
+      .maybeSingle();
+    if (tplRow?.header_image_url) {
+      components.push({
+        type: "header",
+        parameters: [{ type: "image", image: { link: tplRow.header_image_url } }],
+      });
+    }
+    // Only pass body variables if the template body actually has any.
+    const hasVars = tplRow ? /\{\{\s*\d+\s*\}\}/.test(tplRow.body_text || "") : true;
+    if (hasVars) {
+      components.push({
+        type: "body",
+        parameters: [
+          { type: "text", text: leadName },
+          { type: "text", text: projectName },
+          { type: "text", text: companyName },
+        ],
+      });
+    }
+  }
 
   try {
     const res = await sendWhatsAppTemplate(

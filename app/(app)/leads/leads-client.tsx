@@ -1,7 +1,12 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { getLeads, updateLeadAssignment } from "./actions";
+import {
+  bulkDeleteLeads,
+  sendBulkWhatsApp,
+  getBulkSendQuota,
+} from "../settings/integrations/whatsapp-bulk-actions";
 import {
   Table,
   TableBody,
@@ -28,6 +33,10 @@ import {
   Mail,
   Download,
   Upload,
+  Trash2,
+  Send,
+  Loader2,
+  X,
 } from "lucide-react";
 import Link from "next/link";
 import { format } from "date-fns";
@@ -101,6 +110,75 @@ export default function LeadsClient({
   const [stageFilter, setStageFilter] = useState("all");
   const [sourceFilter, setSourceFilter] = useState("all");
   const [isImportOpen, setIsImportOpen] = useState(false);
+
+  // ── Bulk selection ──
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [quota, setQuota] = useState<{ maxPerBatch: number; remainingToday: number } | null>(null);
+
+  useEffect(() => {
+    if (selected.size > 0 && quota === null) {
+      getBulkSendQuota().then(setQuota).catch(() => {});
+    }
+  }, [selected.size, quota]);
+
+  function toggleSelect(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    setSelected((prev) =>
+      prev.size === leads.length ? new Set() : new Set(leads.map((l: Lead) => l.id))
+    );
+  }
+
+  async function handleBulkDelete() {
+    if (!selected.size) return;
+    if (!confirm(`Delete ${selected.size} lead${selected.size > 1 ? "s" : ""}? They will be removed from the pipeline.`)) return;
+    setBulkBusy(true);
+    try {
+      const res = await bulkDeleteLeads(Array.from(selected));
+      if (res.error) {
+        toast.error(res.error);
+      } else {
+        toast.success(`Deleted ${res.deleted} lead${(res.deleted || 0) > 1 ? "s" : ""}`);
+        setLeads((prev) => prev.filter((l: Lead) => !selected.has(l.id)));
+        setSelected(new Set());
+      }
+    } finally {
+      setBulkBusy(false);
+    }
+  }
+
+  async function handleBulkWhatsApp() {
+    if (!selected.size) return;
+    const max = quota?.maxPerBatch ?? 30;
+    if (selected.size > max) {
+      toast.error(`You can send to at most ${max} leads per batch.`);
+      return;
+    }
+    if (!confirm(`Send your WhatsApp welcome template to ${selected.size} lead${selected.size > 1 ? "s" : ""}?`)) return;
+    setBulkBusy(true);
+    try {
+      const res = await sendBulkWhatsApp(Array.from(selected));
+      if (res.error) {
+        toast.error(res.error);
+      } else {
+        toast.success(
+          `WhatsApp: ${res.sent} sent${res.failed ? `, ${res.failed} failed` : ""}${res.skipped ? `, ${res.skipped} without phone` : ""} · ${res.remainingToday} left today`
+        );
+        setQuota((q) => (q ? { ...q, remainingToday: res.remainingToday ?? q.remainingToday } : q));
+        setSelected(new Set());
+      }
+    } finally {
+      setBulkBusy(false);
+    }
+  }
 
   function applyFilters() {
     startTransition(async () => {
@@ -302,11 +380,42 @@ export default function LeadsClient({
         </span>
       </div>
 
+      {/* Bulk actions toolbar */}
+      {selected.size > 0 && (
+        <div className="flex flex-wrap items-center gap-2 rounded-md border bg-muted/40 px-3 py-2">
+          <span className="text-sm font-medium">{selected.size} selected</span>
+          <Button size="sm" variant="outline" onClick={handleBulkWhatsApp} disabled={bulkBusy}>
+            {bulkBusy ? <Loader2 className="mr-1.5 size-3.5 animate-spin" /> : <Send className="mr-1.5 size-3.5" />}
+            Send WhatsApp
+          </Button>
+          <Button size="sm" variant="outline" className="text-red-600 border-red-200 hover:bg-red-50" onClick={handleBulkDelete} disabled={bulkBusy}>
+            <Trash2 className="mr-1.5 size-3.5" /> Delete
+          </Button>
+          <button onClick={() => setSelected(new Set())} className="ml-auto p-1 rounded hover:bg-muted" aria-label="Clear selection">
+            <X className="size-4 text-muted-foreground" />
+          </button>
+          {quota && (
+            <span className="w-full text-[11px] text-muted-foreground">
+              WhatsApp limits: max {quota.maxPerBatch} per batch · {quota.remainingToday} manual sends left today
+            </span>
+          )}
+        </div>
+      )}
+
       {/* Table */}
       <div className="rounded-md border bg-card">
         <Table>
           <TableHeader>
           <TableRow>
+              <TableHead className="w-10">
+                <input
+                  type="checkbox"
+                  checked={leads.length > 0 && selected.size === leads.length}
+                  onChange={toggleSelectAll}
+                  className="size-4 accent-primary cursor-pointer"
+                  aria-label="Select all leads"
+                />
+              </TableHead>
               <TableHead>Name</TableHead>
               <TableHead className="hidden md:table-cell">Contact</TableHead>
               <TableHead className="hidden lg:table-cell">Source</TableHead>
@@ -320,7 +429,7 @@ export default function LeadsClient({
           <TableBody>
             {leads.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="h-24 text-center">
+                <TableCell colSpan={9} className="h-24 text-center">
                   No leads found.{" "}
                   <Link href="/leads/new" className="text-primary underline">
                     Create your first lead
@@ -329,7 +438,16 @@ export default function LeadsClient({
               </TableRow>
             ) : (
               leads.map((lead: Lead) => (
-                <TableRow key={lead.id} className="hover:bg-muted/50">
+                <TableRow key={lead.id} className={`hover:bg-muted/50 ${selected.has(lead.id) ? "bg-primary/5" : ""}`}>
+                  <TableCell>
+                    <input
+                      type="checkbox"
+                      checked={selected.has(lead.id)}
+                      onChange={() => toggleSelect(lead.id)}
+                      className="size-4 accent-primary cursor-pointer"
+                      aria-label={`Select ${lead.name}`}
+                    />
+                  </TableCell>
                   <TableCell className="font-medium">
                     <Link
                       href={`/leads/${lead.id}`}

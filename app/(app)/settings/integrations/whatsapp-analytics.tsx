@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { Send, XCircle, MessageSquareReply, Percent, ShieldCheck, ShieldAlert, ShieldX, HelpCircle } from "lucide-react";
 import type { WhatsAppAnalytics } from "./whatsapp-analytics-actions";
 
@@ -60,9 +61,17 @@ export function WhatsAppAnalyticsPanel({ data }: { data: WhatsAppAnalytics }) {
 
   return (
     <div className="rounded-md border p-4 space-y-4 bg-muted/20">
-      <div>
-        <h4 className="text-sm font-semibold">WhatsApp analytics</h4>
-        <p className="text-xs text-muted-foreground">Last 30 days, from your message log.</p>
+      <div className="flex items-center justify-between gap-2">
+        <div>
+          <h4 className="text-sm font-semibold">WhatsApp analytics</h4>
+          <p className="text-xs text-muted-foreground">Last 30 days, from your message log.</p>
+        </div>
+        <Link
+          href="/settings/whatsapp-logs"
+          className="text-xs font-medium text-primary hover:underline shrink-0"
+        >
+          View full log →
+        </Link>
       </div>
 
       {/* Stat tiles */}

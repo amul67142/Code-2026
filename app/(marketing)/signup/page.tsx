@@ -31,10 +31,13 @@ export default function SignupPage() {
         
         {/* Header Logo */}
         <div className="relative z-10">
-          <Link href="/" className="inline-flex items-center gap-2">
-            <span className="text-2xl font-black tracking-tight text-white">
-              BigLead<span className="text-indigo-400">CRM</span>
-            </span>
+          <Link href="/" className="inline-flex items-center">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="https://res.cloudinary.com/dy2zpgv6q/image/upload/v1779125703/Gemini_Generated_Image_c60xw7c60xw7c60x-Photoroom_laj5vl.png"
+              alt="BigLead"
+              className="h-12 w-auto object-contain"
+            />
           </Link>
         </div>
 
@@ -138,10 +141,13 @@ export default function SignupPage() {
         <div className="w-full max-w-[420px] z-10 space-y-6">
           {/* Logo visible only on mobile/tablet */}
           <div className="lg:hidden text-center space-y-2 mb-6">
-            <Link href="/" className="inline-flex items-center gap-1.5 justify-center">
-              <span className="text-3xl font-black tracking-tight text-zinc-900">
-                BigLead<span className="text-zinc-500">CRM</span>
-              </span>
+            <Link href="/" className="inline-flex items-center justify-center">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="https://res.cloudinary.com/dy2zpgv6q/image/upload/v1779118448/Gemini_Generated_Image_2kpsnp2kpsnp2kps_1_-Photoroom_ddqkxb.png"
+                alt="BigLead"
+                className="h-14 w-auto object-contain"
+              />
             </Link>
             <p className="text-xs text-zinc-500 font-medium">Capture, engage, and close real estate leads</p>
           </div>

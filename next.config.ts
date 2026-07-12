@@ -1,6 +1,13 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  /** Allow template header-image uploads (JPG/PNG up to 4MB) via server actions */
+  experimental: {
+    serverActions: {
+      bodySizeLimit: "5mb",
+    },
+  },
+
   /** Security headers applied to all routes */
   async headers() {
     return [

@@ -144,7 +144,7 @@ export function generateInvoiceHtml({
         <div class="wrapper">
           <div class="container">
             <div class="header">
-              <span class="logo">BigLead<span style="color: #71717a;">CRM</span></span>
+              <img src="https://res.cloudinary.com/dy2zpgv6q/image/upload/v1779118448/Gemini_Generated_Image_2kpsnp2kpsnp2kps_1_-Photoroom_ddqkxb.png" alt="BigLead" style="height:44px;width:auto;object-fit:contain;" />
             </div>
             <div class="content">
               <h1>Thank you for your purchase!</h1>

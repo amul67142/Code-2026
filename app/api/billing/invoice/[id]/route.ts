@@ -296,7 +296,7 @@ export async function GET(
 
   <div class="invoice">
     <div class="header">
-      <div class="logo">BigLead<span>CRM</span></div>
+      <img src="https://res.cloudinary.com/dy2zpgv6q/image/upload/v1779118448/Gemini_Generated_Image_2kpsnp2kpsnp2kps_1_-Photoroom_ddqkxb.png" alt="BigLead" style="height:44px;width:auto;object-fit:contain;" />
       <div class="header-badge">Tax Invoice</div>
     </div>
 

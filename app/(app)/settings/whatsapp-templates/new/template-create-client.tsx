@@ -5,9 +5,10 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Info, Send, Plus, X, Link2, Phone, MessageSquare, ExternalLink } from "lucide-react";
+import { Loader2, Info, Send, Plus, X, Link2, Phone, MessageSquare, ExternalLink, ImagePlus } from "lucide-react";
 import { toast } from "sonner";
 import { createWhatsAppTemplate } from "../../integrations/whatsapp-templates-actions";
+import { uploadTemplateHeaderImage } from "../../integrations/whatsapp-bulk-actions";
 
 const WA_ICON =
   "https://res.cloudinary.com/dtlwrm7qk/image/upload/v1783841274/Pngtree_whatsapp_icon_vector_8704827_jjfwwq.png";
@@ -36,6 +37,30 @@ export function TemplateCreateClient({ companyName }: { companyName?: string | n
   // interactive actions (buttons)
   const [actionMode, setActionMode] = useState<ActionMode>("NONE");
   const [buttons, setButtons] = useState<UiButton[]>([]);
+
+  // image header (marketing templates)
+  const [headerImage, setHeaderImage] = useState<{ url: string; handle: string } | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
+
+  async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setUploadingImage(true);
+    try {
+      const fd = new FormData();
+      fd.set("file", file);
+      const res = await uploadTemplateHeaderImage(fd);
+      if (res.error || !res.url || !res.handle) {
+        toast.error(res.error || "Image upload failed");
+      } else {
+        setHeaderImage({ url: res.url, handle: res.handle });
+        toast.success("Image attached");
+      }
+    } finally {
+      setUploadingImage(false);
+    }
+  }
 
   const quickCount = buttons.filter((b) => b.type === "QUICK_REPLY").length;
   const urlCount = buttons.filter((b) => b.type === "URL").length;
@@ -103,6 +128,8 @@ export function TemplateCreateClient({ companyName }: { companyName?: string | n
         bodyText: body,
         sampleValues: samples,
         buttons: actionMode === "NONE" ? [] : buttons.filter((b) => b.text.trim()),
+        headerImageUrl: headerImage?.url,
+        headerImageHandle: headerImage?.handle,
       });
       if (res.error) {
         toast.error(res.error);
@@ -169,6 +196,29 @@ export function TemplateCreateClient({ companyName }: { companyName?: string | n
             <Label>Language</Label>
             <Input value="English (en_US)" disabled className="h-10" />
           </div>
+        </div>
+
+        {/* Header image (great for Marketing templates) */}
+        <div className="space-y-2">
+          <Label>Header image (optional)</Label>
+          {headerImage ? (
+            <div className="flex items-center gap-3">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={headerImage.url} alt="Header" className="h-16 w-24 object-cover rounded-md border" />
+              <Button type="button" variant="outline" size="sm" onClick={() => setHeaderImage(null)}>
+                <X className="mr-1 size-3.5" /> Remove
+              </Button>
+            </div>
+          ) : (
+            <label className="inline-flex items-center gap-2 rounded-md border border-dashed px-4 py-2.5 text-sm text-muted-foreground cursor-pointer hover:bg-muted/40">
+              {uploadingImage ? <Loader2 className="size-4 animate-spin" /> : <ImagePlus className="size-4" />}
+              {uploadingImage ? "Uploading…" : "Add image (JPG/PNG, max 4MB)"}
+              <input type="file" accept="image/jpeg,image/png" className="hidden" onChange={handleImageUpload} disabled={uploadingImage} />
+            </label>
+          )}
+          <p className="text-xs text-muted-foreground">
+            Shows at the top of the message — ideal for Marketing templates (property photos, offers).
+          </p>
         </div>
 
         <div className="space-y-2">
@@ -338,6 +388,10 @@ export function TemplateCreateClient({ companyName }: { companyName?: string | n
           </div>
           <div className="p-4 min-h-[280px]" style={{ backgroundColor: "#E5DDD5" }}>
             <div className="relative max-w-[95%] bg-white rounded-lg rounded-tl-none shadow-sm overflow-hidden">
+              {headerImage && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={headerImage.url} alt="" className="w-full h-32 object-cover" />
+              )}
               <div className="px-3 py-2.5">
                 <p className="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed break-words">
                   {previewText || "Your message will appear here…"}

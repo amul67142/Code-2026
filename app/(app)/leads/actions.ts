@@ -365,6 +365,10 @@ export async function bulkImportLeads(leads: any[]) {
 
   if (!leads || leads.length === 0) return { error: "No leads to import" };
 
+  // POLICY: bulk imports NEVER trigger auto email/WhatsApp. Blasting a CSV of
+  // hundreds of numbers looks like spam and can tank the client's WABA quality
+  // rating / get their number banned. Manual, rate-limited bulk sending is the
+  // only sanctioned path (see sendBulkWhatsApp).
   try {
     const CHUNK_SIZE = 500;
     for (let i = 0; i < leads.length; i += CHUNK_SIZE) {

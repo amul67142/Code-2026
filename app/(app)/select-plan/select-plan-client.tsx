@@ -156,10 +156,13 @@ export function SelectPlanClient({ initialPlans, userEmail }: SelectPlanClientPr
 
       {/* Header bar */}
       <div className="flex items-center justify-between border-b border-zinc-200 pb-5">
-        <div className="flex items-center gap-1.5">
-          <span className="text-xl font-black tracking-tight text-zinc-900">
-            BigLead<span className="text-zinc-500">CRM</span>
-          </span>
+        <div className="flex items-center">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="https://res.cloudinary.com/dy2zpgv6q/image/upload/v1779118448/Gemini_Generated_Image_2kpsnp2kpsnp2kps_1_-Photoroom_ddqkxb.png"
+            alt="BigLead"
+            className="h-10 w-auto object-contain"
+          />
         </div>
         <div className="flex items-center gap-4">
           <span className="text-xs text-zinc-500 hidden sm:inline">Signed in as: <strong className="text-zinc-700">{userEmail}</strong></span>
