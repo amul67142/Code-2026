@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import { notifyLeadQualification } from "@/lib/notifications/notify";
 
 // ── Helper: get current user's profile ──────────────────────────
 async function getUserProfile() {
@@ -289,6 +290,13 @@ export async function updateLeadQualification(leadId: string, isQualified: boole
     console.error("updateLeadQualification error:", updateError);
     return { error: "Failed to update qualification status" };
   }
+
+  // Real-time notify the assigned agent about the qualification change.
+  await notifyLeadQualification({
+    leadId,
+    companyId: profile.company_id,
+    isQualified,
+  });
 
   // Log qualification action in Activity History
   const statusStr = isQualified ? "Qualified" : "Not Qualified";

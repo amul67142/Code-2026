@@ -7,6 +7,7 @@ import { sendLeadAcknowledgmentEmail } from "@/lib/automation/lead-email";
 import { sendLeadWhatsApp } from "@/lib/automation/lead-whatsapp";
 // Request-deduped auth: layout + all page actions share ONE auth round-trip.
 import { getCachedUserProfile as getUserProfile } from "@/lib/auth/cached-user";
+import { notifyLeadStageChange, notifyLeadAssigned } from "@/lib/notifications/notify";
 
 // ── Get leads with optional filters ─────────────────────────────
 export async function getLeads(filters?: {
@@ -163,6 +164,19 @@ export async function createLead(formData: FormData) {
     return { error: "Failed to create lead" };
   }
 
+  // Real-time notify the assigned agent about the new lead.
+  const finalAssignee =
+    assignedToId && assignedToId !== "unassigned" ? assignedToId : null;
+  if (finalAssignee) {
+    await notifyLeadAssigned({
+      leadId: newLead.id,
+      companyId: profile.company_id,
+      assignedToId: finalAssignee,
+      actorUserId: profile.id,
+      leadName: name,
+    });
+  }
+
   // Automation: acknowledge the lead via email + WhatsApp (best-effort)
   if (email) {
     await sendLeadAcknowledgmentEmail({
@@ -206,6 +220,14 @@ export async function updateLeadStage(leadId: string, stageId: string) {
     console.error("updateLeadStage error:", error);
     return { error: "Failed to update stage" };
   }
+
+  // Real-time notify the assigned agent about the pipeline move.
+  await notifyLeadStageChange({
+    leadId,
+    companyId: profile.company_id,
+    newStageId: stageId,
+    actorUserId: profile.id,
+  });
 
   // Check if destination stage is won, and fire Purchase CAPI signal if enabled
   try {
@@ -308,16 +330,15 @@ export async function updateLeadAssignment(leadId: string, assignedToId: string 
     const leadName = lead?.name || "A lead";
     const agentName = agent?.name || "an agent";
 
-    // Notify ONLY the assigned agent
-    const { error: notifError } = await supabase.from("notifications").insert({
-      company_id: profile.company_id,
-      user_id: assignedToId,
-      title: "Lead Assigned",
-      message: `You have been assigned a new lead: ${leadName}`,
-      type: "ASSIGNMENT",
-      metadata: { lead_id: leadId, assigned_to_id: assignedToId },
+    // Notify ONLY the assigned agent (admin client — RLS blocks user-client
+    // inserts; realtime bell delivers it live with a chime).
+    await notifyLeadAssigned({
+      leadId,
+      companyId: profile.company_id,
+      assignedToId,
+      actorUserId: profile.id,
+      leadName,
     });
-    if (notifError) console.error("Failed to insert notification:", notifError);
 
     // Log activity on the lead
     const { error: actError } = await supabase.from("activities").insert({
