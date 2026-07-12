@@ -30,9 +30,12 @@ export function TemplateCreateClient({ companyName }: { companyName?: string | n
   const [category, setCategory] = useState<"UTILITY" | "MARKETING">("UTILITY");
   const [language] = useState("en_US");
   const [body, setBody] = useState(
-    "Hi {{1}}, thanks for your interest in {{2}}! 👋 This is the team at {{3}}. We'll reach out shortly — feel free to reply here anytime."
+    "Hi {{1}}, thanks for your interest in {{2}}! 👋 We'll reach out shortly — feel free to reply here anytime."
   );
-  const [samples, setSamples] = useState<string[]>(["Rahul", "Prestige Lakeside", "BigLead Realty"]);
+  const [samples, setSamples] = useState<string[]>(["Rahul", "Prestige Lakeside"]);
+
+  // In automated sends, variables are filled as:
+  const VAR_MEANINGS = ["Lead's name (automatic)", "Project name (automatic)"];
 
   // interactive actions (buttons)
   const [actionMode, setActionMode] = useState<ActionMode>("NONE");
@@ -152,9 +155,14 @@ export function TemplateCreateClient({ companyName }: { companyName?: string | n
           </p>
           <ul className="list-disc pl-5 space-y-1 text-[13px]">
             <li>
-              Use <code className="bg-white/60 px-1 rounded">{"{{1}}"}</code>,{" "}
-              <code className="bg-white/60 px-1 rounded">{"{{2}}"}</code>… as variables, then give a
-              sample value for each so Meta can review it.
+              Use two variables: <code className="bg-white/60 px-1 rounded">{"{{1}}"}</code> ={" "}
+              <strong>lead&apos;s name</strong> and <code className="bg-white/60 px-1 rounded">{"{{2}}"}</code> ={" "}
+              <strong>project name</strong> — BigLead fills them automatically on every send. Write
+              everything else (your company name, offers, etc.) as normal text.
+            </li>
+            <li>
+              Fallbacks are automatic: no lead name → &quot;there&quot;; no project on the lead → your
+              company name. Messages never fail because of a missing value.
             </li>
             <li>
               <strong>Utility</strong> = a response to something the customer did (cheaper, approves
@@ -240,21 +248,32 @@ export function TemplateCreateClient({ companyName }: { companyName?: string | n
             <Label>Sample values (shown to Meta during review)</Label>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-xl">
               {Array.from({ length: varCount }).map((_, i) => (
-                <Input
-                  key={i}
-                  value={samples[i] || ""}
-                  onChange={(e) =>
-                    setSamples((prev) => {
-                      const n = [...prev];
-                      n[i] = e.target.value;
-                      return n;
-                    })
-                  }
-                  placeholder={`Example for {{${i + 1}}}`}
-                  className="h-10"
-                />
+                <div key={i} className="space-y-1">
+                  <Input
+                    value={samples[i] || ""}
+                    onChange={(e) =>
+                      setSamples((prev) => {
+                        const n = [...prev];
+                        n[i] = e.target.value;
+                        return n;
+                      })
+                    }
+                    placeholder={`Example for {{${i + 1}}}`}
+                    className="h-10"
+                  />
+                  <p className="text-[11px] text-muted-foreground pl-0.5">
+                    {"{{" + (i + 1) + "}}"} → {VAR_MEANINGS[i] || "Extra — uses your company name in automated sends"}
+                  </p>
+                </div>
               ))}
             </div>
+            {varCount > 2 && (
+              <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-md p-2">
+                Tip: BigLead only fills {"{{1}}"} (lead name) and {"{{2}}"} (project) dynamically.
+                Variables {"{{3}}"}+ will all show your company name — write that text directly in
+                the message instead.
+              </p>
+            )}
           </div>
         )}
 

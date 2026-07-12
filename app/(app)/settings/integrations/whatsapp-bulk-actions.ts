@@ -140,8 +140,9 @@ export async function sendBulkWhatsApp(leadIds: string[]) {
       continue;
     }
     const to = normalizeWhatsAppNumber(lead.phone);
+    // {{1}} = lead name, {{2}} = project name (falls back to company name).
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const projectName = (lead.projects as any)?.name || "our offerings";
+    const projectName = (lead.projects as any)?.name || companyName;
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const components: any[] = [];
@@ -152,15 +153,17 @@ export async function sendBulkWhatsApp(leadIds: string[]) {
           parameters: [{ type: "image", image: { link: tplRow.header_image_url } }],
         });
       }
-      const hasVars = tplRow ? /\{\{\s*\d+\s*\}\}/.test(tplRow.body_text || "") : true;
-      if (hasVars) {
+      // Match the template's exact variable count (Meta rejects mismatches, #132000).
+      const varMatches = (tplRow?.body_text || "").match(/\{\{\s*(\d+)\s*\}\}/g) || [];
+      const varCount = tplRow
+        ? new Set(varMatches.map((m: string) => m.replace(/\D/g, ""))).size
+        : 3;
+      if (varCount > 0) {
+        const values = [(lead.name || "").trim() || "there", projectName];
+        while (values.length < varCount) values.push(companyName);
         components.push({
           type: "body",
-          parameters: [
-            { type: "text", text: lead.name || "there" },
-            { type: "text", text: projectName },
-            { type: "text", text: companyName },
-          ],
+          parameters: values.slice(0, varCount).map((text) => ({ type: "text", text })),
         });
       }
     }

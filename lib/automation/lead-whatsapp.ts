@@ -51,9 +51,12 @@ export async function sendLeadWhatsApp(
       ? admin.from("projects").select("name").eq("id", input.projectId).maybeSingle()
       : Promise.resolve({ data: null }),
   ]);
+  // Variable convention: {{1}} = lead name, {{2}} = project name. Fallbacks:
+  // no lead name → "there"; no project on the lead → the company name (reads
+  // naturally: "…your interest in <Company>").
   const companyName = company?.name || "Our Team";
-  const projectName = (projectRes?.data as { name?: string } | null)?.name || "our offerings";
-  const leadName = input.leadName || "there";
+  const projectName = (projectRes?.data as { name?: string } | null)?.name || companyName;
+  const leadName = (input.leadName || "").trim() || "there";
 
   const to = normalizeWhatsAppNumber(input.leadPhone);
   const templateName = conn.default_template || "hello_world";
@@ -76,16 +79,20 @@ export async function sendLeadWhatsApp(
         parameters: [{ type: "image", image: { link: tplRow.header_image_url } }],
       });
     }
-    // Only pass body variables if the template body actually has any.
-    const hasVars = tplRow ? /\{\{\s*\d+\s*\}\}/.test(tplRow.body_text || "") : true;
-    if (hasVars) {
+    // Send EXACTLY as many body variables as the template defines — Meta
+    // rejects the message with #132000 on any mismatch.
+    // Convention: {{1}} = lead name, {{2}} = project name. Any extra {{n}} a
+    // client added falls back to the company name so sends never fail.
+    const varMatches = (tplRow?.body_text || "").match(/\{\{\s*(\d+)\s*\}\}/g) || [];
+    const varCount = tplRow
+      ? new Set(varMatches.map((m: string) => m.replace(/\D/g, ""))).size
+      : 3; // template unknown locally → legacy default of 3
+    if (varCount > 0) {
+      const values = [leadName, projectName];
+      while (values.length < varCount) values.push(companyName);
       components.push({
         type: "body",
-        parameters: [
-          { type: "text", text: leadName },
-          { type: "text", text: projectName },
-          { type: "text", text: companyName },
-        ],
+        parameters: values.slice(0, varCount).map((text) => ({ type: "text", text })),
       });
     }
   }
