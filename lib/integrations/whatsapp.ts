@@ -51,6 +51,25 @@ export async function sendWhatsAppTemplate(
   return data as { messages?: { id: string }[] };
 }
 
+/**
+ * Subscribe this app to a WhatsApp Business Account so it receives inbound
+ * messages + statuses. REQUIRED for two-way — subscribing the webhook field at
+ * the app level is not enough; each WABA must also be subscribed to the app.
+ * (This is the step that was missing and silently dropped all replies.)
+ */
+export async function subscribeWhatsAppWaba(wabaId: string, token: string) {
+  const res = await fetch(`${BASE}/${wabaId}/subscribed_apps`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({}),
+  });
+  const data = await res.json();
+  if (!res.ok || data.error) {
+    throw new Error(data?.error?.message || `WABA subscribe failed (${res.status})`);
+  }
+  return data as { success?: boolean };
+}
+
 /** Send a free-text message (only allowed within the 24h customer-service window). */
 export async function sendWhatsAppText(
   phoneNumberId: string,

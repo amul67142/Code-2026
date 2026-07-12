@@ -7,6 +7,7 @@ import { encryptToken, decryptToken } from "@/lib/integrations/crypto";
 import {
   sendWhatsAppTemplate,
   normalizeWhatsAppNumber,
+  subscribeWhatsAppWaba,
 } from "@/lib/integrations/whatsapp";
 
 async function getUserProfile() {
@@ -68,6 +69,25 @@ export async function connectWhatsApp(input: {
     }
     console.error("connectWhatsApp error:", error);
     return { error: "Failed to save WhatsApp connection" };
+  }
+
+  // Auto-subscribe the WABA to this app so inbound replies are delivered.
+  // Without this, two-way silently fails (subscribing the webhook field at the
+  // app level is NOT enough — the WABA itself must be subscribed).
+  if (input.wabaId?.trim()) {
+    try {
+      await subscribeWhatsAppWaba(input.wabaId.trim(), input.accessToken.trim());
+    } catch (subErr) {
+      console.error("WABA subscribe failed (non-fatal):", subErr);
+      await admin
+        .from("whatsapp_connections")
+        .update({
+          last_error: `Connected, but couldn't subscribe for inbound replies: ${
+            subErr instanceof Error ? subErr.message : String(subErr)
+          }. Add the WABA ID and reconnect, or subscribe the app to the WABA in Meta.`,
+        })
+        .eq("company_id", profile.company_id);
+    }
   }
 
   revalidatePath("/settings/integrations");
