@@ -9,6 +9,7 @@ import {
   CreditCard,
   User,
   Mail,
+  MessageSquare,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
@@ -75,6 +76,14 @@ const settingsItems = [
     description: "Connect webhooks, Google Ads, and Facebook Ads.",
     icon: Plug,
     href: "/settings/integrations",
+    ready: true,
+    minRole: "ADMIN",
+  },
+  {
+    title: "WhatsApp Templates",
+    description: "Create message templates and track Meta approval.",
+    icon: MessageSquare,
+    href: "/settings/whatsapp-templates",
     ready: true,
     minRole: "ADMIN",
   },

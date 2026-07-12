@@ -21,8 +21,8 @@ import {
 } from "@/components/ui/dialog";
 import { MessageCircle, CheckCircle2, AlertCircle, Loader2, Send, Unplug } from "lucide-react";
 import { toast } from "sonner";
+import Link from "next/link";
 import { WhatsAppEmbeddedSignup } from "./whatsapp-embedded-signup";
-import { WhatsAppTemplates } from "./whatsapp-templates";
 
 const WA_ICON =
   "https://res.cloudinary.com/dtlwrm7qk/image/upload/v1783841274/Pngtree_whatsapp_icon_vector_8704827_jjfwwq.png";
@@ -247,15 +247,22 @@ export function WhatsAppCard({
             </p>
           </div>
 
-          {/* ── Message templates ── */}
-          {templatesData && (
-            <WhatsAppTemplates
-              initialTemplates={templatesData.templates}
-              initialCooldown={templatesData.cooldownRemainingSec}
-              hasWaba={templatesData.hasWaba}
-              currentDefault={conn.default_template}
-            />
-          )}
+          {/* ── Message templates (full management on its own page) ── */}
+          <div className="rounded-md border p-4 flex items-center justify-between gap-3 bg-muted/20">
+            <div className="min-w-0">
+              <h4 className="text-sm font-semibold">Message templates</h4>
+              <p className="text-xs text-muted-foreground">
+                Create templates, track Meta approval, and pick your welcome message
+                {templatesData ? ` — ${templatesData.templates.length} template${templatesData.templates.length === 1 ? "" : "s"}.` : "."}
+              </p>
+            </div>
+            <Link
+              href="/settings/whatsapp-templates"
+              className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm font-medium hover:bg-accent shrink-0"
+            >
+              Manage templates
+            </Link>
+          </div>
         </div>
       )}
 

@@ -210,15 +210,15 @@ export function WhatsAppTemplates({ initialTemplates, initialCooldown, hasWaba, 
 
       {/* Create dialog */}
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-3xl">
+        <DialogContent className="max-w-3xl max-h-[88vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>New WhatsApp template</DialogTitle>
             <DialogDescription>Meta reviews every template (usually minutes to a few hours).</DialogDescription>
           </DialogHeader>
 
-          <div className="grid grid-cols-1 md:grid-cols-[1fr_250px] gap-5">
+          <div className="flex flex-col lg:grid lg:grid-cols-[1fr_260px] gap-5">
             {/* Left: form */}
-            <div className="space-y-4 min-w-0">
+            <div className="space-y-4 min-w-0 order-2 lg:order-1">
           {/* Meta guidance + example */}
           <div className="rounded-md border border-blue-200 bg-blue-50 p-3 text-xs text-blue-900 leading-relaxed space-y-1.5">
             <p className="flex items-center gap-1.5 font-semibold"><Info className="size-3.5" /> How Meta templates work</p>
@@ -284,7 +284,7 @@ export function WhatsAppTemplates({ initialTemplates, initialCooldown, hasWaba, 
             {/* end left form column */}
 
             {/* Right: live WhatsApp preview */}
-            <div className="order-first md:order-none">
+            <div className="order-1 lg:order-2 lg:sticky lg:top-0 self-start w-full">
               <Label className="text-xs">Preview</Label>
               <div className="mt-2 rounded-xl border overflow-hidden shadow-sm">
                 <div className="flex items-center gap-2 px-3 py-2 bg-[#075E54] text-white">
