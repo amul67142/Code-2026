@@ -75,12 +75,18 @@ export async function POST(req: NextRequest) {
       if (!phoneNumberId) continue;
 
       for (const m of value.messages || []) {
-        // MVP: handle text replies. (Buttons/media can be added later.)
-        if (m.type !== "text" || !m.text?.body) continue;
+        // Text replies + quick-reply button taps (both count for qualification).
+        const text =
+          m.type === "text"
+            ? m.text?.body
+            : m.type === "button"
+              ? m.button?.text || m.button?.payload
+              : undefined;
+        if (!text) continue;
         await processInboundWhatsApp({
           phoneNumberId,
           from: m.from,
-          text: m.text.body,
+          text,
           waMessageId: m.id,
         }).catch((e) => console.error("WA inbound handler error:", e));
       }
@@ -104,6 +110,7 @@ interface WaMessage {
   id: string;
   type: string;
   text?: { body: string };
+  button?: { text?: string; payload?: string };
 }
 interface WaChange {
   field: string;

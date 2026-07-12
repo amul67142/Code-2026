@@ -72,6 +72,13 @@ export async function subscribeWhatsAppWaba(wabaId: string, token: string) {
 
 // ── Message Templates (create + list on a WABA) ──────────────────
 
+export interface TemplateButton {
+  type: "QUICK_REPLY" | "URL" | "PHONE_NUMBER";
+  text: string;
+  url?: string;
+  phone_number?: string;
+}
+
 export interface MetaTemplateInput {
   name: string;
   language: string;
@@ -79,6 +86,8 @@ export interface MetaTemplateInput {
   bodyText: string;
   /** Example values for the {{1}}, {{2}} … variables, in order. */
   examples: string[];
+  /** Optional interactive buttons (quick replies / URL / phone). */
+  buttons?: TemplateButton[];
 }
 
 /** Submit a new message template to Meta for review. */
@@ -95,6 +104,21 @@ export async function createMetaTemplate(
     body.example = { body_text: [tpl.examples] };
   }
 
+  const components: Record<string, unknown>[] = [body];
+
+  if (tpl.buttons && tpl.buttons.length > 0) {
+    components.push({
+      type: "BUTTONS",
+      buttons: tpl.buttons.map((b) =>
+        b.type === "QUICK_REPLY"
+          ? { type: "QUICK_REPLY", text: b.text }
+          : b.type === "URL"
+            ? { type: "URL", text: b.text, url: b.url }
+            : { type: "PHONE_NUMBER", text: b.text, phone_number: b.phone_number }
+      ),
+    });
+  }
+
   const res = await fetch(`${BASE}/${wabaId}/message_templates`, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
@@ -102,7 +126,7 @@ export async function createMetaTemplate(
       name: tpl.name,
       language: tpl.language,
       category: tpl.category,
-      components: [body],
+      components,
     }),
   });
   const data = await res.json();

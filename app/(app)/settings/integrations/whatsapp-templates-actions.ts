@@ -8,6 +8,7 @@ import {
   createMetaTemplate,
   listMetaTemplates,
   templateBodyFromComponents,
+  type TemplateButton,
 } from "@/lib/integrations/whatsapp";
 
 function isAdmin(role?: string) {
@@ -64,6 +65,7 @@ export async function createWhatsAppTemplate(input: {
   language: string;
   bodyText: string;
   sampleValues: string[];
+  buttons?: TemplateButton[];
 }) {
   const profile = await getCachedUserProfile();
   if (!profile?.company_id) return { error: "Unauthorized" };
@@ -81,6 +83,32 @@ export async function createWhatsAppTemplate(input: {
   if (varCount > 0 && (examples.length < varCount || examples.some((e) => !e))) {
     return { error: `Please provide a sample value for each variable ({{1}}…{{${varCount}}}).` };
   }
+
+  // Validate buttons against Meta's limits.
+  const buttons: TemplateButton[] = [];
+  for (const b of input.buttons || []) {
+    const text = (b.text || "").trim();
+    if (!text) continue;
+    if (text.length > 25) return { error: `Button title "${text.slice(0, 30)}…" exceeds 25 characters.` };
+    if (b.type === "URL") {
+      const url = (b.url || "").trim();
+      if (!/^https?:\/\/.+/.test(url)) return { error: `URL button "${text}" needs a valid link (https://…).` };
+      buttons.push({ type: "URL", text, url });
+    } else if (b.type === "PHONE_NUMBER") {
+      const phone = (b.phone_number || "").trim();
+      if (!/^\+?\d{7,15}$/.test(phone.replace(/[\s-]/g, "")))
+        return { error: `Phone button "${text}" needs a valid number with country code.` };
+      buttons.push({ type: "PHONE_NUMBER", text, phone_number: phone });
+    } else {
+      buttons.push({ type: "QUICK_REPLY", text });
+    }
+  }
+  const quickCount = buttons.filter((b) => b.type === "QUICK_REPLY").length;
+  const urlCount = buttons.filter((b) => b.type === "URL").length;
+  const phoneCount = buttons.filter((b) => b.type === "PHONE_NUMBER").length;
+  if (quickCount > 10) return { error: "Maximum 10 quick replies allowed." };
+  if (urlCount > 2) return { error: "Maximum 2 URL buttons allowed." };
+  if (phoneCount > 1) return { error: "Maximum 1 phone number button allowed." };
 
   const admin = createAdminClient();
   const { data: conn } = await admin
@@ -104,6 +132,7 @@ export async function createWhatsAppTemplate(input: {
       category: input.category || "UTILITY",
       bodyText,
       examples,
+      buttons,
     });
     metaId = res.id;
     metaStatus = (res.status || "PENDING").toUpperCase();
@@ -120,6 +149,7 @@ export async function createWhatsAppTemplate(input: {
       category: input.category || "UTILITY",
       body_text: bodyText,
       sample_values: examples,
+      buttons,
       status: metaStatus,
       meta_template_id: metaId || null,
       created_by_id: profile.id,
