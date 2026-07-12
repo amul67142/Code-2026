@@ -2,6 +2,7 @@ import { getWebhooks } from "./actions";
 import { getFacebookConnections } from "./facebook-actions";
 import { getWhatsAppConnection, getPipelineStagesForWhatsApp } from "./whatsapp-actions";
 import { getWhatsAppTemplates } from "./whatsapp-templates-actions";
+import { getWhatsAppAnalytics } from "./whatsapp-analytics-actions";
 import { getProjects } from "../../projects/actions";
 import { getAgentsForAssignment } from "../../leads/actions";
 import IntegrationsClient from "./integrations-client";
@@ -19,6 +20,7 @@ export default async function IntegrationsPage() {
     whatsappConnection,
     whatsappStages,
     whatsappTemplates,
+    whatsappAnalytics,
   ] = await Promise.all([
     getWebhooks(),
     getProjects(),
@@ -27,6 +29,7 @@ export default async function IntegrationsPage() {
     getWhatsAppConnection(),
     getPipelineStagesForWhatsApp(),
     getWhatsAppTemplates(),
+    getWhatsAppAnalytics(),
   ]);
 
   return (
@@ -38,6 +41,7 @@ export default async function IntegrationsPage() {
       whatsappConnection={whatsappConnection}
       whatsappStages={whatsappStages}
       whatsappTemplates={whatsappTemplates}
+      whatsappAnalytics={whatsappAnalytics}
     />
   );
 }

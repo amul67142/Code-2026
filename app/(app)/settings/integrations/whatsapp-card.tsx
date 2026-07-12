@@ -23,6 +23,8 @@ import { MessageCircle, CheckCircle2, AlertCircle, Loader2, Send, Unplug } from 
 import { toast } from "sonner";
 import Link from "next/link";
 import { WhatsAppEmbeddedSignup } from "./whatsapp-embedded-signup";
+import { WhatsAppAnalyticsPanel } from "./whatsapp-analytics";
+import type { WhatsAppAnalytics } from "./whatsapp-analytics-actions";
 
 const WA_ICON =
   "https://res.cloudinary.com/dtlwrm7qk/image/upload/v1783841274/Pngtree_whatsapp_icon_vector_8704827_jjfwwq.png";
@@ -55,10 +57,12 @@ export function WhatsAppCard({
   initial,
   stages = [],
   templatesData,
+  analytics,
 }: {
   initial: WhatsAppConnection | null;
   stages?: Stage[];
   templatesData?: TemplatesData;
+  analytics?: WhatsAppAnalytics;
 }) {
   const [conn, setConn] = useState<WhatsAppConnection | null>(initial);
   const [open, setOpen] = useState(false);
@@ -246,6 +250,9 @@ export function WhatsAppCard({
               <code>/api/webhooks/whatsapp</code>). Leave the stage empty to only log replies.
             </p>
           </div>
+
+          {/* ── Analytics + Facebook quality rating ── */}
+          {analytics && <WhatsAppAnalyticsPanel data={analytics} />}
 
           {/* ── Message templates (full management on its own page) ── */}
           <div className="rounded-md border p-4 flex items-center justify-between gap-3 bg-muted/20">
