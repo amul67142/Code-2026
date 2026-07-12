@@ -94,6 +94,108 @@ export async function connectWhatsApp(input: {
   return { success: true };
 }
 
+// ── Complete Embedded Signup (client self-connect) ──────────────
+// Called by the JS-SDK flow after the client finishes Meta's popup. Exchanges
+// the returned code for a business token, subscribes the WABA (so we receive
+// replies), registers the number, and stores it encrypted per company.
+export async function completeWhatsAppEmbeddedSignup(input: {
+  code: string;
+  wabaId: string;
+  phoneNumberId: string;
+}) {
+  const profile = await getUserProfile();
+  if (!profile?.company_id) return { error: "Unauthorized" };
+  if (!isAdmin(profile.role)) return { error: "Admin access required" };
+  if (!input.code || !input.wabaId || !input.phoneNumberId) {
+    return { error: "Missing signup data — please try connecting again." };
+  }
+
+  const APP_ID = process.env.FACEBOOK_APP_ID;
+  const APP_SECRET = process.env.FACEBOOK_APP_SECRET;
+  const V = process.env.FACEBOOK_GRAPH_VERSION || "v21.0";
+  if (!APP_ID || !APP_SECRET) {
+    return { error: "Server not configured for WhatsApp signup." };
+  }
+
+  // 1. Exchange the code → business system-user access token.
+  let token: string;
+  try {
+    const url = new URL(`https://graph.facebook.com/${V}/oauth/access_token`);
+    url.searchParams.set("client_id", APP_ID);
+    url.searchParams.set("client_secret", APP_SECRET);
+    url.searchParams.set("code", input.code);
+    const res = await fetch(url.toString());
+    const data = await res.json();
+    if (!res.ok || data.error || !data.access_token) {
+      return {
+        error: data?.error?.message || "Couldn't complete WhatsApp signup (token exchange failed).",
+      };
+    }
+    token = data.access_token;
+  } catch {
+    return { error: "Couldn't reach Meta to finish signup. Try again." };
+  }
+
+  // 2. Subscribe our app to the client's WABA so we receive their replies.
+  try {
+    await subscribeWhatsAppWaba(input.wabaId, token);
+  } catch (e) {
+    console.error("Embedded signup: WABA subscribe failed:", e);
+  }
+
+  // 3. Register the number for Cloud API (non-fatal if already registered).
+  try {
+    await fetch(`https://graph.facebook.com/${V}/${input.phoneNumberId}/register`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ messaging_product: "whatsapp", pin: "000000" }),
+    });
+  } catch (e) {
+    console.error("Embedded signup: register failed (non-fatal):", e);
+  }
+
+  // 4. Fetch the display number for the UI.
+  let displayPhone: string | null = null;
+  try {
+    const r = await fetch(
+      `https://graph.facebook.com/${V}/${input.phoneNumberId}?fields=display_phone_number&access_token=${encodeURIComponent(token)}`
+    );
+    const d = await r.json();
+    displayPhone = d?.display_phone_number || null;
+  } catch {
+    /* non-fatal */
+  }
+
+  // 5. Store the connection (encrypted).
+  const admin = createAdminClient();
+  const { error } = await admin.from("whatsapp_connections").upsert(
+    {
+      company_id: profile.company_id,
+      phone_number_id: input.phoneNumberId,
+      waba_id: input.wabaId,
+      display_phone: displayPhone,
+      access_token_enc: encryptToken(token),
+      default_template: "hello_world",
+      template_language: "en_US",
+      status: "ACTIVE",
+      connected_by_id: profile.id,
+      last_error: null,
+    },
+    { onConflict: "company_id" }
+  );
+
+  if (error) {
+    if (error.code === "23505" && error.message?.includes("phone_number_id")) {
+      return { error: "This WhatsApp number is already connected to another account." };
+    }
+    console.error("completeWhatsAppEmbeddedSignup save error:", error);
+    return { error: "Connected to Meta, but couldn't save. Please try again." };
+  }
+
+  revalidatePath("/settings/integrations");
+  return { success: true, displayPhone };
+}
+
 // ── Get the company's WhatsApp connection (no token) ────────────
 export async function getWhatsAppConnection() {
   const supabase = await createClient();

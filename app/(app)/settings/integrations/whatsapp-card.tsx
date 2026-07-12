@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/dialog";
 import { MessageCircle, CheckCircle2, AlertCircle, Loader2, Send, Unplug } from "lucide-react";
 import { toast } from "sonner";
+import { WhatsAppEmbeddedSignup } from "./whatsapp-embedded-signup";
 
 interface WhatsAppConnection {
   id: string;
@@ -142,9 +143,15 @@ export function WhatsAppCard({
             <Unplug className="size-4 text-red-500" />
           </Button>
         ) : (
-          <Button onClick={() => setOpen(true)} disabled={isPending} className="bg-[#25D366] hover:bg-[#1ebe5d] text-white">
-            <MessageCircle className="mr-2 size-4" /> Connect WhatsApp
-          </Button>
+          <div className="flex flex-col items-end gap-1">
+            <WhatsAppEmbeddedSignup onConnected={() => window.location.reload()} />
+            <button
+              onClick={() => setOpen(true)}
+              className="text-[11px] text-muted-foreground hover:underline"
+            >
+              or enter details manually
+            </button>
+          </div>
         )}
       </div>
 
