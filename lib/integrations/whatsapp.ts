@@ -70,6 +70,84 @@ export async function subscribeWhatsAppWaba(wabaId: string, token: string) {
   return data as { success?: boolean };
 }
 
+// ── Message Templates (create + list on a WABA) ──────────────────
+
+export interface MetaTemplateInput {
+  name: string;
+  language: string;
+  category: "UTILITY" | "MARKETING";
+  bodyText: string;
+  /** Example values for the {{1}}, {{2}} … variables, in order. */
+  examples: string[];
+}
+
+/** Submit a new message template to Meta for review. */
+export async function createMetaTemplate(
+  wabaId: string,
+  token: string,
+  tpl: MetaTemplateInput
+) {
+  const body: Record<string, unknown> = {
+    type: "BODY",
+    text: tpl.bodyText,
+  };
+  if (tpl.examples.length > 0) {
+    body.example = { body_text: [tpl.examples] };
+  }
+
+  const res = await fetch(`${BASE}/${wabaId}/message_templates`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      name: tpl.name,
+      language: tpl.language,
+      category: tpl.category,
+      components: [body],
+    }),
+  });
+  const data = await res.json();
+  if (!res.ok || data.error) {
+    throw new Error(
+      data?.error?.error_user_msg || data?.error?.message || `Template create failed (${res.status})`
+    );
+  }
+  return data as { id: string; status?: string; category?: string };
+}
+
+interface MetaTemplateComponent {
+  type: string;
+  text?: string;
+}
+export interface MetaTemplateListItem {
+  id: string;
+  name: string;
+  status: string;
+  category: string;
+  language: string;
+  components?: MetaTemplateComponent[];
+}
+
+/** List all message templates on a WABA (with their current review status). */
+export async function listMetaTemplates(
+  wabaId: string,
+  token: string
+): Promise<MetaTemplateListItem[]> {
+  const res = await fetch(
+    `${BASE}/${wabaId}/message_templates?fields=id,name,status,category,language,components&limit=200&access_token=${encodeURIComponent(token)}`
+  );
+  const data = await res.json();
+  if (!res.ok || data.error) {
+    throw new Error(data?.error?.message || `Template list failed (${res.status})`);
+  }
+  return (data.data || []) as MetaTemplateListItem[];
+}
+
+/** Pull the BODY text out of a Meta template's components (for local storage). */
+export function templateBodyFromComponents(components?: MetaTemplateComponent[]): string {
+  const body = (components || []).find((c) => c.type?.toUpperCase() === "BODY");
+  return body?.text || "";
+}
+
 /** Send a free-text message (only allowed within the 24h customer-service window). */
 export async function sendWhatsAppText(
   phoneNumberId: string,

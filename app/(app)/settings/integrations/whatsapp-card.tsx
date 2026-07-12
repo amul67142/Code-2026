@@ -22,6 +22,17 @@ import {
 import { MessageCircle, CheckCircle2, AlertCircle, Loader2, Send, Unplug } from "lucide-react";
 import { toast } from "sonner";
 import { WhatsAppEmbeddedSignup } from "./whatsapp-embedded-signup";
+import { WhatsAppTemplates } from "./whatsapp-templates";
+
+const WA_ICON =
+  "https://res.cloudinary.com/dtlwrm7qk/image/upload/v1783841274/Pngtree_whatsapp_icon_vector_8704827_jjfwwq.png";
+
+interface TemplatesData {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  templates: any[];
+  cooldownRemainingSec: number;
+  hasWaba: boolean;
+}
 
 interface WhatsAppConnection {
   id: string;
@@ -43,9 +54,11 @@ interface Stage {
 export function WhatsAppCard({
   initial,
   stages = [],
+  templatesData,
 }: {
   initial: WhatsAppConnection | null;
   stages?: Stage[];
+  templatesData?: TemplatesData;
 }) {
   const [conn, setConn] = useState<WhatsAppConnection | null>(initial);
   const [open, setOpen] = useState(false);
@@ -128,9 +141,8 @@ export function WhatsAppCard({
     <div className="rounded-lg border bg-card p-5">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 p-2.5 rounded-lg">
-            <MessageCircle className="size-5" />
-          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={WA_ICON} alt="WhatsApp" className="size-10 shrink-0" />
           <div>
             <h3 className="font-semibold">WhatsApp Auto-Reply</h3>
             <p className="text-xs text-muted-foreground">
@@ -234,6 +246,16 @@ export function WhatsAppCard({
               <code>/api/webhooks/whatsapp</code>). Leave the stage empty to only log replies.
             </p>
           </div>
+
+          {/* ── Message templates ── */}
+          {templatesData && (
+            <WhatsAppTemplates
+              initialTemplates={templatesData.templates}
+              initialCooldown={templatesData.cooldownRemainingSec}
+              hasWaba={templatesData.hasWaba}
+              currentDefault={conn.default_template}
+            />
+          )}
         </div>
       )}
 
