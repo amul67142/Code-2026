@@ -19,7 +19,23 @@ import { useUser } from "@/lib/user-context";
 import { toast } from "sonner";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-type Notification = any;
+type NotificationRow = any;
+
+// Icon shown in the native desktop notification.
+const NOTIF_ICON =
+  "https://res.cloudinary.com/dy2zpgv6q/image/upload/v1779118448/Gemini_Generated_Image_2kpsnp2kpsnp2kps_1_-Photoroom_ddqkxb.png";
+
+/** Ask the browser for desktop-notification permission (call from a user gesture). */
+function requestDesktopPermission() {
+  try {
+    if (typeof window === "undefined" || !("Notification" in window)) return;
+    if (window.Notification.permission === "default") {
+      window.Notification.requestPermission().catch(() => {});
+    }
+  } catch {
+    /* ignore */
+  }
+}
 
 /** Short, pleasant two-note chime via the Web Audio API (no asset needed). */
 function playChime() {
@@ -54,7 +70,7 @@ function playChime() {
 }
 
 export function NotificationBell() {
-  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [notifications, setNotifications] = useState<NotificationRow[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [open, setOpen] = useState(false);
   const router = useRouter();
@@ -81,39 +97,83 @@ export function NotificationBell() {
   useEffect(() => {
     if (!userId) return;
     const supabase = createClient();
-    const channel = supabase
-      .channel(`notifications:${userId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "notifications",
-          filter: `user_id=eq.${userId}`,
-        },
-        (payload) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let channel: any = null;
+    let cancelled = false;
+
+    (async () => {
+      // CRITICAL: Realtime + RLS. The notifications SELECT policy checks
+      // auth.uid(); without the user's JWT on the socket, RLS delivers nothing.
+      // Explicitly authenticate the realtime connection before subscribing.
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (session?.access_token) {
+        await supabase.realtime.setAuth(session.access_token);
+      }
+      if (cancelled) return;
+
+      channel = supabase
+        .channel(`notifications:${userId}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "notifications",
+            filter: `user_id=eq.${userId}`,
+          },
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const n = payload.new as any;
-          setNotifications((prev) =>
-            prev.some((x) => x.id === n.id) ? prev : [n, ...prev]
-          );
-          setUnreadCount((c) => c + 1);
-          playChime();
-          toast(n.title, {
-            description: n.message,
-            action: n.metadata?.lead_id
-              ? {
-                  label: "View",
-                  onClick: () => router.push(`/leads/${n.metadata.lead_id}`),
-                }
-              : undefined,
-          });
-        }
-      )
-      .subscribe();
+          (payload: any) => {
+            const n = payload.new;
+            setNotifications((prev) =>
+              prev.some((x) => x.id === n.id) ? prev : [n, ...prev]
+            );
+            setUnreadCount((c) => c + 1);
+            playChime();
+            toast(n.title, {
+              description: n.message,
+              action: n.metadata?.lead_id
+                ? {
+                    label: "View",
+                    onClick: () => router.push(`/leads/${n.metadata.lead_id}`),
+                  }
+                : undefined,
+            });
+
+            // Desktop notification when the tab isn't focused (works cross-tab/app).
+            if (
+              "Notification" in window &&
+              window.Notification.permission === "granted" &&
+              document.hidden
+            ) {
+              try {
+                const native = new window.Notification(n.title, {
+                  body: n.message || "",
+                  icon: NOTIF_ICON,
+                  tag: n.id,
+                });
+                native.onclick = () => {
+                  window.focus();
+                  if (n.metadata?.lead_id) router.push(`/leads/${n.metadata.lead_id}`);
+                  native.close();
+                };
+              } catch {
+                /* ignore */
+              }
+            }
+          }
+        )
+        .subscribe((status: string) => {
+          if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+            console.warn("[notifications] realtime status:", status);
+          }
+        });
+    })();
 
     return () => {
-      supabase.removeChannel(channel);
+      cancelled = true;
+      if (channel) supabase.removeChannel(channel);
     };
   }, [userId, router]);
 
@@ -138,7 +198,7 @@ export function NotificationBell() {
     setUnreadCount(0);
   }
 
-  function handleClick(notification: Notification) {
+  function handleClick(notification: NotificationRow) {
     if (!notification.read_at) handleMarkRead(notification.id);
     const leadId = notification.metadata?.lead_id;
     if (leadId) {
@@ -148,7 +208,15 @@ export function NotificationBell() {
   }
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover
+      open={open}
+      onOpenChange={(v) => {
+        setOpen(v);
+        // Opening the bell is a user gesture — ask for desktop-notification
+        // permission (and it also unlocks audio autoplay for the chime).
+        if (v) requestDesktopPermission();
+      }}
+    >
       <PopoverTrigger
         className="relative inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 hover:bg-accent hover:text-accent-foreground h-8 px-3 text-gray-500 hover:text-gray-900"
       >
