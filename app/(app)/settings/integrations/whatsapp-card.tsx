@@ -5,6 +5,7 @@ import {
   connectWhatsApp,
   disconnectWhatsApp,
   sendTestWhatsApp,
+  updateReplyAutomation,
 } from "./whatsapp-actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,9 +30,22 @@ interface WhatsAppConnection {
   status: string;
   last_error: string | null;
   created_at: string;
+  qualify_keywords?: string | null;
+  qualify_stage_id?: string | null;
 }
 
-export function WhatsAppCard({ initial }: { initial: WhatsAppConnection | null }) {
+interface Stage {
+  id: string;
+  name: string;
+}
+
+export function WhatsAppCard({
+  initial,
+  stages = [],
+}: {
+  initial: WhatsAppConnection | null;
+  stages?: Stage[];
+}) {
   const [conn, setConn] = useState<WhatsAppConnection | null>(initial);
   const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -44,6 +58,21 @@ export function WhatsAppCard({ initial }: { initial: WhatsAppConnection | null }
 
   // test
   const [testPhone, setTestPhone] = useState("");
+
+  // reply automation
+  const [keywords, setKeywords] = useState(initial?.qualify_keywords || "");
+  const [qualifyStageId, setQualifyStageId] = useState(initial?.qualify_stage_id || "");
+
+  function handleSaveAutomation() {
+    startTransition(async () => {
+      const res = await updateReplyAutomation({
+        keywords,
+        stageId: qualifyStageId || null,
+      });
+      if (res.error) toastErr(res.error);
+      else toastOk("Reply automation saved");
+    });
+  }
 
   function handleConnect(e: React.FormEvent) {
     e.preventDefault();
@@ -153,6 +182,51 @@ export function WhatsAppCard({ initial }: { initial: WhatsAppConnection | null }
           <p className="text-[11px] text-muted-foreground">
             With Meta&apos;s free test number, add your phone as a recipient in the App dashboard first, then test with the <code>hello_world</code> template.
           </p>
+
+          {/* ── Reply automation: keyword → qualified stage ── */}
+          <div className="rounded-md border p-4 space-y-3 bg-muted/20">
+            <div>
+              <h4 className="text-sm font-semibold">Reply automation</h4>
+              <p className="text-xs text-muted-foreground">
+                When a lead replies on WhatsApp, we log it and notify the agent. If the reply
+                contains one of your keywords, the lead is auto-moved to the qualified stage.
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="wa-keywords">Qualify keywords (comma-separated)</Label>
+              <Input
+                id="wa-keywords"
+                value={keywords}
+                onChange={(e) => setKeywords(e.target.value)}
+                placeholder="yes, interested, call me, price, book"
+                className="h-9"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="wa-stage">Move qualified leads to</Label>
+              <select
+                id="wa-stage"
+                value={qualifyStageId}
+                onChange={(e) => setQualifyStageId(e.target.value)}
+                className="h-9 w-full max-w-[280px] rounded-md border bg-background px-3 text-sm"
+              >
+                <option value="">— No auto-move (just log &amp; notify) —</option>
+                {stages.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <Button variant="outline" size="sm" onClick={handleSaveAutomation} disabled={isPending}>
+              {isPending ? <Loader2 className="mr-2 size-3.5 animate-spin" /> : null}
+              Save reply automation
+            </Button>
+            <p className="text-[11px] text-muted-foreground">
+              Requires the WhatsApp webhook to be configured in Meta (Callback URL{" "}
+              <code>/api/webhooks/whatsapp</code>). Leave the stage empty to only log replies.
+            </p>
+          </div>
         </div>
       )}
 

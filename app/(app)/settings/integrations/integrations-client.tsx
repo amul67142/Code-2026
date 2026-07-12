@@ -76,6 +76,7 @@ interface IntegrationsClientProps {
   agents: Agent[];
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   whatsappConnection?: any;
+  whatsappStages?: { id: string; name: string }[];
 }
 
 export default function IntegrationsClient({
@@ -84,6 +85,7 @@ export default function IntegrationsClient({
   facebookConnections: initialFbConnections,
   agents,
   whatsappConnection,
+  whatsappStages = [],
 }: IntegrationsClientProps) {
   const [webhooks, setWebhooks] = useState<Webhook[]>(initialWebhooks);
   const [fbConnections, setFbConnections] = useState<FacebookConnection[]>(initialFbConnections);
@@ -325,7 +327,7 @@ export default function IntegrationsClient({
       </div>
 
       {/* ── WhatsApp Auto-Reply Section ── */}
-      <WhatsAppCard initial={whatsappConnection || null} />
+      <WhatsAppCard initial={whatsappConnection || null} stages={whatsappStages} />
 
       {/* ── Webhooks Section ── */}
       <div className="flex items-center justify-between">

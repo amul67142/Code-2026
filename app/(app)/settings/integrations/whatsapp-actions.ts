@@ -82,11 +82,53 @@ export async function getWhatsAppConnection() {
 
   const { data } = await supabase
     .from("whatsapp_connections")
-    .select("id, phone_number_id, display_phone, default_template, status, last_error, created_at")
+    .select("id, phone_number_id, display_phone, default_template, status, last_error, created_at, qualify_keywords, qualify_stage_id")
     .eq("company_id", profile.company_id)
     .maybeSingle();
 
   return data;
+}
+
+// ── Pipeline stages (for the "qualified stage" picker) ──────────
+export async function getPipelineStagesForWhatsApp() {
+  const supabase = await createClient();
+  const profile = await getUserProfile();
+  if (!profile?.company_id) return [];
+
+  const { data } = await supabase
+    .from("pipeline_stages")
+    .select("id, name")
+    .eq("company_id", profile.company_id)
+    .order("stage_order", { ascending: true });
+
+  return data || [];
+}
+
+// ── Save reply-automation config (keywords + qualified stage) ───
+export async function updateReplyAutomation(input: {
+  keywords: string;
+  stageId: string | null;
+}) {
+  const profile = await getUserProfile();
+  if (!profile?.company_id) return { error: "Unauthorized" };
+  if (!isAdmin(profile.role)) return { error: "Admin access required" };
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("whatsapp_connections")
+    .update({
+      qualify_keywords: input.keywords?.trim() || null,
+      qualify_stage_id: input.stageId || null,
+    })
+    .eq("company_id", profile.company_id);
+
+  if (error) {
+    console.error("updateReplyAutomation error:", error);
+    return { error: "Failed to save reply automation" };
+  }
+
+  revalidatePath("/settings/integrations");
+  return { success: true };
 }
 
 // ── Disconnect WhatsApp (revoke + wipe token) ───────────────────
