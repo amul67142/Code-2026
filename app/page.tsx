@@ -29,6 +29,7 @@ import { LeadCaptureModal } from "@/components/LeadCaptureModal";
 import { PricingSection } from "@/components/PricingSection";
 import { Reveal } from "@/components/Reveal";
 import { SectionGradient } from "@/components/SectionGradient";
+import { SourcesFlow } from "@/components/SourcesFlow";
 
 const LOGO_LIGHT = "https://res.cloudinary.com/dy2zpgv6q/image/upload/v1779118448/Gemini_Generated_Image_2kpsnp2kpsnp2kps_1_-Photoroom_ddqkxb.png";
 const LOGO_DARK = "https://res.cloudinary.com/dy2zpgv6q/image/upload/v1779125703/Gemini_Generated_Image_c60xw7c60xw7c60x-Photoroom_laj5vl.png";
@@ -647,18 +648,19 @@ export default function HomePage() {
                 </div>
               </div>
 
-              {/* Ingestion Flow Connectivity Visual */}
+              {/* Sources → one pipeline visual (on-theme, animated) */}
               <Reveal delay={150} y={28} className="w-full lg:w-1/2 flex justify-center items-center">
                 <div className={cn(
-                  "rounded-3xl border p-2 overflow-hidden transition-all duration-300 shadow-2xl relative group w-full max-w-lg",
-                  isDark ? "border-gray-800 bg-gray-900/20 shadow-black/40" : "border-gray-200 bg-gray-50/50 shadow-gray-100"
+                  "rounded-3xl border p-6 sm:p-8 overflow-hidden transition-all duration-300 shadow-xl relative w-full max-w-lg",
+                  isDark ? "border-gray-800 bg-gray-950/40 shadow-black/30" : "border-gray-200 bg-white shadow-gray-100"
                 )}>
-                  {/* The Flow connectivity GIF/Image */}
-                  <img
-                    src="https://res.cloudinary.com/dy2zpgv6q/image/upload/v1779176794/biglead-ezgif.com-optimize_z1dmf5.gif"
-                    alt="Multi-channel Ingestion Flow Connectivity"
-                    className="w-full h-auto rounded-2xl object-cover transition-transform duration-500 group-hover:scale-102"
-                  />
+                  <p className={cn(
+                    "text-[10px] font-bold uppercase tracking-wider mb-4 transition-colors",
+                    isDark ? "text-gray-500" : "text-gray-400"
+                  )}>
+                    Every source · One pipeline
+                  </p>
+                  <SourcesFlow isDark={isDark} />
                 </div>
               </Reveal>
             </div>

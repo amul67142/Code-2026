@@ -77,14 +77,17 @@ export async function getWhatsAppAnalytics(): Promise<WhatsAppAnalytics> {
       5 * 60 * 1000,
       async () => {
         const token = decryptToken(conn.access_token_enc);
+        // Hard timeout: a slow Graph API must never hang the whole page render.
         const res = await fetch(
-          `https://graph.facebook.com/${V}/${conn.phone_number_id}?fields=quality_rating,messaging_limit_tier&access_token=${encodeURIComponent(token)}`
+          `https://graph.facebook.com/${V}/${conn.phone_number_id}?fields=quality_rating,messaging_limit_tier&access_token=${encodeURIComponent(token)}`,
+          { signal: AbortSignal.timeout(5000) }
         );
         const data = await res.json();
         if (data?.error) {
           // Retry with quality only (messaging_limit_tier isn't always available).
           const res2 = await fetch(
-            `https://graph.facebook.com/${V}/${conn.phone_number_id}?fields=quality_rating&access_token=${encodeURIComponent(token)}`
+            `https://graph.facebook.com/${V}/${conn.phone_number_id}?fields=quality_rating&access_token=${encodeURIComponent(token)}`,
+            { signal: AbortSignal.timeout(5000) }
           );
           return res2.json();
         }
