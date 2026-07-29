@@ -9,6 +9,34 @@ export const metadata = {
 export default function ChangelogPage() {
   const versions = [
     {
+      version: "v1.5.0",
+      date: "July 30, 2026",
+      title: "Smarter Billing & A Sharper Dashboard",
+      description: "Promo-code activations, honest subscription enforcement, and a redesigned command centre.",
+      badge: "Update",
+      changes: [
+        "Promo codes: activate a full plan instantly with a code — perfect for evaluations and partner access, no payment details needed.",
+        "Accurate subscription enforcement: lapsed subscriptions now pause workspace access with a clear reactivation screen (your data stays safe).",
+        "Redesigned dashboard: pipeline composition bar, cleaner KPI cards, quick actions in the header, and stage-coloured lead avatars.",
+        "Hardened admin portal security and smoother plan-reactivation flow.",
+      ],
+    },
+    {
+      version: "v1.4.0",
+      date: "July 22, 2026",
+      title: "Live Chat & the WhatsApp Business Suite",
+      description: "BigLead becomes a full two-way WhatsApp platform — chat with every lead without leaving the CRM.",
+      badge: "Major Feature",
+      changes: [
+        "Live Chat inbox: read and reply to every lead's WhatsApp in a real-time, WhatsApp-style team inbox — with unread counts, delivery/read ticks, and per-conversation agent assignment.",
+        "One-click WhatsApp connect: clients link their own WhatsApp Business number via Meta's official Embedded Signup — no tokens, no developer steps.",
+        "Template studio: create message templates with a live WhatsApp preview, quick-reply & call-to-action buttons, image headers, and Meta approval tracking.",
+        "Auto-qualification: keyword or button-tap replies automatically move leads to your qualified stage and alert the assigned agent instantly.",
+        "WhatsApp analytics: sent / failed / reply rates plus Meta's official number-quality rating — with spam warnings before they hurt deliverability.",
+        "Safe bulk messaging with daily limits, a full per-number message log, and instant desktop notifications with sound.",
+      ],
+    },
+    {
       version: "v1.3.0",
       date: "July 12, 2026",
       title: "Performance & Reliability",

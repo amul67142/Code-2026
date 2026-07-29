@@ -5,20 +5,23 @@ import Script from "next/script";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { 
-  Check, 
-  Sparkles, 
-  Loader2, 
-  CreditCard, 
-  ArrowRight, 
-  X, 
+import {
+  Check,
+  Sparkles,
+  Loader2,
+  CreditCard,
+  ArrowRight,
+  X,
   LogOut,
   ShieldCheck,
   Zap,
-  Building
+  Building,
+  Ticket,
+  AlertTriangle
 } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/client";
+import { redeemPromoCode } from "./actions";
 
 interface PlanFeature {
   text: string;
@@ -40,13 +43,39 @@ interface PricingPlan {
 interface SelectPlanClientProps {
   initialPlans: PricingPlan[];
   userEmail: string;
+  isLapsed?: boolean;
 }
 
-export function SelectPlanClient({ initialPlans, userEmail }: SelectPlanClientProps) {
+export function SelectPlanClient({ initialPlans, userEmail, isLapsed }: SelectPlanClientProps) {
   const router = useRouter();
   const [selectedPlan, setSelectedPlan] = useState<PricingPlan | null>(null);
   const [confirmLoading, setConfirmLoading] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
+
+  // Promo code
+  const [promo, setPromo] = useState("");
+  const [promoLoading, setPromoLoading] = useState(false);
+
+  async function handleRedeemPromo() {
+    if (!promo.trim()) return toast.error("Enter a promo code");
+    setPromoLoading(true);
+    try {
+      const res = await redeemPromoCode(promo);
+      if (res.error) {
+        toast.error(res.error);
+        return;
+      }
+      toast.success(`🎉 ${res.planName} unlocked for ${res.days} days — welcome aboard!`);
+      // Hard navigation on purpose: clears the client router cache so the
+      // fresh subscription state is picked up immediately. The server routes
+      // us onward (onboarding if new, dashboard if already onboarded).
+      setTimeout(() => {
+        window.location.href = "/dashboard";
+      }, 700);
+    } finally {
+      setPromoLoading(false);
+    }
+  }
 
   const handleLogout = async () => {
     try {
@@ -176,14 +205,58 @@ export function SelectPlanClient({ initialPlans, userEmail }: SelectPlanClientPr
         </div>
       </div>
 
+      {/* Expired-subscription lock notice */}
+      {isLapsed && (
+        <div className="max-w-3xl mx-auto w-full flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 px-5 py-4">
+          <AlertTriangle className="size-5 text-red-600 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-bold text-red-700">Your subscription has expired — your workspace is locked.</p>
+            <p className="text-xs text-red-600 mt-0.5">
+              Your data is safe. Complete payment below (or apply a promo code) to restore full access for your whole team.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Title */}
       <div className="text-center max-w-3xl mx-auto space-y-4">
         <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-zinc-900 leading-tight">
-          Unlock Your Real Estate Sales Engine 🚀
+          {isLapsed ? "Reactivate Your Workspace 🔒" : "Unlock Your Real Estate Sales Engine 🚀"}
         </h1>
         <p className="text-base text-zinc-500">
-          Your account is registered successfully! Choose a CRM plan to activate your workspace and start capturing high-converting leads.
+          {isLapsed
+            ? "Renew your plan to pick up right where your team left off — leads, pipelines, and automations are all waiting."
+            : "Your account is registered successfully! Choose a CRM plan to activate your workspace and start capturing high-converting leads."}
         </p>
+      </div>
+
+      {/* Promo code */}
+      <div className="max-w-md mx-auto w-full">
+        <div className="rounded-xl border border-dashed border-zinc-300 bg-white p-4">
+          <p className="text-xs font-bold uppercase tracking-wider text-zinc-400 flex items-center gap-1.5 mb-2.5">
+            <Ticket className="size-3.5" /> Have a promo code?
+          </p>
+          <div className="flex gap-2">
+            <input
+              value={promo}
+              onChange={(e) => setPromo(e.target.value.toUpperCase())}
+              onKeyDown={(e) => e.key === "Enter" && handleRedeemPromo()}
+              placeholder="e.g. INVESTOR2026"
+              className="flex-1 h-10 rounded-lg border border-zinc-200 px-3 text-sm font-mono tracking-wider uppercase focus:outline-none focus:ring-1 focus:ring-zinc-900"
+              disabled={promoLoading}
+            />
+            <Button
+              onClick={handleRedeemPromo}
+              disabled={promoLoading || !promo.trim()}
+              className="h-10 bg-zinc-900 hover:bg-zinc-800 text-white font-bold text-xs px-5"
+            >
+              {promoLoading ? <Loader2 className="size-4 animate-spin" /> : "Apply"}
+            </Button>
+          </div>
+          <p className="text-[10px] text-zinc-400 mt-2">
+            Promo codes unlock full access instantly — no payment details needed.
+          </p>
+        </div>
       </div>
 
       {/* Verification Overlay */}

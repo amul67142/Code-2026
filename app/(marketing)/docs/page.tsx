@@ -39,8 +39,9 @@ export default function DocsPage() {
               { title: "01. Quickstart Guide", href: "#quickstart" },
               { title: "02. Lead Ingestion", href: "#ingestion" },
               { title: "03. Pipeline Setup", href: "#pipeline" },
-              { title: "04. Telephony Callback", href: "#telephony" },
-              { title: "05. Team Collaboration", href: "#team" }
+              { title: "04. WhatsApp & Live Chat", href: "#whatsapp" },
+              { title: "05. Telephony Callback", href: "#telephony" },
+              { title: "06. Team Collaboration", href: "#team" }
             ].map((section) => (
               <a 
                 key={section.title} 
@@ -110,10 +111,54 @@ export default function DocsPage() {
             </p>
           </section>
 
+          {/* WhatsApp & Live Chat */}
+          <section id="whatsapp" className="space-y-3.5 scroll-mt-24">
+            <h2 className="text-lg font-bold text-white flex items-center gap-2 border-b border-zinc-900 pb-2">
+              <RefreshCw className="size-4.5 text-zinc-400" /> 04. WhatsApp &amp; Live Chat
+            </h2>
+            <p>
+              BigLead is a full two-way WhatsApp platform. Connect your own WhatsApp Business number in
+              one click (Meta&apos;s official Embedded Signup), then:
+            </p>
+            <ul className="list-disc pl-6 space-y-2 text-zinc-400 text-xs sm:text-sm">
+              <li>
+                <strong className="text-zinc-300">Auto-welcome:</strong> every new lead receives your
+                approved template within seconds — <code className="text-zinc-300">{"{{1}}"}</code> fills
+                the lead&apos;s name and <code className="text-zinc-300">{"{{2}}"}</code> the project name
+                automatically.
+              </li>
+              <li>
+                <strong className="text-zinc-300">Template studio:</strong> build templates with a live
+                preview, quick-reply &amp; call-to-action buttons, and image headers; track Meta approval
+                status and switch your active welcome template anytime.
+              </li>
+              <li>
+                <strong className="text-zinc-300">Auto-qualification:</strong> keyword or button-tap
+                replies move the lead to your qualified stage and alert the assigned agent in real time.
+              </li>
+              <li>
+                <strong className="text-zinc-300">Live Chat inbox:</strong> read and reply to every
+                conversation with delivery/read ticks. Admins see all chats and can assign conversations
+                to agents; free-text replies follow WhatsApp&apos;s 24-hour window (templates re-open it).
+              </li>
+              <li>
+                <strong className="text-zinc-300">Analytics &amp; safety:</strong> sent/failed/reply
+                rates, Meta&apos;s number-quality rating, a full message log, and rate-limited bulk
+                sending. CSV imports never auto-message — protecting your number from spam flags.
+              </li>
+            </ul>
+            <p className="text-xs text-zinc-500">
+              Full walkthrough:{" "}
+              <Link href="/guides/whatsapp-live-chat" className="text-zinc-300 underline underline-offset-2 hover:text-white">
+                WhatsApp &amp; Live Chat setup guide
+              </Link>
+            </p>
+          </section>
+
           {/* Telephony */}
           <section id="telephony" className="space-y-3.5 scroll-mt-24">
             <h2 className="text-lg font-bold text-white flex items-center gap-2 border-b border-zinc-900 pb-2">
-              <Terminal className="size-4.5 text-zinc-400" /> 04. Telephony Callback Setup
+              <Terminal className="size-4.5 text-zinc-400" /> 05. Telephony Callback Setup
             </h2>
             <p>
               Automated Callback schedules establish a direct telephonic bridge. The moment a new leadwebhook maps in, the platform triggers routing. Configure caller ID rules, representative ring order, and timezone safety limits inside Telephony Settings to respect local country DND guidelines.
@@ -123,7 +168,7 @@ export default function DocsPage() {
           {/* Team */}
           <section id="team" className="space-y-3.5 scroll-mt-24">
             <h2 className="text-lg font-bold text-white flex items-center gap-2 border-b border-zinc-900 pb-2">
-              <UserCheck className="size-4.5 text-zinc-400" /> 05. Team Permissions & Security
+              <UserCheck className="size-4.5 text-zinc-400" /> 06. Team Permissions & Security
             </h2>
             <p>
               Secure workspaces from unauthorized exports or edits using role structures:

@@ -2,15 +2,16 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { 
-  LayoutDashboard, 
-  Building2, 
-  Users, 
+import {
+  LayoutDashboard,
+  Building2,
+  Users,
   Tag,
-  CreditCard, 
+  CreditCard,
   LifeBuoy,
   LogOut,
-  ShieldAlert
+  ShieldAlert,
+  Ticket
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -19,6 +20,7 @@ const navigation = [
   { name: "Companies", href: "/owner-admin/companies", icon: Building2 },
   { name: "Users", href: "/owner-admin/users", icon: Users },
   { name: "Pricing", href: "/owner-admin/pricing", icon: Tag },
+  { name: "Promos", href: "/owner-admin/promos", icon: Ticket },
   { name: "Payments", href: "/owner-admin/payments", icon: CreditCard },
   { name: "Tickets", href: "/owner-admin/tickets", icon: LifeBuoy, locked: true },
 ];

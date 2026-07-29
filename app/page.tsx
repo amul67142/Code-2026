@@ -542,8 +542,8 @@ export default function HomePage() {
                     icon: (
                       <svg className={cn("size-5 transition-colors", isDark ? "text-gray-400" : "text-gray-700")} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M10.5 1.5H8.25A2.25 2.25 0 006 3.75v16.5a2.25 2.25 0 002.25 2.25h7.5A2.25 2.25 0 0018 20.25V3.75a2.25 2.25 0 00-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 18.75h3" /></svg>
                     ),
-                    title: "Mobile-First Design",
-                    desc: <>Your team can <span className={cn("font-semibold transition-colors", isDark ? "text-white" : "text-gray-900")}>update pipelines</span>, add notes, and call leads straight from their phones.</>,
+                    title: "WhatsApp Live Chat",
+                    desc: <>Read and reply to every lead&apos;s WhatsApp from <span className={cn("font-semibold transition-colors", isDark ? "text-white" : "text-gray-900")}>one team inbox</span> — replies auto-qualify leads in your pipeline.</>,
                   },
                   {
                     icon: (
@@ -877,6 +877,7 @@ export default function HomePage() {
                 links: [
                   { name: "Documentation", href: "/docs" },
                   { name: "Facebook Setup Guide", href: "/guides/facebook-lead-ads" },
+                  { name: "WhatsApp & Live Chat Guide", href: "/guides/whatsapp-live-chat" },
                   { name: "Blog", href: "/blog" },
                   { name: "Help Center", href: "/help" },
                   { name: "Contact", href: "/contact" }

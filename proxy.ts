@@ -55,6 +55,25 @@ export async function proxy(request: NextRequest) {
     return NextResponse.rewrite(rewriteUrl);
   }
 
+  // 0b. Owner portal guard on ANY hostname (not just owner.* subdomains).
+  // Without this, /owner-admin pages were reachable unauthenticated on the
+  // main domain. Login sets the owner_session cookie via /api/owner/auth.
+  if (pathname.startsWith("/owner-admin")) {
+    const isOwnerLogin = pathname === "/owner-admin/login";
+    const ownerSession = request.cookies.get("owner_session");
+    if (!ownerSession && !isOwnerLogin) {
+      const loginUrl = request.nextUrl.clone();
+      loginUrl.pathname = "/owner-admin/login";
+      return NextResponse.redirect(loginUrl);
+    }
+    if (ownerSession && isOwnerLogin) {
+      const homeUrl = request.nextUrl.clone();
+      homeUrl.pathname = "/owner-admin";
+      return NextResponse.redirect(homeUrl);
+    }
+    return NextResponse.next();
+  }
+
   // Set pathname in request headers so server components can read it
   request.headers.set("x-pathname", pathname);
 

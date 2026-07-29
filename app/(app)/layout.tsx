@@ -1,5 +1,4 @@
 import { Sidebar, MobileSidebar, Header } from "@/components/app-shell";
-import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCachedAuthUser } from "@/lib/auth/cached-user";
@@ -28,10 +27,6 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     redirect("/login");
   }
 
-  // Get current pathname injected by middleware
-  const headersList = await headers();
-  const pathname = headersList.get("x-pathname") || "";
-
   // Check if user has completed onboarding (has a public.users profile AND company name is not "Pending Onboarding")
   const adminClient = createAdminClient();
   const { data: userProfile } = await adminClient
@@ -54,25 +49,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const companyName = (userProfile?.companies as any)?.name;
   const isOnboarded = !!userProfile && companyName && companyName !== "Pending Onboarding";
 
-  // Enforce payment redirect if they haven't paid yet
+  // Paywall: /select-plan and /onboarding live OUTSIDE this layout (route
+  // group "(billing)"), so these redirects can never loop into themselves —
+  // no pathname sniffing needed.
   if (!hasPaid) {
-    if (pathname !== "/select-plan") {
-      redirect("/select-plan");
-    }
-  } else {
-    // If they have paid, but haven't onboarded yet
-    if (!isOnboarded && pathname !== "/onboarding") {
-      redirect("/onboarding");
-    }
-    // If they have paid AND onboarded, they shouldn't go to onboarding or select-plan
-    if (isOnboarded && (pathname === "/onboarding" || pathname === "/select-plan")) {
-      redirect("/dashboard");
-    }
+    redirect("/select-plan");
   }
-
-  // If not fully onboarded (either not paid or on the onboarding page), ONLY render the children (no sidebar/header)
-  if (!hasPaid || !isOnboarded) {
-    return <>{children}</>;
+  if (!isOnboarded) {
+    redirect("/onboarding");
   }
 
   // Fetch company info for the context

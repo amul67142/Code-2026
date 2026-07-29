@@ -28,6 +28,7 @@ export default async function SelectPlanPage() {
 
   // 2. Fetch subscription status (include current_period_end for cancelled grace period)
   let hasPaid = false;
+  let isLapsed = false;
   if (userProfile?.company_id) {
     const { data: sub } = await adminClient
       .from("subscriptions")
@@ -35,6 +36,8 @@ export default async function SelectPlanPage() {
       .eq("company_id", userProfile.company_id)
       .maybeSingle();
     hasPaid = hasActiveAccess(sub);
+    // ACTIVE-or-CANCELLED row whose period has lapsed → they HAD access before.
+    isLapsed = !!sub && !hasPaid;
   }
 
   // 3. Fetch pricing plans
@@ -58,7 +61,11 @@ export default async function SelectPlanPage() {
 
   return (
     <div className="min-h-screen bg-[#fafafa] flex flex-col justify-between py-12 px-4 sm:px-6 lg:px-8">
-      <SelectPlanClient initialPlans={plans || []} userEmail={user.email || ""} />
+      <SelectPlanClient
+        initialPlans={plans || []}
+        userEmail={user.email || ""}
+        isLapsed={isLapsed}
+      />
     </div>
   );
 }
