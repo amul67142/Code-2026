@@ -75,22 +75,68 @@ export async function POST(req: NextRequest) {
       if (!phoneNumberId) continue;
 
       for (const m of value.messages || []) {
-        // Text replies + quick-reply button taps (both count for qualification).
-        const text =
-          m.type === "text"
-            ? m.text?.body
-            : m.type === "button"
-              ? m.button?.text || m.button?.payload
-              : undefined;
+        // Text replies + quick-reply button taps (both count for qualification),
+        // plus media messages (logged with a Meta media reference — downloaded
+        // on demand, never stored by us).
+        let text: string | undefined;
+        let mediaId: string | undefined;
+        let mediaType: string | undefined;
+
+        if (m.type === "text") {
+          text = m.text?.body;
+        } else if (m.type === "button") {
+          text = m.button?.text || m.button?.payload;
+        } else if (m.type === "image" || m.type === "video" || m.type === "audio" || m.type === "document") {
+          const media = m[m.type] as { id?: string; caption?: string; filename?: string } | undefined;
+          mediaId = media?.id;
+          mediaType = m.type;
+          text =
+            media?.caption ||
+            (m.type === "image" ? "📷 Photo" : m.type === "video" ? "🎥 Video" : m.type === "audio" ? "🎙️ Audio" : `📄 ${media?.filename || "Document"}`);
+        }
+
         if (!text) continue;
         await processInboundWhatsApp({
           phoneNumberId,
           from: m.from,
           text,
           waMessageId: m.id,
+          mediaId,
+          mediaType,
         }).catch((e) => console.error("WA inbound handler error:", e));
       }
-      // value.statuses[] (delivered/read/failed) can be wired into message_log later.
+
+      // Delivery/read/failed statuses → tick marks on outbound messages.
+      for (const s of value.statuses || []) {
+        if (!s.id || !s.status) continue;
+        try {
+          const admin = (await import("@/lib/supabase/admin")).createAdminClient();
+          if (s.status === "delivered") {
+            await admin
+              .from("message_log")
+              .update({ status: "DELIVERED", delivered_at: new Date().toISOString() })
+              .eq("provider_id", s.id)
+              .eq("channel", "WHATSAPP")
+              .in("status", ["SENT"]);
+          } else if (s.status === "read") {
+            await admin
+              .from("message_log")
+              .update({ status: "OPENED", read_at: new Date().toISOString() })
+              .eq("provider_id", s.id)
+              .eq("channel", "WHATSAPP")
+              .in("status", ["SENT", "DELIVERED"]);
+          } else if (s.status === "failed") {
+            const errMsg = s.errors?.[0]?.title || s.errors?.[0]?.message || "delivery failed";
+            await admin
+              .from("message_log")
+              .update({ status: "FAILED", error_message: errMsg })
+              .eq("provider_id", s.id)
+              .eq("channel", "WHATSAPP");
+          }
+        } catch (e) {
+          console.error("WA status handler error:", e);
+        }
+      }
     }
   }
 
@@ -111,12 +157,23 @@ interface WaMessage {
   type: string;
   text?: { body: string };
   button?: { text?: string; payload?: string };
+  image?: { id?: string; caption?: string };
+  video?: { id?: string; caption?: string };
+  audio?: { id?: string };
+  document?: { id?: string; caption?: string; filename?: string };
+  [key: string]: unknown;
+}
+interface WaStatus {
+  id?: string;
+  status?: string;
+  errors?: Array<{ title?: string; message?: string }>;
 }
 interface WaChange {
   field: string;
   value?: {
     metadata?: { phone_number_id?: string };
     messages?: WaMessage[];
+    statuses?: WaStatus[];
   };
 }
 interface WaEntry {

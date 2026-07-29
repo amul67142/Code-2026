@@ -19,6 +19,9 @@ export interface InboundWhatsApp {
   from: string; // sender WhatsApp id (digits, country code, no +)
   text: string;
   waMessageId: string;
+  /** Media stays at Meta — we keep only the reference for on-demand download. */
+  mediaId?: string;
+  mediaType?: string;
 }
 
 export type InboundResult =
@@ -58,6 +61,9 @@ export async function processInboundWhatsApp(msg: InboundWhatsApp): Promise<Inbo
     direction: "INBOUND",
     to_address: last10, // the other party (sender) for an inbound row
     subject: msg.text.slice(0, 300),
+    body: msg.text,
+    media_id: msg.mediaId ?? null,
+    media_type: msg.mediaType ?? null,
     status: "REPLIED",
     provider_id: msg.waMessageId,
     is_auto: false,
@@ -65,6 +71,38 @@ export async function processInboundWhatsApp(msg: InboundWhatsApp): Promise<Inbo
   });
 
   if (!lead) return { skipped: "no_lead" };
+
+  // 3b. Maintain the live-chat conversation (list preview, unread, 24h window).
+  const nowIso = new Date().toISOString();
+  const { data: existingConv } = await admin
+    .from("wa_conversations")
+    .select("id, unread_count")
+    .eq("company_id", conn.company_id)
+    .eq("lead_id", lead.id)
+    .maybeSingle();
+  if (existingConv) {
+    await admin
+      .from("wa_conversations")
+      .update({
+        phone: last10,
+        last_inbound_at: nowIso,
+        last_message_at: nowIso,
+        last_message_preview: msg.text.slice(0, 120),
+        unread_count: (existingConv.unread_count || 0) + 1,
+        updated_at: nowIso,
+      })
+      .eq("id", existingConv.id);
+  } else {
+    await admin.from("wa_conversations").insert({
+      company_id: conn.company_id,
+      lead_id: lead.id,
+      phone: last10,
+      last_inbound_at: nowIso,
+      last_message_at: nowIso,
+      last_message_preview: msg.text.slice(0, 120),
+      unread_count: 1,
+    });
+  }
 
   // 4. Timeline activity for the reply.
   await admin.from("activities").insert({

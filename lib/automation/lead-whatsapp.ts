@@ -127,6 +127,26 @@ export async function sendLeadWhatsApp(
       metadata: { channel: "WHATSAPP", template: templateName },
     });
 
+    // Surface the thread in Live Chat right away (upsert the conversation).
+    const nowIso = new Date().toISOString();
+    await admin
+      .from("wa_conversations")
+      .upsert(
+        {
+          company_id: input.companyId,
+          lead_id: input.leadId,
+          phone: to.slice(-10),
+          last_message_at: nowIso,
+          last_message_preview: `📋 ${templateName}`,
+          updated_at: nowIso,
+        },
+        { onConflict: "company_id,lead_id" }
+      )
+      .then(
+        () => {},
+        (e) => console.error("wa_conversations upsert failed (non-fatal):", e)
+      );
+
     return { status: "SENT", providerId };
   } catch (err) {
     const msg = err instanceof Error ? err.message : "WhatsApp send failed";

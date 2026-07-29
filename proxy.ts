@@ -4,6 +4,7 @@ import { updateSession } from "@/lib/supabase/middleware";
 /** Routes that require authentication */
 const PROTECTED_ROUTES = [
   "/dashboard",
+  "/inbox",
   "/leads",
   "/tasks",
   "/projects",
