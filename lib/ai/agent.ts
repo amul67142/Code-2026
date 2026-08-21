@@ -54,6 +54,11 @@ export async function runAgentTurn(ctx: AgentContext): Promise<AgentTurnResult> 
   let qualified = false;
   let replyText: string | null = null;
   let error: string | undefined;
+  // The model often writes its reply text in the SAME round as a tool call,
+  // then has nothing to add after the tool result. Collect text from every
+  // round — using only the final round's (possibly empty) text silently
+  // drops the reply exactly when the bot is doing its best work.
+  const texts: string[] = [];
 
   try {
     for (let round = 0; round <= MAX_TOOL_ROUNDS; round++) {
@@ -70,8 +75,11 @@ export async function runAgentTurn(ctx: AgentContext): Promise<AgentTurnResult> 
       usage.cacheRead += res.usage.cacheRead;
       usage.cacheWrite += res.usage.cacheWrite;
 
+      const trimmed = (res.text || "").trim();
+      if (trimmed && texts[texts.length - 1] !== trimmed) texts.push(trimmed);
+
       if (res.toolCalls.length === 0) {
-        replyText = res.text || null;
+        replyText = texts.join("\n\n") || null;
         break;
       }
 
@@ -98,13 +106,18 @@ export async function runAgentTurn(ctx: AgentContext): Promise<AgentTurnResult> 
       // If a terminal tool ran and the model keeps calling tools, the round
       // cap stops it; any text produced so far is still used.
       if (round === MAX_TOOL_ROUNDS || Date.now() - started > TURN_BUDGET_MS) {
-        replyText = res.text || null;
+        replyText = texts.join("\n\n") || null;
         break;
       }
     }
   } catch (e) {
     error = e instanceof Error ? e.message : String(e);
     console.error(`AI agent turn failed (${providerId}/${model}):`, error);
+  }
+
+  // A terminal action with no closing words would leave the lead hanging.
+  if (!replyText && stop === "ESCALATED") {
+    replyText = "One moment — I'm connecting you with my senior colleague, they'll assist you right here.";
   }
 
   // Usage + outcome log (best-effort, never blocks the reply).
