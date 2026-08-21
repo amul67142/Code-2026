@@ -93,7 +93,7 @@ export async function getAiSetupData() {
       .from("pipeline_stages")
       .select("id, name, color")
       .eq("company_id", profile.company_id)
-      .order("position", { ascending: true }),
+      .order("stage_order", { ascending: true }),
   ]);
   return { config: cfg.data, stages: stages.data || [] };
 }
@@ -148,7 +148,7 @@ export async function saveAiConfig(input: AiConfigInput) {
     },
     { onConflict: "company_id" }
   );
-  if (error) return { error: "Failed to save — check the migration 023 ran." };
+  if (error) return { error: `Failed to save: ${error.message}` };
   revalidatePath("/ai-agent");
   revalidatePath("/ai-agent/setup");
   return { success: true };
@@ -195,7 +195,7 @@ export async function saveKnowledgeDoc(input: {
   const { error } = input.id
     ? await admin.from("ai_knowledge_docs").update(row).eq("id", input.id).eq("company_id", profile.company_id)
     : await admin.from("ai_knowledge_docs").insert(row);
-  if (error) return { error: "Failed to save the document" };
+  if (error) return { error: `Failed to save the document: ${error.message}` };
   revalidatePath("/ai-agent/knowledge");
   return { success: true };
 }
@@ -262,7 +262,7 @@ export async function importKnowledgeFromUrl(rawUrl: string, projectId: string |
     content: text.slice(0, 120_000),
     is_active: false, // OFF until a human reviews it
   });
-  if (error) return { error: "Failed to save the imported page" };
+  if (error) return { error: `Failed to save the imported page: ${error.message}` };
 
   revalidatePath("/ai-agent/knowledge");
   return { success: true, chars: text.length, title };
@@ -360,7 +360,7 @@ export async function saveFact(input: {
   const { error } = input.id
     ? await admin.from("ai_facts").update(row).eq("id", input.id).eq("company_id", profile.company_id)
     : await admin.from("ai_facts").insert(row);
-  if (error) return { error: "Failed to save the fact" };
+  if (error) return { error: `Failed to save the fact: ${error.message}` };
   revalidatePath("/ai-agent/facts");
   return { success: true };
 }
@@ -392,7 +392,7 @@ export async function importFacts(
 
   const admin = createAdminClient();
   const { error } = await admin.from("ai_facts").insert(clean);
-  if (error) return { error: "Import failed — check migration 023 has run." };
+  if (error) return { error: `Import failed: ${error.message}` };
 
   revalidatePath("/ai-agent/facts");
   return { success: true, imported: clean.length, skipped: rows.length - clean.length };
@@ -449,7 +449,7 @@ export async function saveRubricField(input: {
     ? await admin.from("ai_qualification_fields").update(row).eq("id", input.id).eq("company_id", profile.company_id)
     : await admin.from("ai_qualification_fields").insert(row);
   if (error) {
-    return { error: error.code === "23505" ? "A field with that key already exists" : "Failed to save the field" };
+    return { error: error.code === "23505" ? "A field with that key already exists" : `Failed to save the field: ${error.message}` };
   }
   revalidatePath("/ai-agent/qualification");
   return { success: true };
