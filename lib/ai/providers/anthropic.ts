@@ -28,7 +28,11 @@ export const anthropicProvider: LlmProvider = {
       {
         type: "text",
         text: req.systemStable,
-        cache_control: { type: "ephemeral" },
+        // 1h TTL: WhatsApp replies arrive with multi-minute gaps, so the
+        // default 5-min cache would expire between most turns and every turn
+        // would pay the 1.25x cache WRITE instead of the 0.1x read. The same
+        // prefix also serves every other lead of this company.
+        cache_control: { type: "ephemeral", ttl: "1h" },
       },
       { type: "text", text: req.systemVolatile },
     ];

@@ -79,6 +79,12 @@ export async function maybeAiRespond(input: AiRespondInput): Promise<void> {
       return;
     }
 
+    // Pre-flight race check — if the lead already sent a NEWER message
+    // (rapid-fire texting), skip before paying for a model turn the post-run
+    // check would discard anyway. The newer message's own run answers with
+    // the fuller context.
+    if (await newerInboundExists(input)) return;
+
     // Load everything and run the turn.
     const ctx = await loadAgentContext(input.companyId, input.leadId, config);
     if (!ctx) return;
@@ -87,24 +93,9 @@ export async function maybeAiRespond(input: AiRespondInput): Promise<void> {
     const turnElapsed = Date.now() - turnStarted;
     if (!turn.reply || turn.error) return;
 
-    // Race check — if the lead sent ANOTHER message while we were thinking,
-    // skip: the newer webhook's run will answer with the fuller context.
-    const { data: latest } = await admin
-      .from("message_log")
-      .select("provider_id, direction")
-      .eq("company_id", input.companyId)
-      .eq("lead_id", input.leadId)
-      .eq("channel", "WHATSAPP")
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (
-      latest &&
-      latest.direction === "INBOUND" &&
-      latest.provider_id !== input.waMessageId
-    ) {
-      return;
-    }
+    // Post-run race check — the lead may have sent ANOTHER message while the
+    // model was thinking; the newer webhook's run answers with fuller context.
+    if (await newerInboundExists(input)) return;
 
     const parts = splitMessages(turn.reply);
 
@@ -132,6 +123,25 @@ export async function maybeAiRespond(input: AiRespondInput): Promise<void> {
   } catch (e) {
     console.error("maybeAiRespond failed (non-fatal):", e);
   }
+}
+
+/** True when a newer inbound than the triggering message has been logged. */
+async function newerInboundExists(input: AiRespondInput): Promise<boolean> {
+  const admin = createAdminClient();
+  const { data: latest } = await admin
+    .from("message_log")
+    .select("provider_id, direction")
+    .eq("company_id", input.companyId)
+    .eq("lead_id", input.leadId)
+    .eq("channel", "WHATSAPP")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return (
+    !!latest &&
+    latest.direction === "INBOUND" &&
+    latest.provider_id !== input.waMessageId
+  );
 }
 
 /** Send message parts from the company's number and log them as BOT sends. */
