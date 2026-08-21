@@ -8,7 +8,10 @@ import {
   ListChecks,
   MessageCircle,
   ArrowRight,
+  AlertCircle,
+  Activity,
 } from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { getAiOverview } from "./actions";
@@ -38,6 +41,20 @@ export default async function AiAgentOverviewPage() {
     { label: "Qualified by AI · 30d", value: data.qualified30d },
     { label: "Handed to humans", value: data.escalatedOpen },
   ];
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const runs: any[] = data.recentRuns || [];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const failedSends: any[] = data.failedSends || [];
+  const latestRun = runs[0];
+  const outcomeBadge = (o: string) =>
+    o === "ERROR"
+      ? "bg-red-100 text-red-700"
+      : o === "SENT"
+        ? "bg-green-100 text-green-700"
+        : o === "DRAFTED"
+          ? "bg-amber-100 text-amber-700"
+          : "bg-gray-100 text-gray-600";
 
   const setupLinks = [
     {
@@ -102,6 +119,33 @@ export default async function AiAgentOverviewPage() {
         </Card>
       )}
 
+      {latestRun?.outcome === "ERROR" && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3">
+          <p className="text-sm font-semibold text-red-800 flex items-center gap-2">
+            <AlertCircle className="size-4" /> The last bot reply failed —{" "}
+            {formatDistanceToNow(new Date(latestRun.created_at), { addSuffix: true })}
+          </p>
+          <p className="text-xs text-red-700 mt-1 font-mono break-all">{latestRun.error}</p>
+        </div>
+      )}
+
+      {failedSends.length > 0 && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3">
+          <p className="text-sm font-semibold text-red-800 flex items-center gap-2">
+            <AlertCircle className="size-4" /> WhatsApp delivery failures
+          </p>
+          <div className="mt-1.5 space-y-1">
+            {failedSends.map((f) => (
+              <p key={f.id} className="text-xs text-red-700">
+                <span className="font-medium">{f.leads?.name || f.to_address}</span> ·{" "}
+                {formatDistanceToNow(new Date(f.created_at), { addSuffix: true })} —{" "}
+                <span className="font-mono">{f.error_message || "unknown error"}</span>
+              </p>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {stats.map((s) => (
           <Card key={s.label}>
@@ -127,6 +171,45 @@ export default async function AiAgentOverviewPage() {
           </Link>
         ))}
       </div>
+
+      {runs.length > 0 && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              <Activity className="size-4" /> Recent bot activity
+            </CardTitle>
+            <CardDescription className="text-xs">
+              Every reply attempt, newest first. An <span className="text-red-600 font-medium">error</span>{" "}
+              row shows the exact reason a message didn&apos;t go out.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <div className="divide-y">
+              {runs.map((r) => (
+                <div key={r.id} className="py-2 flex items-start gap-3">
+                  <span
+                    className={`shrink-0 mt-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded ${outcomeBadge(r.outcome)}`}
+                  >
+                    {r.outcome || "—"}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs text-gray-700">
+                      <span className="font-medium">{r.leads?.name || "Unknown lead"}</span>
+                      <span className="text-muted-foreground">
+                        {" "}· {formatDistanceToNow(new Date(r.created_at), { addSuffix: true })} ·{" "}
+                        {r.model} · {r.latency_ms != null ? `${(r.latency_ms / 1000).toFixed(1)}s` : "—"}
+                      </span>
+                    </p>
+                    {r.error && (
+                      <p className="text-[11px] text-red-700 font-mono break-all mt-0.5">{r.error}</p>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader className="pb-2">

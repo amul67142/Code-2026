@@ -59,6 +59,27 @@ export async function getAiOverview() {
       .eq("human_takeover", true),
   ]);
 
+  // Diagnostics: the latest runs (with any error verbatim) and failed
+  // WhatsApp sends (Meta's own reason) — so "why is nothing sending?" is
+  // answerable from this page instead of the database.
+  const [recentRuns, failedSends] = await Promise.all([
+    admin
+      .from("ai_runs")
+      .select("id, model, outcome, latency_ms, error, created_at, leads(name)")
+      .eq("company_id", profile.company_id)
+      .order("created_at", { ascending: false })
+      .limit(10),
+    admin
+      .from("message_log")
+      .select("id, to_address, error_message, created_at, leads(name)")
+      .eq("company_id", profile.company_id)
+      .eq("channel", "WHATSAPP")
+      .eq("direction", "OUTBOUND")
+      .eq("status", "FAILED")
+      .order("created_at", { ascending: false })
+      .limit(5),
+  ]);
+
   const rows = runs30.data || [];
   const totals = rows.reduce(
     (acc, r) => {
@@ -79,6 +100,8 @@ export async function getAiOverview() {
     escalatedOpen: escalated.count || 0,
     tokens30d: totals,
     runs30d: rows.length,
+    recentRuns: recentRuns.data || [],
+    failedSends: failedSends.data || [],
   };
 }
 
