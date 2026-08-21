@@ -227,6 +227,27 @@ credit system, like the bulk-send constants already anticipate.
    configuration, end-use vs investment)
 5. **Decision on `docs/` open items below**
 
+## Multi-project on one number — how it works, and a known future gap
+
+One client (company) with several projects does **NOT** need multiple bots. It's one bot, one
+WhatsApp number, one config — knowledge is scoped per project via the lead's `project_id`:
+
+- A lead's `project_id` (set from the ad → form) selects which knowledge the bot loads.
+- `ai_knowledge_docs` and `ai_facts` each carry a `project_id` (null = applies to all projects); the
+  context loader filters to *the lead's project + global*, so one project's prices never leak into
+  another's conversation.
+- `projects.welcome_template` gives each project its own approved welcome template on the same number.
+
+**Separate per project:** knowledge docs, facts, welcome template.
+**Shared company-wide:** persona, behavioural instructions (Section 0 rules), provider/model, rubric.
+
+**Known future gap (do NOT build until a real client needs it):** behavioural *instructions* are
+company-level, not project-level. Fine when a developer's projects share one rulebook (the norm).
+It only matters if two projects need genuinely different *behaviour* (e.g. one freely sellable, one
+pre-launch escalate-everything), or for an untagged lead with no `project_id` (bot sees only global
+knowledge, can't cross-sell). Fix when required: add an optional `projects.ai_instructions` column
+and append it in `buildStablePrefix` when the lead's project has one — one migration, a few lines.
+
 ## 9. Open decisions
 
 - [ ] Shadow mode first, or straight to live with a daily cap? (Recommended: shadow.)
