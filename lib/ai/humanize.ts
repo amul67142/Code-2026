@@ -50,10 +50,10 @@ export function splitMessages(text: string, max = 2): string[] {
   return out.slice(0, max);
 }
 
-/** Human-plausible typing delay in ms: ~1.5s base + 25ms/char, capped 2–8s. */
+/** Human-plausible typing delay in ms: short base + 12ms/char, capped 1–3.5s. */
 export function typingDelayMs(text: string): number {
-  const ms = 1500 + text.length * 25;
-  return Math.max(2000, Math.min(8000, ms));
+  const ms = 600 + text.length * 12;
+  return Math.max(1000, Math.min(3500, ms));
 }
 
 export function sleep(ms: number): Promise<void> {
