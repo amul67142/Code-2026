@@ -123,11 +123,14 @@ export const geminiProvider: LlmProvider = {
     if (req.tools.length > 0) {
       body.tools = [
         {
-          functionDeclarations: req.tools.map((t) => ({
-            name: t.name,
-            description: t.description,
-            parameters: cleanSchema(t.schema),
-          })),
+          functionDeclarations: req.tools.map((t) => {
+            const params = cleanSchema(t.schema);
+            // A parameterless tool (e.g. stop_messaging) — omit `parameters`
+            // entirely rather than sending a non-object schema.
+            return params.type === "object"
+              ? { name: t.name, description: t.description, parameters: params }
+              : { name: t.name, description: t.description };
+          }),
         },
       ];
     }
@@ -148,7 +151,14 @@ export const geminiProvider: LlmProvider = {
         body: JSON.stringify(body),
       });
       data = await res.json();
-      if (res.status !== 503 && res.status !== 429) break;
+      // Retryable: 503/429 (capacity), and the free tier's intermittent bogus
+      // "invalid argument" 400 — verified 2026-08-21 that the identical
+      // payload succeeds on retry (prod turn passed at 10:52, same structure
+      // rejected at 10:53, then six identical requests all passed).
+      const bogus400 =
+        res.status === 400 &&
+        /invalid argument/i.test(data?.error?.message || "");
+      if (res.status !== 503 && res.status !== 429 && !bogus400) break;
     }
     if (!res || !res.ok || data.error) {
       throw new Error(data?.error?.message || `Gemini request failed (${res?.status})`);
