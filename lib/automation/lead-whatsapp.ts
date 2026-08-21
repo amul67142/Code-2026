@@ -48,19 +48,32 @@ export async function sendLeadWhatsApp(
   const [{ data: company }, projectRes] = await Promise.all([
     admin.from("companies").select("name").eq("id", input.companyId).maybeSingle(),
     input.projectId
-      ? admin.from("projects").select("name").eq("id", input.projectId).maybeSingle()
+      ? admin
+          .from("projects")
+          .select("name, welcome_template, welcome_template_language")
+          .eq("id", input.projectId)
+          .maybeSingle()
       : Promise.resolve({ data: null }),
   ]);
   // Variable convention: {{1}} = lead name, {{2}} = project name. Fallbacks:
   // no lead name → "there"; no project on the lead → the company name (reads
   // naturally: "…your interest in <Company>").
   const companyName = company?.name || "Our Team";
-  const projectName = (projectRes?.data as { name?: string } | null)?.name || companyName;
+  const project = (projectRes?.data as {
+    name?: string;
+    welcome_template?: string | null;
+    welcome_template_language?: string | null;
+  } | null) || null;
+  const projectName = project?.name || companyName;
   const leadName = (input.leadName || "").trim() || "there";
 
   const to = normalizeWhatsAppNumber(input.leadPhone);
-  const templateName = conn.default_template || "hello_world";
-  const language = conn.template_language || "en_US";
+  // Per-project welcome wins over the connection-level default.
+  const templateName = project?.welcome_template || conn.default_template || "hello_world";
+  const language =
+    (project?.welcome_template ? project?.welcome_template_language : null) ||
+    conn.template_language ||
+    "en_US";
 
   // hello_world is the pre-approved Meta test template (no variables).
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

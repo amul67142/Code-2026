@@ -23,6 +23,12 @@ import {
   PanelLeft,
   ClipboardList,
   MessageCircle,
+  Bot,
+  Gauge,
+  SlidersHorizontal,
+  BookOpen,
+  Database,
+  ListChecks,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -51,6 +57,19 @@ interface NavItem {
 const navigation: NavItem[] = [
   { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { title: "Live Chat", href: "/inbox", icon: MessageCircle },
+  {
+    title: "AI Agent",
+    href: "/ai-agent",
+    icon: Bot,
+    minRole: "ADMIN",
+    children: [
+      { title: "Overview", href: "/ai-agent", icon: Gauge, minRole: "ADMIN" },
+      { title: "Setup", href: "/ai-agent/setup", icon: SlidersHorizontal, minRole: "ADMIN" },
+      { title: "Knowledge", href: "/ai-agent/knowledge", icon: BookOpen, minRole: "ADMIN" },
+      { title: "Products & Prices", href: "/ai-agent/facts", icon: Database, minRole: "ADMIN" },
+      { title: "Qualification", href: "/ai-agent/qualification", icon: ListChecks, minRole: "ADMIN" },
+    ],
+  },
   { title: "Leads", href: "/leads", icon: Users },
   { title: "My Leads", href: "/my-leads", icon: ClipboardList, hideForRoles: ["SUPER_ADMIN"] },
   { title: "Pipeline", href: "/leads/kanban", icon: KanbanSquare, minRole: "TEAM_LEAD" },
@@ -83,9 +102,12 @@ export function Sidebar() {
   const pathname = usePathname();
   const { sidebarCollapsed, toggleCollapsed } = useAppStore();
   const user = useUser();
-  const [settingsOpen, setSettingsOpen] = useState(
-    pathname.startsWith("/settings")
-  );
+  // One open/closed flag per collapsible group (Settings, AI Agent, …) so
+  // toggling one never toggles the others.
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
+    Settings: pathname.startsWith("/settings"),
+    "AI Agent": pathname.startsWith("/ai-agent"),
+  });
 
   /** Filter nav items by role */
   const visibleNav = navigation.filter((item) => {
@@ -137,10 +159,13 @@ export function Sidebar() {
 
               if (visibleChildren.length === 0) return null;
 
+              const groupOpen = !!openGroups[item.title];
               return (
                 <div key={item.title}>
                   <button
-                    onClick={() => setSettingsOpen(!settingsOpen)}
+                    onClick={() =>
+                      setOpenGroups((g) => ({ ...g, [item.title]: !g[item.title] }))
+                    }
                     className={cn(
                       "flex items-center gap-2 w-full rounded-md px-2.5 py-2 text-sm transition-colors",
                       "text-gray-600 hover:text-gray-900 hover:bg-gray-100",
@@ -155,13 +180,13 @@ export function Sidebar() {
                         <ChevronDown
                           className={cn(
                             "size-3.5 transition-transform",
-                            settingsOpen && "rotate-180"
+                            groupOpen && "rotate-180"
                           )}
                         />
                       </>
                     )}
                   </button>
-                  {settingsOpen && !sidebarCollapsed && (
+                  {groupOpen && !sidebarCollapsed && (
                     <div className="ml-4 mt-0.5 flex flex-col gap-0.5 border-l border-gray-200 pl-2">
                       {visibleChildren.map((child) => {
                         const childActive = pathname === child.href;

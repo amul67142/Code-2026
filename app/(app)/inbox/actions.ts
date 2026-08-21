@@ -21,7 +21,7 @@ async function canAccessConversation(
   const admin = createAdminClient();
   const { data: conv } = await admin
     .from("wa_conversations")
-    .select("id, assigned_agent_id, last_inbound_at, phone")
+    .select("id, assigned_agent_id, last_inbound_at, phone, human_takeover, bot_enabled, opted_out")
     .eq("company_id", profile.company_id)
     .eq("lead_id", leadId)
     .maybeSingle();
@@ -61,14 +61,25 @@ export async function getChatMessages(leadId: string) {
   if (!access.ok) return { error: "Conversation not found" };
 
   const admin = createAdminClient();
-  const { data } = await admin
-    .from("message_log")
-    .select("id, direction, body, subject, status, media_id, media_type, is_auto, created_at, delivered_at, read_at, error_message")
-    .eq("company_id", profile.company_id)
-    .eq("lead_id", leadId)
-    .eq("channel", "WHATSAPP")
-    .order("created_at", { ascending: true })
-    .limit(500);
+  const [{ data }, { data: pendingDraft }] = await Promise.all([
+    admin
+      .from("message_log")
+      .select("id, direction, body, subject, status, media_id, media_type, is_auto, source, created_at, delivered_at, read_at, error_message")
+      .eq("company_id", profile.company_id)
+      .eq("lead_id", leadId)
+      .eq("channel", "WHATSAPP")
+      .order("created_at", { ascending: true })
+      .limit(500),
+    admin
+      .from("ai_drafts")
+      .select("id, draft_text, created_at")
+      .eq("company_id", profile.company_id)
+      .eq("lead_id", leadId)
+      .eq("status", "PENDING")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ]);
 
   // Opening the thread clears unread.
   await admin
@@ -84,7 +95,68 @@ export async function getChatMessages(leadId: string) {
     ? new Date(new Date(access.conv.last_inbound_at).getTime() + WINDOW_MS).toISOString()
     : null;
 
-  return { messages: data || [], windowOpen, windowExpiresAt };
+  return {
+    messages: data || [],
+    windowOpen,
+    windowExpiresAt,
+    botState: {
+      humanTakeover: !!access.conv.human_takeover,
+      botEnabled: access.conv.bot_enabled !== false,
+      optedOut: !!access.conv.opted_out,
+    },
+    pendingDraft: pendingDraft || null,
+  };
+}
+
+// ── AI agent: take over / hand back a conversation ──────────────
+export async function toggleBotTakeover(leadId: string, takeOver: boolean) {
+  const profile = await getCachedUserProfile();
+  if (!profile?.company_id) return { error: "Unauthorized" };
+  const access = await canAccessConversation(profile, leadId);
+  if (!access.ok) return { error: "Conversation not found" };
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("wa_conversations")
+    .update({
+      human_takeover: takeOver,
+      taken_by_id: takeOver ? profile.id : null,
+      taken_at: takeOver ? new Date().toISOString() : null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", access.conv.id);
+  if (error) return { error: "Failed to update" };
+  return { success: true };
+}
+
+// ── AI agent: shadow-mode drafts ────────────────────────────────
+export async function approveDraft(draftId: string, leadId: string, text: string) {
+  const profile = await getCachedUserProfile();
+  if (!profile?.company_id) return { error: "Unauthorized" };
+
+  // Send exactly like a human message (window check included).
+  const res = await sendChatMessage(leadId, text);
+  if (res.error) return res;
+
+  const admin = createAdminClient();
+  await admin
+    .from("ai_drafts")
+    .update({ status: "SENT", sent_by_id: profile.id, updated_at: new Date().toISOString() })
+    .eq("id", draftId)
+    .eq("company_id", profile.company_id);
+  return res;
+}
+
+export async function discardDraft(draftId: string) {
+  const profile = await getCachedUserProfile();
+  if (!profile?.company_id) return { error: "Unauthorized" };
+  const admin = createAdminClient();
+  await admin
+    .from("ai_drafts")
+    .update({ status: "DISCARDED", updated_at: new Date().toISOString() })
+    .eq("id", draftId)
+    .eq("company_id", profile.company_id);
+  return { success: true };
 }
 
 // ── Send a free-text reply (inside the 24h window) ──────────────

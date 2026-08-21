@@ -16,6 +16,9 @@ import {
   Clock,
   ExternalLink,
   RefreshCw,
+  Bot,
+  Sparkles,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { format, isToday, isYesterday, formatDistanceToNow } from "date-fns";
@@ -25,6 +28,9 @@ import {
   sendChatMessage,
   sendChatTemplate,
   assignConversation,
+  toggleBotTakeover,
+  approveDraft,
+  discardDraft,
 } from "./actions";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -71,6 +77,9 @@ export default function InboxClient({
   const [draft, setDraft] = useState("");
   const [loadingThread, setLoadingThread] = useState(false);
   const [sending, setSending] = useState(false);
+  const [humanTakeover, setHumanTakeover] = useState(false);
+  const [optedOut, setOptedOut] = useState(false);
+  const [aiDraft, setAiDraft] = useState<{ id: string; draft_text: string } | null>(null);
   const [isPending, startTransition] = useTransition();
   const bottomRef = useRef<HTMLDivElement>(null);
   const activeLeadRef = useRef<string | null>(null);
@@ -101,6 +110,9 @@ export default function InboxClient({
       setMessages(res.messages || []);
       setWindowOpen(!!res.windowOpen);
       setWindowExpiresAt(res.windowExpiresAt || null);
+      setHumanTakeover(!!res.botState?.humanTakeover);
+      setOptedOut(!!res.botState?.optedOut);
+      setAiDraft(res.pendingDraft || null);
       setConversations((prev) =>
         prev.map((c) => (c.lead_id === leadId ? { ...c, unread_count: 0 } : c))
       );
@@ -162,6 +174,17 @@ export default function InboxClient({
             }
           }
         )
+        .on(
+          "postgres_changes",
+          { event: "INSERT", schema: "public", table: "ai_drafts", filter: `company_id=eq.${companyId}` },
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (payload: any) => {
+            const d = payload.new;
+            if (d.status === "PENDING" && d.lead_id === activeLeadRef.current) {
+              setAiDraft({ id: d.id, draft_text: d.draft_text });
+            }
+          }
+        )
         .subscribe();
     })();
 
@@ -210,6 +233,41 @@ export default function InboxClient({
     } finally {
       setSending(false);
     }
+  }
+
+  async function handleTakeover(take: boolean) {
+    if (!activeLead) return;
+    const res = await toggleBotTakeover(activeLead, take);
+    if (res.error) {
+      toast.error(res.error);
+      return;
+    }
+    setHumanTakeover(take);
+    toast.success(take ? "You've taken over — the AI is silent on this chat." : "Handed back to the AI.");
+  }
+
+  async function handleDraftSend() {
+    if (!activeLead || !aiDraft) return;
+    setSending(true);
+    try {
+      const res = await approveDraft(aiDraft.id, activeLead, aiDraft.draft_text);
+      if (res.error) {
+        if ("windowClosed" in res && res.windowClosed) setWindowOpen(false);
+        toast.error(res.error);
+        return;
+      }
+      setAiDraft(null);
+    } finally {
+      setSending(false);
+    }
+  }
+
+  async function handleDraftDiscard(keepText?: boolean) {
+    if (!aiDraft) return;
+    if (keepText) setDraft(aiDraft.draft_text);
+    const id = aiDraft.id;
+    setAiDraft(null);
+    await discardDraft(id);
   }
 
   function handleAssign(leadId: string, agentId: string) {
@@ -308,6 +366,28 @@ export default function InboxClient({
                 <p className="text-xs text-muted-foreground">{activeConv?.phone || ""}</p>
               </div>
               <div className="ml-auto flex items-center gap-2">
+                {optedOut ? (
+                  <Badge variant="secondary" className="gap-1 text-[10px]">
+                    <Bot className="size-3" /> Opted out
+                  </Badge>
+                ) : (
+                  <button
+                    onClick={() => handleTakeover(!humanTakeover)}
+                    className={`h-8 inline-flex items-center gap-1.5 rounded-md border px-2.5 text-xs font-medium transition-colors ${
+                      humanTakeover
+                        ? "bg-gray-900 text-white border-gray-900 hover:bg-gray-800"
+                        : "bg-background text-gray-700 hover:bg-gray-100"
+                    }`}
+                    title={
+                      humanTakeover
+                        ? "The AI is silent on this chat — click to hand it back"
+                        : "Click to take over from the AI on this chat"
+                    }
+                  >
+                    <Bot className="size-3.5" />
+                    {humanTakeover ? "Hand back to AI" : "Take over"}
+                  </button>
+                )}
                 {windowOpen ? (
                   <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 gap-1 text-[10px]">
                     <Clock className="size-3" /> Reply window: {windowTimeLeft} left
@@ -373,9 +453,13 @@ export default function InboxClient({
                             </a>
                           )}
                           <div className="flex items-center justify-end gap-1 mt-1">
-                            {m.is_auto && out && (
+                            {out && m.source === "BOT" ? (
+                              <span className="text-[9px] font-semibold text-gray-500 uppercase inline-flex items-center gap-0.5">
+                                <Sparkles className="size-2.5" /> AI
+                              </span>
+                            ) : m.is_auto && out ? (
                               <span className="text-[9px] text-gray-400 uppercase">auto</span>
-                            )}
+                            ) : null}
                             <span className="text-[10px] text-gray-400">
                               {format(new Date(m.created_at), "h:mm a")}
                             </span>
@@ -392,6 +476,35 @@ export default function InboxClient({
 
             {/* Composer */}
             <div className="border-t p-3">
+              {aiDraft && windowOpen && (
+                <div className="mb-2 rounded-md border bg-muted/40 p-3">
+                  <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-700 mb-1.5">
+                    <Sparkles className="size-3.5" /> AI suggested reply
+                    <button
+                      onClick={() => handleDraftDiscard()}
+                      className="ml-auto p-0.5 rounded hover:bg-gray-200"
+                      aria-label="Discard suggestion"
+                    >
+                      <X className="size-3.5 text-gray-500" />
+                    </button>
+                  </div>
+                  <p className="text-sm text-gray-800 whitespace-pre-wrap">{aiDraft.draft_text}</p>
+                  <div className="flex gap-2 mt-2">
+                    <Button size="sm" className="h-7 text-xs" onClick={handleDraftSend} disabled={sending}>
+                      {sending ? <Loader2 className="size-3 animate-spin mr-1" /> : <Send className="size-3 mr-1" />}
+                      Send
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 text-xs"
+                      onClick={() => handleDraftDiscard(true)}
+                    >
+                      Edit first
+                    </Button>
+                  </div>
+                </div>
+              )}
               {windowOpen ? (
                 <div className="flex items-center gap-2">
                   <Input

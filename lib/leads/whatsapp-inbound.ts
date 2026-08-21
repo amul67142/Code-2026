@@ -11,8 +11,10 @@
  *
  * Runs under the admin (service-role) client — webhooks have no user session.
  */
+import { after } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { normalizeWhatsAppNumber } from "@/lib/integrations/whatsapp";
+import { maybeAiRespond } from "@/lib/ai/respond";
 
 export interface InboundWhatsApp {
   phoneNumberId: string;
@@ -26,7 +28,7 @@ export interface InboundWhatsApp {
 
 export type InboundResult =
   | { ok: true; leadId: string; qualified: boolean }
-  | { skipped: "no_connection" | "no_lead" };
+  | { skipped: "no_connection" | "no_lead" | "duplicate" };
 
 export async function processInboundWhatsApp(msg: InboundWhatsApp): Promise<InboundResult> {
   const admin = createAdminClient();
@@ -39,6 +41,18 @@ export async function processInboundWhatsApp(msg: InboundWhatsApp): Promise<Inbo
     .maybeSingle();
 
   if (!conn || conn.status !== "ACTIVE") return { skipped: "no_connection" };
+
+  // 1b. De-duplicate. Meta RETRIES webhooks — without this a retry would
+  // double-process the message and (worse) make the AI agent reply twice.
+  // Backed by the unique index in migration 023; this check makes it cheap.
+  const { data: dupe } = await admin
+    .from("message_log")
+    .select("id")
+    .eq("provider_id", msg.waMessageId)
+    .eq("direction", "INBOUND")
+    .limit(1)
+    .maybeSingle();
+  if (dupe) return { skipped: "duplicate" };
 
   // 2. Match the sender to a lead. Phone formats vary (+91…, 91…, bare 10-digit),
   //    so match on the last 10 digits — robust across storage formats.
@@ -160,6 +174,19 @@ export async function processInboundWhatsApp(msg: InboundWhatsApp): Promise<Inbo
       metadata: { lead_id: lead.id, qualified },
     });
   }
+
+  // 7. AI agent — runs AFTER the webhook has returned 200 to Meta, so a slow
+  // model turn can never stall or fail the webhook. All gates (enabled, mode,
+  // takeover, opt-out, turn cap) live inside maybeAiRespond.
+  after(() =>
+    maybeAiRespond({
+      companyId: conn.company_id,
+      leadId: lead.id,
+      waMessageId: msg.waMessageId,
+      text: msg.text,
+      isMedia: !!msg.mediaId,
+    })
+  );
 
   return { ok: true, leadId: lead.id, qualified };
 }

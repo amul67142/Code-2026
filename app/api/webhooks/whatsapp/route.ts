@@ -16,6 +16,13 @@ import { rateLimit } from "@/lib/rate-limit";
 const VERIFY_TOKEN =
   process.env.WHATSAPP_VERIFY_TOKEN || process.env.FACEBOOK_VERIFY_TOKEN;
 
+/**
+ * The AI agent runs in after() once the 200 is returned — a model call plus
+ * the humanizing typing delay can take 15-30s, well past Vercel's default
+ * function limit. Without this the bot's reply gets killed mid-send in prod.
+ */
+export const maxDuration = 60;
+
 // ── GET: verification handshake ───────────────────────────────────
 export async function GET(req: NextRequest) {
   const p = req.nextUrl.searchParams;
