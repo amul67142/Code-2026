@@ -27,28 +27,45 @@ interface GeminiPart {
 
 /**
  * Gemini rejects JSON-Schema keywords it doesn't support (additionalProperties,
- * $schema, …). Keep only the subset it accepts.
+ * $schema, …) and validates strictly: every name in `required` must exist in
+ * `properties`, and an OBJECT schema must declare non-empty properties.
+ *
+ * NOTE: `properties` is a MAP of name → schema, not a schema itself — clean
+ * each value, never the map (cleaning the map strips the property names,
+ * which is exactly the "required[0]: property is not defined" failure).
  */
-function cleanSchema(schema: unknown): unknown {
-  if (Array.isArray(schema)) return schema.map(cleanSchema);
-  if (!schema || typeof schema !== "object") return schema;
-  const allowed = new Set([
-    "type",
-    "description",
-    "properties",
-    "required",
-    "items",
-    "enum",
-    "format",
-    "nullable",
-  ]);
+function cleanSchema(schema: unknown): Record<string, unknown> {
+  if (!schema || typeof schema !== "object" || Array.isArray(schema)) return { type: "string" };
+  const src = schema as Record<string, unknown>;
+  const allowed = new Set(["type", "description", "required", "enum", "format", "nullable"]);
   const out: Record<string, unknown> = {};
-  for (const [k, v] of Object.entries(schema as Record<string, unknown>)) {
-    if (!allowed.has(k)) continue;
-    out[k] = k === "properties" || k === "items" ? cleanSchema(v) : v;
+  for (const [k, v] of Object.entries(src)) {
+    if (allowed.has(k)) out[k] = v;
   }
-  // Gemini requires an object schema to declare properties.
-  if (out.type === "object" && !out.properties) out.properties = {};
+  if (src.items) out.items = cleanSchema(src.items);
+  if (src.properties && typeof src.properties === "object") {
+    const props: Record<string, unknown> = {};
+    for (const [name, propSchema] of Object.entries(src.properties as Record<string, unknown>)) {
+      props[name] = cleanSchema(propSchema);
+    }
+    out.properties = props;
+  }
+  // A free-form object (only additionalProperties, no fixed keys — e.g. the
+  // save_qualification `fields` map) can't be expressed in Gemini's schema.
+  // Represent it as a JSON string; the tool executor parses it back.
+  if (out.type === "object" && (!out.properties || Object.keys(out.properties as object).length === 0)) {
+    return {
+      type: "string",
+      description: `${(out.description as string) || ""} (JSON object, encoded as a string, e.g. {"budget": "2.5 Cr"})`.trim(),
+    };
+  }
+  // required may only list properties that survived.
+  if (Array.isArray(out.required) && out.properties) {
+    out.required = (out.required as string[]).filter((r) =>
+      Object.prototype.hasOwnProperty.call(out.properties as object, r)
+    );
+    if ((out.required as string[]).length === 0) delete out.required;
+  }
   return out;
 }
 
@@ -115,20 +132,22 @@ export const geminiProvider: LlmProvider = {
       ];
     }
 
-    const res = await fetch(
-      `${BASE}/models/${encodeURIComponent(req.model)}:generateContent`,
-      {
+    // Free-tier Gemini throws transient 503 (demand spikes) and 429 (rate
+    // limit) — retry twice with backoff before giving up on the reply.
+    let res: Response | null = null;
+    let data: Record<string, unknown> & { error?: { message?: string } } = {};
+    for (let attempt = 0; attempt < 3; attempt++) {
+      if (attempt > 0) await new Promise((r) => setTimeout(r, attempt * 4000));
+      res = await fetch(`${BASE}/models/${encodeURIComponent(req.model)}:generateContent`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-goog-api-key": key },
         body: JSON.stringify(body),
-      }
-    );
-
-    const data = await res.json();
-    if (!res.ok || data.error) {
-      throw new Error(
-        data?.error?.message || `Gemini request failed (${res.status})`
-      );
+      });
+      data = await res.json();
+      if (res.status !== 503 && res.status !== 429) break;
+    }
+    if (!res || !res.ok || data.error) {
+      throw new Error(data?.error?.message || `Gemini request failed (${res?.status})`);
     }
 
     const parts: GeminiPart[] = data?.candidates?.[0]?.content?.parts || [];

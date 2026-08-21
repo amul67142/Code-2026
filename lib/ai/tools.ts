@@ -122,7 +122,18 @@ export async function executeTool(
   try {
     switch (name) {
       case "save_qualification": {
-        const fields = (input.fields as Record<string, string>) || {};
+        // Anthropic sends `fields` as an object; Gemini (whose schema can't
+        // express free-form objects) sends it as a JSON string. Accept both.
+        let fields: Record<string, string> = {};
+        if (typeof input.fields === "string") {
+          try {
+            fields = JSON.parse(input.fields);
+          } catch {
+            fields = { note: input.fields };
+          }
+        } else if (input.fields && typeof input.fields === "object") {
+          fields = input.fields as Record<string, string>;
+        }
         const summary = (input.summary as string) || undefined;
         const merged = { ...ctx.profileData, ...fields };
         await admin.from("ai_lead_profiles").upsert(
