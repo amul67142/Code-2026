@@ -9,7 +9,11 @@
  */
 import { createAdminClient } from "@/lib/supabase/admin";
 import { decryptToken } from "@/lib/integrations/crypto";
-import { sendWhatsAppText, normalizeWhatsAppNumber } from "@/lib/integrations/whatsapp";
+import {
+  sendWhatsAppText,
+  sendWhatsAppTyping,
+  normalizeWhatsAppNumber,
+} from "@/lib/integrations/whatsapp";
 import { getAgentConfig, loadAgentContext } from "./context";
 import { runAgentTurn } from "./agent";
 import { splitMessages, typingDelayMs, sleep } from "./humanize";
@@ -85,6 +89,13 @@ export async function maybeAiRespond(input: AiRespondInput): Promise<void> {
     // the fuller context.
     if (await newerInboundExists(input)) return;
 
+    // Human rhythm: blue-tick their message and show "typing…" while the
+    // model thinks (WhatsApp clears it when our reply lands). LIVE only —
+    // in shadow mode no bot reply is coming, so typing would be a lie.
+    if (config.mode === "LIVE") {
+      showTyping(input).catch(() => {});
+    }
+
     // Load everything and run the turn.
     const ctx = await loadAgentContext(input.companyId, input.leadId, config);
     if (!ctx) return;
@@ -123,6 +134,22 @@ export async function maybeAiRespond(input: AiRespondInput): Promise<void> {
   } catch (e) {
     console.error("maybeAiRespond failed (non-fatal):", e);
   }
+}
+
+/** Fire-and-forget typing indicator on the triggering inbound message. */
+async function showTyping(input: AiRespondInput): Promise<void> {
+  const admin = createAdminClient();
+  const { data: conn } = await admin
+    .from("whatsapp_connections")
+    .select("phone_number_id, access_token_enc, status")
+    .eq("company_id", input.companyId)
+    .maybeSingle();
+  if (!conn || conn.status !== "ACTIVE") return;
+  await sendWhatsAppTyping(
+    conn.phone_number_id,
+    decryptToken(conn.access_token_enc),
+    input.waMessageId
+  );
 }
 
 /** True when a newer inbound than the triggering message has been logged. */

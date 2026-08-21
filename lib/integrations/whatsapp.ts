@@ -220,6 +220,33 @@ export function templateBodyFromComponents(components?: MetaTemplateComponent[])
   return body?.text || "";
 }
 
+/**
+ * Mark an inbound message as read AND show the "typing…" indicator in the
+ * lead's WhatsApp — visible until our reply arrives (or ~25s max). Gives the
+ * human rhythm: blue ticks → typing… → reply.
+ */
+export async function sendWhatsAppTyping(
+  phoneNumberId: string,
+  token: string,
+  inboundMessageId: string
+) {
+  const res = await fetch(`${BASE}/${phoneNumberId}/messages`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      messaging_product: "whatsapp",
+      status: "read",
+      message_id: inboundMessageId,
+      typing_indicator: { type: "text" },
+    }),
+  });
+  const data = await res.json();
+  if (!res.ok || data.error) {
+    throw new Error(data?.error?.message || `WhatsApp typing indicator failed (${res.status})`);
+  }
+  return data as { success?: boolean };
+}
+
 /** Send a free-text message (only allowed within the 24h customer-service window). */
 export async function sendWhatsAppText(
   phoneNumberId: string,
