@@ -26,6 +26,13 @@ export interface AgentTurnResult {
 }
 
 const MAX_TOOL_ROUNDS = 6;
+/**
+ * Wall-clock ceiling for one turn. The webhook function dies at 60s
+ * (maxDuration) — past this budget we stop looping and ship whatever text we
+ * have, so a slow provider degrades to a shorter reply instead of a killed
+ * function and a lead who never hears back.
+ */
+const TURN_BUDGET_MS = 35_000;
 
 export async function runAgentTurn(ctx: AgentContext): Promise<AgentTurnResult> {
   const started = Date.now();
@@ -90,7 +97,10 @@ export async function runAgentTurn(ctx: AgentContext): Promise<AgentTurnResult> 
       // The next round lets the model write its closing line, which exits above.
       // If a terminal tool ran and the model keeps calling tools, the round
       // cap stops it; any text produced so far is still used.
-      if (round === MAX_TOOL_ROUNDS) replyText = res.text || null;
+      if (round === MAX_TOOL_ROUNDS || Date.now() - started > TURN_BUDGET_MS) {
+        replyText = res.text || null;
+        break;
+      }
     }
   } catch (e) {
     error = e instanceof Error ? e.message : String(e);

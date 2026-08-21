@@ -133,12 +133,15 @@ export const geminiProvider: LlmProvider = {
     }
 
     // Free-tier Gemini throws transient 503 (demand spikes) and 429 (rate
-    // limit) — retry twice with backoff before giving up on the reply.
+    // limit) — one quick retry only. Long backoffs across multiple tool
+    // rounds can push the whole turn past the serverless time limit, and a
+    // killed function means the lead silently never gets a reply — worse
+    // than a failed run (which at least logs to ai_runs).
     let res: Response | null = null;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let data: any = {};
-    for (let attempt = 0; attempt < 3; attempt++) {
-      if (attempt > 0) await new Promise((r) => setTimeout(r, attempt * 4000));
+    for (let attempt = 0; attempt < 2; attempt++) {
+      if (attempt > 0) await new Promise((r) => setTimeout(r, 2000));
       res = await fetch(`${BASE}/models/${encodeURIComponent(req.model)}:generateContent`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-goog-api-key": key },

@@ -82,7 +82,9 @@ export async function maybeAiRespond(input: AiRespondInput): Promise<void> {
     // Load everything and run the turn.
     const ctx = await loadAgentContext(input.companyId, input.leadId, config);
     if (!ctx) return;
+    const turnStarted = Date.now();
     const turn = await runAgentTurn(ctx);
+    const turnElapsed = Date.now() - turnStarted;
     if (!turn.reply || turn.error) return;
 
     // Race check — if the lead sent ANOTHER message while we were thinking,
@@ -123,8 +125,9 @@ export async function maybeAiRespond(input: AiRespondInput): Promise<void> {
       return;
     }
 
-    // LIVE — type like a human, then send.
-    await sleep(typingDelayMs(parts[0]));
+    // LIVE — type like a human, then send. If the model itself was already
+    // slow, the wait is baked in — don't add more on top.
+    if (turnElapsed < 5000) await sleep(typingDelayMs(parts[0]));
     await sendBotMessages(input.companyId, input.leadId, conv.id, parts);
   } catch (e) {
     console.error("maybeAiRespond failed (non-fatal):", e);
