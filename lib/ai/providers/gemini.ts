@@ -135,7 +135,8 @@ export const geminiProvider: LlmProvider = {
     // Free-tier Gemini throws transient 503 (demand spikes) and 429 (rate
     // limit) — retry twice with backoff before giving up on the reply.
     let res: Response | null = null;
-    let data: Record<string, unknown> & { error?: { message?: string } } = {};
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let data: any = {};
     for (let attempt = 0; attempt < 3; attempt++) {
       if (attempt > 0) await new Promise((r) => setTimeout(r, attempt * 4000));
       res = await fetch(`${BASE}/models/${encodeURIComponent(req.model)}:generateContent`, {
