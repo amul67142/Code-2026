@@ -34,6 +34,10 @@ Native capture (no Zapier): OAuth page connect → encrypted page tokens → lea
 - **Analytics**: 30-day sent/failed/replies/reply-rate tiles + **Meta quality rating** (High/Medium/Low spam warning) + sending-limit tier, 5s Graph timeouts, cached 5 min. Full per-number log at `/settings/whatsapp-logs` (filters: sent/failed/replies, error reasons).
 - **Bulk ops**: leads list checkboxes → bulk delete (soft, admin, ≤500) + **manual bulk WhatsApp send: ≤30/batch, ≤60/day per company** (constants in `whatsapp-bulk-actions.ts`, designed to be swapped for the future **credit system** — planned revenue model: e.g. 500 credits = 1000 sends/day). **POLICY: CSV imports NEVER auto-message** (protects client WABA quality; documented in `bulkImportLeads`).
 
+### Projects: delete + per-project instant messaging (mig 024)
+- **Delete project** (admins only): trash icon on the Projects list + Danger zone on the edit page, confirm dialog. Hard delete. **Leads are kept** (FK `ON DELETE SET NULL` → unlinked); webhooks + AI-agent knowledge/facts cascade; FB form mappings unlink.
+- **Instant lead messaging switch** on create/edit (`auto_message_leads`, default ON). ON = acknowledgment email + WhatsApp welcome fire the moment a lead lands in the project (existing behaviour). OFF = **neither** is sent automatically; manual sends from the lead page still work. Enforced inside `sendLeadAcknowledgmentEmail` / `sendLeadWhatsApp` (`lib/automation/project-messaging.ts`, new status `SKIPPED_PROJECT_OPTED_OUT`) so every auto path — webhook ingest, manual lead creation, public form — obeys it. **Fails open** if mig 024 isn't run (welcomes keep sending).
+
 ### Realtime notifications (mig 017)
 Instant chime (Web Audio) + toast + **desktop Notification API** (permission asked on bell open) for: stage changes, assignments, new-lead assigned, qualification, WhatsApp replies/qualify, chat assignment. `lib/notifications/notify.ts` uses **admin client — notifications & activities tables have RLS ON with NO INSERT policy, so user-client inserts silently fail** (known issue: other activity inserts across the app may still silently fail — audit pending).
 
@@ -50,7 +54,7 @@ React `cache()` auth dedup (`lib/auth/cached-user.ts` — layout+actions share O
 Homepage: light-default **monochrome** theme (NO colorful gradients/glow — user rejected), `Reveal.tsx` scroll animations, `SourcesFlow.tsx` (replaced third-party-logo GIF), cinematic AI section, image logo everywhere (no typed "BigLeadCRM"), footer FB setup guide link, changelog filled (v1.0–v1.3). **Dashboard redesigned**: date header + top-right actions, KPI cards, unified stat strip, pipeline **composition bar** + % rows, stage-colored lead avatars, responsive, no emoji buttons.
 
 ## MIGRATIONS (user runs in Supabase SQL Editor — code assumes them!)
-015 indexes · 016 WA inbound/qualify · 017 realtime notifications · 018 WA templates · 019 template buttons · 020 header_image_url · 021 live chat · 022 promo codes. **Rule: run migration BEFORE/WITH deploy or features silently break** (e.g. "WhatsApp details gone" = 016 missing; "templates need account linked" = 018 missing).
+015 indexes · 016 WA inbound/qualify · 017 realtime notifications · 018 WA templates · 019 template buttons · 020 header_image_url · 021 live chat · 022 promo codes · 023 AI agent · **024 project lead messaging** (`projects.auto_message_leads`, default true). **Rule: run migration BEFORE/WITH deploy or features silently break** (e.g. "WhatsApp details gone" = 016 missing; "templates need account linked" = 018 missing).
 
 ## TOP GOTCHAS (each cost real debugging)
 1. Next 16: `proxy.ts` is the middleware — never create `middleware.ts`.

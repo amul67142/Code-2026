@@ -16,7 +16,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, Loader2, Eye, EyeOff, Sparkles } from "lucide-react";
+import { ArrowLeft, Loader2, Eye, EyeOff, Sparkles, MessageCircle } from "lucide-react";
+import { DeleteProjectButton } from "../../delete-project-button";
 import Link from "next/link";
 import { toast } from "sonner";
 
@@ -50,6 +51,7 @@ export default function EditProjectPage() {
   const [fbTestCode, setFbTestCode] = useState("");
   const [showToken, setShowToken] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
+  const [autoMessage, setAutoMessage] = useState(true);
 
   useEffect(() => {
     async function loadProject() {
@@ -66,6 +68,7 @@ export default function EditProjectPage() {
         setFbPixelId(project.facebook_pixel_id || "");
         setFbConversionsToken(project.facebook_conversions_token || "");
         setFbTestCode(project.facebook_test_event_code || "");
+        setAutoMessage(project.auto_message_leads !== false);
       } catch (err: any) {
         toast.error(err.message || "Failed to load project");
         router.push("/projects");
@@ -118,6 +121,7 @@ export default function EditProjectPage() {
       formData.append("facebook_conversions_token", fbConversionsToken);
       formData.append("facebook_test_event_code", fbTestCode);
       formData.append("facebook_integration_active", String(isFbActive));
+      formData.append("auto_message_leads", String(autoMessage));
 
       const result = await updateProject(projectId, formData);
 
@@ -261,6 +265,31 @@ export default function EditProjectPage() {
           </CardContent>
         </Card>
 
+        {/* Instant lead messaging (mig 024) */}
+        <Card className="overflow-hidden">
+          <CardHeader className="bg-zinc-50 border-b border-zinc-100 flex flex-row items-center justify-between space-y-0 py-4">
+            <div className="flex items-center space-x-2">
+              <div className="bg-emerald-600/10 p-2 rounded-lg text-emerald-600">
+                <MessageCircle className="h-5 w-5" />
+              </div>
+              <div>
+                <CardTitle className="text-base font-bold">Instant lead messaging</CardTitle>
+                <CardDescription className="text-[11px] leading-snug">
+                  Send every new lead in this project an instant welcome on WhatsApp and email.
+                </CardDescription>
+              </div>
+            </div>
+            <Switch checked={autoMessage} onCheckedChange={setAutoMessage} />
+          </CardHeader>
+          <CardContent className="pt-4">
+            <p className="text-xs text-muted-foreground">
+              {autoMessage
+                ? "On — the moment a lead lands here, the acknowledgment email and the WhatsApp welcome template go out automatically."
+                : "Off — no automatic email or WhatsApp is sent to leads in this project. You can still message them manually from the lead page."}
+            </p>
+          </CardContent>
+        </Card>
+
         {/* Facebook Ads Integration Settings Card */}
         <Card className="overflow-hidden border-blue-500/20 shadow-md">
           <CardHeader className="bg-zinc-50 border-b border-zinc-100 flex flex-row items-center justify-between space-y-0 py-4">
@@ -381,6 +410,18 @@ export default function EditProjectPage() {
           </Button>
         </div>
       </form>
+
+      <Card className="border-destructive/30">
+        <CardHeader>
+          <CardTitle className="text-base">Danger zone</CardTitle>
+          <CardDescription>
+            Deleting a project is permanent. Its leads stay in the CRM, unlinked.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <DeleteProjectButton projectId={projectId} projectName={name} variant="full" />
+        </CardContent>
+      </Card>
     </div>
   );
 }

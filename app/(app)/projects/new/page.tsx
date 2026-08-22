@@ -16,7 +16,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, Loader2, Eye, EyeOff, Sparkles, Check, AlertCircle } from "lucide-react";
+import { ArrowLeft, Loader2, Eye, EyeOff, Sparkles, Check, AlertCircle, MessageCircle } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
 
@@ -37,6 +37,8 @@ export default function NewProjectPage() {
   const [fbTestCode, setFbTestCode] = useState("");
   const [showToken, setShowToken] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
+  // Instant lead messaging — on by default.
+  const [autoMessage, setAutoMessage] = useState(true);
 
   async function handleTestConnection() {
     if (!fbPixelId || !fbConversionsToken) {
@@ -69,6 +71,7 @@ export default function NewProjectPage() {
     try {
       // Append switch state explicitly
       formData.append("facebook_integration_active", String(isFbActive));
+      formData.append("auto_message_leads", String(autoMessage));
 
       const result = await createProject(formData);
 
@@ -159,6 +162,31 @@ export default function NewProjectPage() {
                 className="min-h-[100px]"
               />
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Instant lead messaging (mig 024) */}
+        <Card className="overflow-hidden">
+          <CardHeader className="bg-zinc-50 border-b border-zinc-100 flex flex-row items-center justify-between space-y-0 py-4">
+            <div className="flex items-center space-x-2">
+              <div className="bg-emerald-600/10 p-2 rounded-lg text-emerald-600">
+                <MessageCircle className="h-5 w-5" />
+              </div>
+              <div>
+                <CardTitle className="text-base font-bold">Instant lead messaging</CardTitle>
+                <CardDescription className="text-[11px] leading-snug">
+                  Send every new lead in this project an instant welcome on WhatsApp and email.
+                </CardDescription>
+              </div>
+            </div>
+            <Switch checked={autoMessage} onCheckedChange={setAutoMessage} />
+          </CardHeader>
+          <CardContent className="pt-4">
+            <p className="text-xs text-muted-foreground">
+              {autoMessage
+                ? "On — the moment a lead lands here, the acknowledgment email and the WhatsApp welcome template go out automatically."
+                : "Off — no automatic email or WhatsApp is sent to leads in this project. You can still message them manually from the lead page."}
+            </p>
           </CardContent>
         </Card>
 

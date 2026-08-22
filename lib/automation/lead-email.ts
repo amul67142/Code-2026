@@ -8,6 +8,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/email/sender";
 import { getLeadAcknowledgmentEmailHtml } from "@/lib/email/templates";
+import { projectAllowsAutoMessaging } from "@/lib/automation/project-messaging";
 
 export interface LeadEmailInput {
   companyId: string;
@@ -19,7 +20,7 @@ export interface LeadEmailInput {
 }
 
 export interface LeadEmailResult {
-  status: "SENT" | "FAILED" | "SKIPPED_NO_EMAIL";
+  status: "SENT" | "FAILED" | "SKIPPED_NO_EMAIL" | "SKIPPED_PROJECT_OPTED_OUT";
   providerId?: string;
   error?: string;
 }
@@ -31,6 +32,11 @@ export async function sendLeadAcknowledgmentEmail(
 
   if (!input.leadEmail) {
     return { status: "SKIPPED_NO_EMAIL" };
+  }
+
+  // Per-project switch (mig 024): automatic sends only when the project allows.
+  if (input.isAuto !== false && !(await projectAllowsAutoMessaging(input.projectId))) {
+    return { status: "SKIPPED_PROJECT_OPTED_OUT" };
   }
 
   // Resolve company + project names for personalization.

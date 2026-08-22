@@ -12,6 +12,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { Plus, Pencil } from "lucide-react";
 import Link from "next/link";
 import { format } from "date-fns";
+import { DeleteProjectButton } from "./delete-project-button";
 
 export const metadata = {
   title: "Projects | Big Lead CRM",
@@ -44,7 +45,7 @@ export default async function ProjectsPage() {
               <TableHead>Location</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Created</TableHead>
-              <TableHead className="w-[80px]">Actions</TableHead>
+              <TableHead className="w-[110px]">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -68,13 +69,14 @@ export default async function ProjectsPage() {
                   <TableCell className="text-muted-foreground">
                     {format(new Date(project.created_at), "MMM d, yyyy")}
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="whitespace-nowrap">
                     <Link
                       href={`/projects/${project.id}/edit`}
                       className={buttonVariants({ variant: "ghost", size: "icon" })}
                     >
                       <Pencil className="h-4 w-4" />
                     </Link>
+                    <DeleteProjectButton projectId={project.id} projectName={project.name} />
                   </TableCell>
                 </TableRow>
               ))

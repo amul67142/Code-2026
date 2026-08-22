@@ -80,6 +80,8 @@ export async function createProject(formData: FormData) {
   const facebookConversionsToken = formData.get("facebook_conversions_token") as string;
   const facebookTestEventCode = formData.get("facebook_test_event_code") as string;
   const facebookIntegrationActive = formData.get("facebook_integration_active") === "true";
+  // Instant lead messaging (mig 024). Absent field = on, matching the default.
+  const autoMessageLeads = formData.get("auto_message_leads") !== "false";
 
   if (!name || !type) {
     return { error: "Name and Type are required" };
@@ -118,6 +120,7 @@ export async function createProject(formData: FormData) {
       facebook_conversions_token: facebookConversionsToken || null,
       facebook_test_event_code: facebookTestEventCode || null,
       facebook_integration_active: facebookIntegrationActive,
+      auto_message_leads: autoMessageLeads,
     });
 
   if (insertError) {
@@ -143,6 +146,7 @@ export async function updateProject(projectId: string, formData: FormData) {
   const facebookConversionsToken = formData.get("facebook_conversions_token") as string;
   const facebookTestEventCode = formData.get("facebook_test_event_code") as string;
   const facebookIntegrationActive = formData.get("facebook_integration_active") === "true";
+  const autoMessageLeads = formData.get("auto_message_leads") !== "false";
 
   if (!name || !type) {
     return { error: "Name and Type are required" };
@@ -180,6 +184,7 @@ export async function updateProject(projectId: string, formData: FormData) {
       facebook_conversions_token: facebookConversionsToken || null,
       facebook_test_event_code: facebookTestEventCode || null,
       facebook_integration_active: facebookIntegrationActive,
+      auto_message_leads: autoMessageLeads,
     })
     .eq("id", projectId)
     .eq("company_id", profile.company_id);
@@ -190,6 +195,52 @@ export async function updateProject(projectId: string, formData: FormData) {
   }
 
   revalidatePath("/projects");
+  return { success: true };
+}
+
+/**
+ * Permanently deletes a project. Admins only.
+ * Leads are NOT deleted: leads.project_id is ON DELETE SET NULL, so they
+ * stay in the CRM unlinked. Webhooks and AI-agent rows cascade; Facebook
+ * form mappings unlink. Nothing else references projects.
+ */
+export async function deleteProject(projectId: string) {
+  const supabase = await createClient();
+
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) {
+    return { error: "Unauthorized" };
+  }
+
+  const { data: profile, error: profileError } = await supabase
+    .from("users")
+    .select("company_id, role")
+    .eq("auth_user_id", user.id)
+    .single();
+
+  if (profileError || !profile) {
+    return { error: "Profile not found" };
+  }
+  if (profile.role !== "ADMIN" && profile.role !== "SUPER_ADMIN") {
+    return { error: "Only admins can delete projects" };
+  }
+
+  const { error: deleteError, count } = await supabase
+    .from("projects")
+    .delete({ count: "exact" })
+    .eq("id", projectId)
+    .eq("company_id", profile.company_id);
+
+  if (deleteError) {
+    console.error("Delete Project Error:", deleteError);
+    return { error: "Failed to delete project" };
+  }
+  if (!count) {
+    return { error: "Project not found" };
+  }
+
+  revalidatePath("/projects");
+  revalidatePath("/leads");
   return { success: true };
 }
 

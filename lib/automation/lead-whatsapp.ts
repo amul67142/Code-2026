@@ -11,6 +11,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { decryptToken } from "@/lib/integrations/crypto";
 import { sendWhatsAppTemplate, normalizeWhatsAppNumber } from "@/lib/integrations/whatsapp";
+import { projectAllowsAutoMessaging } from "@/lib/automation/project-messaging";
 
 export interface LeadWhatsAppInput {
   companyId: string;
@@ -22,7 +23,7 @@ export interface LeadWhatsAppInput {
 }
 
 export interface LeadWhatsAppResult {
-  status: "SENT" | "FAILED" | "SKIPPED_NO_PHONE" | "SKIPPED_NO_CONNECTION";
+  status: "SENT" | "FAILED" | "SKIPPED_NO_PHONE" | "SKIPPED_NO_CONNECTION" | "SKIPPED_PROJECT_OPTED_OUT";
   providerId?: string;
   error?: string;
 }
@@ -33,6 +34,11 @@ export async function sendLeadWhatsApp(
   const admin = createAdminClient();
 
   if (!input.leadPhone) return { status: "SKIPPED_NO_PHONE" };
+
+  // Per-project switch (mig 024): automatic sends only when the project allows.
+  if (input.isAuto !== false && !(await projectAllowsAutoMessaging(input.projectId))) {
+    return { status: "SKIPPED_PROJECT_OPTED_OUT" };
+  }
 
   // The company must have an active WhatsApp connection.
   const { data: conn } = await admin
