@@ -31,6 +31,19 @@ export interface IngestInput {
     phone: string | null;
     email: string | null;
   };
+  /**
+   * Optional lead-detail fields a richer source (website form, generic
+   * webhook) may carry. Stored on the lead row so reps — and the AI agent —
+   * start with what the lead already told us.
+   */
+  extra?: {
+    bhkPreference?: string | null;
+    propertyType?: string | null;
+    locationPreference?: string | null;
+    budgetMin?: number | null;
+    budgetMax?: number | null;
+    notes?: string | null;
+  };
   routing: {
     assignmentRule: AssignmentRule;
     assignedAgentId?: string | null;
@@ -128,7 +141,12 @@ export async function ingestLead(input: IngestInput): Promise<IngestResult> {
       score: typeof input.score === "number" ? input.score : 50,
       tags: routing.autoTags && routing.autoTags.length ? routing.autoTags : [],
       status: "ACTIVE",
-      notes: "Created via integration.",
+      notes: input.extra?.notes?.trim() || "Created via integration.",
+      bhk_preference: input.extra?.bhkPreference || null,
+      property_type: input.extra?.propertyType || null,
+      location_preference: input.extra?.locationPreference || null,
+      budget_min: input.extra?.budgetMin ?? null,
+      budget_max: input.extra?.budgetMax ?? null,
     })
     .select("id")
     .single();
