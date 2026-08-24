@@ -1,7 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef } from "react";
+import gsap from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { useGSAP } from "@gsap/react";
 import { cn } from "@/lib/utils";
+
+gsap.registerPlugin(ScrollTrigger, useGSAP);
 
 type RevealProps = {
   children: React.ReactNode;
@@ -19,9 +24,11 @@ type RevealProps = {
 };
 
 /**
- * Subtle, sleek scroll-reveal wrapper. Fades + slides its children up the
- * moment they enter the viewport. No glow / lighting — motion only.
- * Honours prefers-reduced-motion by showing content instantly.
+ * Scroll-reveal wrapper, GSAP-powered. Fades + slides children up as they
+ * enter the viewport with a refined power3 ease. Honours
+ * prefers-reduced-motion (content shows instantly, no animation), and if
+ * JavaScript never runs the content is simply visible — nothing is hidden
+ * in CSS.
  */
 export function Reveal({
   children,
@@ -33,45 +40,39 @@ export function Reveal({
   repeat = false,
 }: RevealProps) {
   const ref = useRef<HTMLDivElement>(null);
-  const [visible, setVisible] = useState(false);
 
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
+  useGSAP(
+    () => {
+      const el = ref.current;
+      if (!el) return;
 
-    // Respect users who prefer reduced motion — show instantly, no animation.
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      setVisible(true);
-      return;
-    }
-
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setVisible(true);
-          if (!repeat) observer.disconnect();
-        } else if (repeat) {
-          setVisible(false);
-        }
-      },
-      { threshold: 0.15, rootMargin: "0px 0px -8% 0px" }
-    );
-
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [repeat]);
+      const mm = gsap.matchMedia();
+      mm.add("(prefers-reduced-motion: no-preference)", () => {
+        gsap.fromTo(
+          el,
+          { opacity: 0, y },
+          {
+            opacity: 1,
+            y: 0,
+            duration: duration / 1000,
+            delay: delay / 1000,
+            ease: "power3.out",
+            scrollTrigger: {
+              trigger: el,
+              start: "top 88%",
+              ...(repeat
+                ? { toggleActions: "play none none reverse" }
+                : { once: true }),
+            },
+          }
+        );
+      });
+    },
+    { scope: ref }
+  );
 
   return (
-    <div
-      ref={ref}
-      id={id}
-      className={cn("will-change-transform", className)}
-      style={{
-        opacity: visible ? 1 : 0,
-        transform: visible ? "translateY(0)" : `translateY(${y}px)`,
-        transition: `opacity ${duration}ms cubic-bezier(0.22,1,0.36,1) ${delay}ms, transform ${duration}ms cubic-bezier(0.22,1,0.36,1) ${delay}ms`,
-      }}
-    >
+    <div ref={ref} id={id} className={cn(className)}>
       {children}
     </div>
   );
