@@ -1,10 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import gsap from "gsap";
-import { ScrollTrigger } from "gsap/ScrollTrigger";
-import { SplitText } from "gsap/SplitText";
-import { useGSAP } from "@gsap/react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { 
@@ -35,22 +31,6 @@ import { Reveal } from "@/components/Reveal";
 import { SectionGradient } from "@/components/SectionGradient";
 import { SourcesFlow } from "@/components/SourcesFlow";
 
-gsap.registerPlugin(ScrollTrigger, SplitText, useGSAP);
-
-/** Small uppercase section label — the cheapest signal that a page is designed. */
-function Eyebrow({ children, isDark }: { children: React.ReactNode; isDark: boolean }) {
-  return (
-    <p
-      className={cn(
-        "text-[11px] font-bold uppercase tracking-[0.16em] mb-3 transition-colors",
-        isDark ? "text-gray-500" : "text-gray-400"
-      )}
-    >
-      {children}
-    </p>
-  );
-}
-
 const LOGO_LIGHT = "https://res.cloudinary.com/dy2zpgv6q/image/upload/v1779118448/Gemini_Generated_Image_2kpsnp2kpsnp2kps_1_-Photoroom_ddqkxb.png";
 const LOGO_DARK = "https://res.cloudinary.com/dy2zpgv6q/image/upload/v1779125703/Gemini_Generated_Image_c60xw7c60xw7c60x-Photoroom_laj5vl.png";
 
@@ -66,73 +46,6 @@ export default function HomePage() {
   const [isDark, setIsDark] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [leadModalOpen, setLeadModalOpen] = useState(false);
-  const rootRef = useRef<HTMLDivElement>(null);
-
-  // ── GSAP choreography ─────────────────────────────────────────
-  // Hero: one timeline — headline words rise (SplitText), sub → CTAs →
-  // pipeline card settles in with perspective. Scroll: videos get a gentle
-  // scrubbed parallax; grids stagger in via ScrollTrigger.batch. Everything
-  // is transform/opacity only, gated behind prefers-reduced-motion, and
-  // cleaned up automatically by useGSAP.
-  useGSAP(
-    (_ctx, contextSafe) => {
-      const mm = gsap.matchMedia();
-      mm.add("(prefers-reduced-motion: no-preference)", () => {
-        // HERO — wait for fonts so SplitText measures the final layout.
-        document.fonts.ready.then(
-          contextSafe!(() => {
-            const title = rootRef.current?.querySelector(".hero-title");
-            if (!title) return;
-            const split = new SplitText(title, { type: "words" });
-            gsap
-              .timeline({ defaults: { ease: "power3.out" } })
-              .from(split.words, { y: 52, opacity: 0, duration: 0.9, stagger: 0.07 })
-              .from(".hero-sub", { y: 24, opacity: 0, duration: 0.7 }, "-=0.45")
-              .from(".hero-cta", { y: 18, opacity: 0, duration: 0.6 }, "-=0.4")
-              .from(".hero-trust", { opacity: 0, duration: 0.6 }, "-=0.35")
-              .from(
-                ".hero-pipeline",
-                { y: 64, opacity: 0, rotateX: 9, transformPerspective: 1100, duration: 1.05 },
-                "-=0.4"
-              );
-          })
-        );
-
-        // Scrubbed parallax on the big media cards — depth without weight.
-        gsap.utils.toArray<HTMLElement>("[data-parallax]").forEach((el) => {
-          gsap.fromTo(
-            el,
-            { y: 44 },
-            {
-              y: -44,
-              ease: "none",
-              scrollTrigger: { trigger: el, start: "top bottom", end: "bottom top", scrub: 0.6 },
-            }
-          );
-        });
-
-        // Grid children cascade in as they enter — batched, once.
-        gsap.utils.toArray<HTMLElement>("[data-stagger]").forEach((grid) => {
-          const items = Array.from(grid.children) as HTMLElement[];
-          gsap.set(items, { opacity: 0, y: 30 });
-          ScrollTrigger.batch(items, {
-            start: "top 88%",
-            once: true,
-            onEnter: (batch) =>
-              gsap.to(batch, {
-                opacity: 1,
-                y: 0,
-                duration: 0.7,
-                ease: "power3.out",
-                stagger: 0.08,
-                overwrite: true,
-              }),
-          });
-        });
-      });
-    },
-    { scope: rootRef }
-  );
 
 
   // Sync state with HTML class
@@ -161,7 +74,7 @@ export default function HomePage() {
   };
 
   return (
-    <div ref={rootRef} className={cn(
+    <div className={cn(
       "min-h-screen scroll-smooth transition-colors duration-500",
       isDark ? "bg-black text-gray-100" : "bg-white text-gray-900"
     )}>
@@ -311,20 +224,25 @@ export default function HomePage() {
           <div className="container mx-auto px-4 max-w-6xl relative z-10">
 
 
-            <h1 className={cn(
-              "hero-title text-center text-3xl sm:text-5xl md:text-7xl font-bold tracking-tight leading-tight mb-4 sm:mb-6 transition-colors duration-300",
-              isDark ? "text-white" : "text-gray-900"
-            )}>
-              Turn Prospects into{" "}
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-gray-700 via-gray-500 to-gray-900 dark:from-gray-300 dark:via-zinc-100 dark:to-white">Profits</span>.
-            </h1>
-            <p className={cn(
-              "hero-sub text-center text-base sm:text-lg md:text-xl leading-relaxed max-w-2xl mx-auto mb-8 sm:mb-10 px-2 transition-colors duration-300",
-              isDark ? "text-gray-400" : "text-gray-500"
-            )}>
-              The intelligent CRM built for modern sales teams. Capture, route, and close leads faster with one unified pipeline.
-            </p>
-            <div className="hero-cta flex flex-col sm:flex-row items-center justify-center gap-4 mb-4">
+            <Reveal>
+              <h1 className={cn(
+                "text-center text-3xl sm:text-5xl md:text-7xl font-bold tracking-tight leading-tight mb-4 sm:mb-6 transition-colors duration-300",
+                isDark ? "text-white" : "text-gray-900"
+              )}>
+                Turn Prospects into{" "}
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-gray-700 via-gray-500 to-gray-900 dark:from-gray-300 dark:via-zinc-100 dark:to-white">Profits</span>.
+              </h1>
+            </Reveal>
+            <Reveal delay={120}>
+              <p className={cn(
+                "text-center text-sm sm:text-lg md:text-xl max-w-2xl mx-auto mb-8 sm:mb-10 px-2 transition-colors duration-300",
+                isDark ? "text-gray-400" : "text-gray-500"
+              )}>
+                The intelligent CRM built for modern sales teams. Capture, route, and close leads faster with one unified pipeline.
+              </p>
+            </Reveal>
+            <Reveal delay={240}>
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-4">
                 <button
                   onClick={() => setLeadModalOpen(true)}
                   className={cn(
@@ -350,15 +268,18 @@ export default function HomePage() {
                   See the Pipeline
                 </Link>
               </div>
-            <p className={cn(
-              "hero-trust text-center text-xs sm:text-sm transition-colors duration-300",
-              isDark ? "text-gray-500" : "text-gray-400"
-            )}>
-              Personalized walkthrough · Custom integrations · Smart site-visit scheduling
-            </p>
+            </Reveal>
+            <Reveal delay={340}>
+              <p className={cn(
+                "text-center text-xs sm:text-sm transition-colors duration-300",
+                isDark ? "text-gray-500" : "text-gray-400"
+              )}>
+                Personalized walkthrough · Custom integrations · Smart site-visit scheduling
+              </p>
+            </Reveal>
 
             {/* ── ANIMATED PIPELINE VISUAL ── */}
-            <div id="pipeline" className="hero-pipeline mt-12 sm:mt-20 relative max-w-5xl mx-auto">
+            <Reveal delay={200} y={28} id="pipeline" className="mt-12 sm:mt-20 relative max-w-5xl mx-auto">
               {/* fade bottom */}
               <div className={cn(
                 "absolute bottom-0 left-0 right-0 h-24 z-10 pointer-events-none rounded-b-3xl transition-all duration-500",
@@ -400,7 +321,7 @@ export default function HomePage() {
                     >
                       <div className="flex items-center gap-1.5 sm:gap-2 mb-2 sm:mb-3">
                         <span className={cn("size-2 sm:size-2.5 rounded-full", s.color)} />
-                        <span className={cn("text-[10px] sm:text-xs font-bold uppercase tracking-wide leading-tight", isDark ? "text-gray-400" : s.text)}>
+                        <span className={cn("text-[9px] sm:text-xs font-bold uppercase tracking-wide leading-tight", isDark ? "text-gray-400" : s.text)}>
                           {s.label}
                         </span>
                       </div>
@@ -441,7 +362,7 @@ export default function HomePage() {
                           </div>
                         </div>
                         <span className={cn(
-                          "inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[10px] font-bold uppercase transition-colors",
+                          "inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[9px] font-bold uppercase transition-colors",
                           isDark 
                             ? "bg-gray-950 border-gray-800 text-gray-400" 
                             : "bg-gray-100 border-gray-200 text-gray-600"
@@ -467,7 +388,7 @@ export default function HomePage() {
                           </div>
                         </div>
                         <span className={cn(
-                          "inline-flex items-center px-2 py-0.5 rounded-full border text-[10px] font-bold uppercase transition-colors",
+                          "inline-flex items-center px-2 py-0.5 rounded-full border text-[9px] font-bold uppercase transition-colors",
                           isDark 
                             ? "bg-amber-950/40 border-amber-900/50 text-amber-400" 
                             : "bg-amber-50 border-amber-200 text-amber-700"
@@ -493,7 +414,7 @@ export default function HomePage() {
                           </div>
                         </div>
                         <span className={cn(
-                          "inline-flex items-center px-2 py-0.5 rounded-full border text-[10px] font-bold uppercase transition-colors",
+                          "inline-flex items-center px-2 py-0.5 rounded-full border text-[9px] font-bold uppercase transition-colors",
                           isDark 
                             ? "bg-emerald-950/40 border-emerald-900/50 text-emerald-400" 
                             : "bg-emerald-50 border-emerald-200 text-emerald-700"
@@ -512,27 +433,26 @@ export default function HomePage() {
                   ))}
                 </div>
               </div>
-            </div>
+            </Reveal>
           </div>
         </section>
 
         {/* ── PRODUCT SHOWCASE VIDEO ── */}
-        <section className={cn("relative overflow-hidden pt-20 pb-24 sm:pt-28 sm:pb-32 transition-colors duration-500", isDark ? "bg-black" : "bg-white")}>
+        <section className={cn("relative overflow-hidden py-16 sm:py-24 transition-colors duration-500", isDark ? "bg-black" : "bg-white")}>
           <SectionGradient isDark={isDark} position="top" />
           <div className="container relative z-10 mx-auto px-4 max-w-5xl">
             <Reveal>
-              <div className="text-center max-w-2xl mx-auto mb-12">
-                <Eyebrow isDark={isDark}>Product tour</Eyebrow>
-                <h2 className={cn("text-3xl sm:text-4xl md:text-[44px] font-bold tracking-[-0.02em] mb-4 transition-colors", isDark ? "text-white" : "text-gray-900")}>
+              <div className="text-center max-w-2xl mx-auto mb-10">
+                <h2 className={cn("text-2xl sm:text-3xl md:text-4xl font-bold mb-3 transition-colors", isDark ? "text-white" : "text-gray-900")}>
                   See BigLead in action
                 </h2>
-                <p className={cn("text-base sm:text-lg leading-relaxed transition-colors", isDark ? "text-gray-400" : "text-gray-500")}>
+                <p className={cn("text-sm sm:text-lg transition-colors", isDark ? "text-gray-400" : "text-gray-500")}>
                   From ad click to closed deal — capture every lead, auto-follow-up on WhatsApp &amp; email, and convert faster.
                 </p>
               </div>
             </Reveal>
             <Reveal delay={150} y={28}>
-              <div data-parallax className={cn("rounded-2xl sm:rounded-3xl overflow-hidden border shadow-2xl", isDark ? "border-gray-800" : "border-gray-200")}>
+              <div className={cn("rounded-2xl sm:rounded-3xl overflow-hidden border shadow-2xl", isDark ? "border-gray-800" : "border-gray-200")}>
                 <video
                   src="https://res.cloudinary.com/dtlwrm7qk/video/upload/q_auto/f_auto/v1781515751/vidssave_2_ldqqxz.mp4"
                   autoPlay loop muted playsInline controls
@@ -545,23 +465,22 @@ export default function HomePage() {
 
         {/* ── FEATURES ── */}
         <section id="features" className={cn(
-          "relative overflow-hidden py-24 sm:py-32 border-y transition-colors duration-500",
-          isDark ? "bg-black border-gray-900" : "bg-gray-50/60 border-gray-100"
+          "relative overflow-hidden py-24 border-y transition-colors duration-500",
+          isDark ? "bg-black border-gray-900" : "bg-white border-gray-100"
         )}>
           <SectionGradient isDark={isDark} position="center" />
           <div className="container relative z-10 mx-auto px-4 max-w-5xl">
             <Reveal>
-              <div className="text-center max-w-2xl mx-auto mb-10 sm:mb-16">
-                <Eyebrow isDark={isDark}>Features</Eyebrow>
+              <div className="text-center max-w-2xl mx-auto mb-8 sm:mb-14">
                 <h2 className={cn(
-                  "text-3xl sm:text-4xl md:text-[44px] font-bold tracking-[-0.02em] mb-4 transition-colors",
+                  "text-2xl sm:text-3xl md:text-4xl font-bold mb-3 transition-colors",
                   isDark ? "text-white" : "text-gray-900"
                 )}>
                   Everything your sales team needs
                 </h2>
                 <p className={cn(
-                  "text-base sm:text-lg leading-relaxed transition-colors px-2",
-                  isDark ? "text-gray-500" : "text-gray-500"
+                  "text-sm sm:text-lg transition-colors px-2",
+                  isDark ? "text-gray-500" : "text-gray-400"
                 )}>
                   From first touch to closed deal — BigLead handles the entire pipeline so your team can focus on selling.
                 </p>
@@ -569,7 +488,8 @@ export default function HomePage() {
             </Reveal>
 
             {/* Table-grid: 4 cols, 2 rows, separated by thin lines */}
-            <div data-stagger className={cn(
+            <Reveal delay={150} y={28}>
+            <div className={cn(
               "grid grid-cols-2 lg:grid-cols-4 gap-px border rounded-2xl overflow-hidden transition-colors duration-500",
               isDark
                 ? "border-gray-900 bg-gray-900"
@@ -659,17 +579,18 @@ export default function HomePage() {
                         className={cn("h-px transition-colors", isDark ? "bg-gray-800" : "bg-gray-200")}
                       />
                       <div>
-                        <h3 className={cn("font-bold text-[15px] sm:text-base mb-1.5 sm:mb-2 transition-colors", isDark ? "text-white" : "text-gray-900")}>{item.title}</h3>
-                        <p className={cn("text-sm leading-relaxed transition-colors", isDark ? "text-gray-400" : "text-gray-500")}>{item.desc}</p>
+                        <h3 className={cn("font-bold text-sm sm:text-base mb-1.5 sm:mb-2 transition-colors", isDark ? "text-white" : "text-gray-900")}>{item.title}</h3>
+                        <p className={cn("text-xs sm:text-sm leading-relaxed transition-colors", isDark ? "text-gray-400" : "text-gray-400")}>{item.desc}</p>
                       </div>
                     </motion.div>
               ))}
             </div>
+            </Reveal>
           </div>
         </section>
 
         {/* ── USE CASES ── */}
-        <section id="use-cases" className={cn("relative overflow-hidden pt-24 sm:pt-32 pb-16 sm:pb-24 transition-colors duration-500", isDark ? "bg-black" : "bg-white")}>
+        <section id="use-cases" className={cn("relative overflow-hidden pt-24 pb-12 transition-colors duration-500", isDark ? "bg-black" : "bg-white")}>
           <SectionGradient isDark={isDark} position="bottom" />
           <div className="container relative z-10 mx-auto px-4 max-w-6xl">
             <div className="flex flex-col lg:flex-row items-center gap-16">
@@ -685,12 +606,12 @@ export default function HomePage() {
                   </div>
                 </Reveal>
                 <Reveal delay={100}>
-                  <h2 className={cn("text-3xl sm:text-4xl md:text-[44px] font-bold tracking-[-0.02em] transition-colors", isDark ? "text-white" : "text-gray-900")}>
+                  <h2 className={cn("text-2xl sm:text-3xl md:text-4xl font-bold transition-colors", isDark ? "text-white" : "text-gray-900")}>
                     Built for industries that <em className="not-italic text-zinc-700 dark:text-zinc-300 font-extrabold">move fast</em>
                   </h2>
                 </Reveal>
                 <Reveal delay={180}>
-                  <p className={cn("text-base sm:text-lg leading-relaxed transition-colors", isDark ? "text-gray-400" : "text-gray-500")}>
+                  <p className={cn("text-sm sm:text-lg transition-colors", isDark ? "text-gray-400" : "text-gray-500")}>
                     Customize fields, stages, and automation rules for your specific niche.
                   </p>
                 </Reveal>
@@ -808,7 +729,7 @@ export default function HomePage() {
 
             {/* Video — simple, with controls so you can turn the voice on */}
             <Reveal delay={150} y={28} className="relative max-w-3xl mx-auto">
-              <div data-parallax className={cn(
+              <div className={cn(
                 "relative rounded-2xl sm:rounded-3xl overflow-hidden border shadow-xl transition-colors",
                 isDark ? "border-gray-800 shadow-black/30" : "border-gray-200 shadow-gray-200/60"
               )}>
@@ -821,13 +742,14 @@ export default function HomePage() {
             </Reveal>
 
             {/* Feature row — compact horizontal on mobile, stacked on desktop */}
-            <div data-stagger className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-8 max-w-4xl mx-auto mt-12 sm:mt-16">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-8 max-w-4xl mx-auto mt-12 sm:mt-16">
               {[
                 { icon: Zap, title: "Instant callback", desc: "Calls the moment a lead arrives — before they go cold." },
                 { icon: MessageSquare, title: "Qualifies & books", desc: "Asks the right questions and books site visits automatically." },
                 { icon: Smartphone, title: "24/7, Hindi & English", desc: "Never miss a lead, day or night, in your customer's language." },
-              ].map((f) => (
-                <div key={f.title} className="flex sm:block items-start gap-3.5 text-left">
+              ].map((f, i) => (
+                <Reveal key={f.title} delay={i * 120}>
+                <div className="flex sm:block items-start gap-3.5 text-left">
                   <div className={cn(
                     "size-11 rounded-xl flex items-center justify-center shrink-0 mb-0 sm:mb-3 border transition-colors",
                     isDark ? "bg-white/5 border-white/10 text-gray-300" : "bg-gray-50 border-gray-200 text-gray-700"
@@ -839,6 +761,7 @@ export default function HomePage() {
                     <p className={cn("text-sm leading-relaxed transition-colors", isDark ? "text-gray-400" : "text-gray-600")}>{f.desc}</p>
                   </div>
                 </div>
+                </Reveal>
               ))}
             </div>
           </div>
@@ -846,7 +769,7 @@ export default function HomePage() {
 
         {/* ── PRICING ── */}
         <section id="pricing" className={cn(
-          "py-24 sm:py-32 text-white relative overflow-hidden transition-colors duration-500",
+          "py-24 text-white relative overflow-hidden transition-colors duration-500",
           isDark ? "bg-black" : "bg-gray-950"
         )}>
           {/* Radial gradient backing for pricing */}
@@ -868,19 +791,18 @@ export default function HomePage() {
 
         {/* ── BOTTOM CTA ── */}
         <section className={cn(
-          "relative overflow-hidden py-28 sm:py-36 border-t transition-colors duration-500",
+          "relative overflow-hidden py-24 border-t transition-colors duration-500",
           isDark ? "bg-black border-gray-900" : "bg-white border-gray-100"
         )}>
           <SectionGradient isDark={isDark} position="center" />
           <div className="container relative z-10 mx-auto px-4 max-w-3xl text-center">
             <Reveal>
-              <Eyebrow isDark={isDark}>Get started</Eyebrow>
-              <h2 className={cn("text-3xl sm:text-[44px] font-bold tracking-[-0.02em] mb-4 transition-colors", isDark ? "text-white" : "text-gray-900")}>
+              <h2 className={cn("text-2xl sm:text-4xl font-bold mb-4 transition-colors", isDark ? "text-white" : "text-gray-900")}>
                 Ready to transform your pipeline?
               </h2>
             </Reveal>
             <Reveal delay={180}>
-              <p className={cn("text-base sm:text-lg leading-relaxed mb-8 sm:mb-10 transition-colors", isDark ? "text-gray-400" : "text-gray-500")}>
+              <p className={cn("text-sm sm:text-lg mb-8 sm:mb-10 transition-colors", isDark ? "text-gray-400" : "text-gray-500")}>
                 Join thousands of high-performing teams using BigLead to close deals faster.
               </p>
             </Reveal>
@@ -1008,7 +930,7 @@ export default function HomePage() {
                 <span 
                   key={s.label} 
                   className={cn(
-                    "text-[10px] font-bold px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full border transition-colors",
+                    "text-[8px] sm:text-[9px] font-bold px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full border transition-colors", 
                     isDark 
                       ? "border-gray-800 bg-black text-gray-400" 
                       : cn(s.bg, s.text, s.border)
