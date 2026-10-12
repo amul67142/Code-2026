@@ -116,15 +116,21 @@ export async function updateLeadStatus(
   }
 
   // Log activity
+  // `undefined` means "field not touched"; an empty string means the rep
+  // deliberately cleared it, which is worth recording too.
   const changes: string[] = [];
-  if (data.status_1) changes.push(`Status 1: ${data.status_1}`);
-  if (data.status_2) changes.push(`Status 2: ${data.status_2}`);
+  if (data.status_1 !== undefined)
+    changes.push(`Status 1: ${data.status_1 || "cleared"}`);
+  if (data.status_2 !== undefined)
+    changes.push(`Status 2: ${data.status_2 || "cleared"}`);
 
   await supabase.from("activities").insert({
     lead_id: leadId,
     user_id: profile.id,
     type: "NOTE",
-    description: `Updated status — ${changes.join(", ")}`,
+    description: changes.length
+      ? `Updated status — ${changes.join(", ")}`
+      : "Updated status",
     metadata: data,
   });
 

@@ -41,6 +41,7 @@ import {
 import Link from "next/link";
 import { toast } from "sonner";
 import { format, formatDistanceToNow, isPast } from "date-fns";
+import { STATUS_OPTIONS } from "../status-options";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Lead = any;
@@ -57,19 +58,6 @@ interface CurrentUser {
   company_id: string;
   role: string;
 }
-
-const STATUS_OPTIONS = [
-  "New",
-  "Contacted",
-  "Interested",
-  "Not Interested",
-  "Follow Up",
-  "Site Visit Scheduled",
-  "Site Visit Done",
-  "Negotiation",
-  "Booking Done",
-  "Lost",
-];
 
 const ACTIVITY_TYPES = [
   { value: "CALL", label: "Call", icon: PhoneCall },

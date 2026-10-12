@@ -43,6 +43,7 @@ import { format } from "date-fns";
 import { toast } from "sonner";
 import Papa from "papaparse";
 import { ImportLeadsDialog } from "./import-leads-dialog";
+import { StatusCell, type LeadStatuses } from "./status-cell";
 
 const SOURCES = [
   "MANUAL",
@@ -64,19 +65,6 @@ const SOURCE_COLORS: Record<string, string> = {
   REFERRAL: "bg-purple-100 text-purple-700",
   CSV_IMPORT: "bg-cyan-100 text-cyan-700",
   OTHER: "bg-gray-100 text-gray-800",
-};
-
-const STATUS_COLORS: Record<string, string> = {
-  New: "bg-blue-50 text-blue-700 border-blue-200",
-  Contacted: "bg-cyan-50 text-cyan-700 border-cyan-200",
-  Interested: "bg-green-50 text-green-700 border-green-200",
-  "Not Interested": "bg-red-50 text-red-700 border-red-200",
-  "Follow Up": "bg-amber-50 text-amber-700 border-amber-200",
-  "Site Visit Scheduled": "bg-purple-50 text-purple-700 border-purple-200",
-  "Site Visit Done": "bg-indigo-50 text-indigo-700 border-indigo-200",
-  Negotiation: "bg-orange-50 text-orange-700 border-orange-200",
-  "Booking Done": "bg-emerald-50 text-emerald-700 border-emerald-200",
-  Lost: "bg-gray-50 text-gray-500 border-gray-200",
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -256,6 +244,13 @@ export default function LeadsClient({
       )
     );
     toast.success(assignedToId ? "Lead assigned" : "Lead unassigned");
+  }
+
+  /** Push an inline status edit back into the row without a re-fetch. */
+  function handleStatusSaved(leadId: string, next: LeadStatuses) {
+    setLeads((prev) =>
+      prev.map((l: Lead) => (l.id === leadId ? { ...l, ...next } : l))
+    );
   }
 
   function handleExportCSV() {
@@ -504,27 +499,17 @@ export default function LeadsClient({
                     )}
                   </TableCell>
                   <TableCell className="hidden xl:table-cell">
-                    <div className="flex flex-col gap-1">
-                      {lead.status_1 && (
-                        <div className="flex flex-col">
-                          <span className={`inline-block w-fit text-[10px] px-1.5 py-0.5 rounded border ${STATUS_COLORS[lead.status_1] || "bg-gray-50 text-gray-600 border-gray-200"}`}>
-                            1: {lead.status_1}
-                          </span>
-                          {lead.status_1_remark && <span className="text-[10px] text-muted-foreground truncate max-w-[120px]" title={lead.status_1_remark}>{lead.status_1_remark}</span>}
-                        </div>
-                      )}
-                      {lead.status_2 && (
-                        <div className="flex flex-col">
-                          <span className={`inline-block w-fit text-[10px] px-1.5 py-0.5 rounded border ${STATUS_COLORS[lead.status_2] || "bg-gray-50 text-gray-600 border-gray-200"}`}>
-                            2: {lead.status_2}
-                          </span>
-                          {lead.status_2_remark && <span className="text-[10px] text-muted-foreground truncate max-w-[120px]" title={lead.status_2_remark}>{lead.status_2_remark}</span>}
-                        </div>
-                      )}
-                      {!lead.status_1 && !lead.status_2 && (
-                        <span className="text-xs text-muted-foreground">—</span>
-                      )}
-                    </div>
+                    <StatusCell
+                      leadId={lead.id}
+                      leadName={lead.name}
+                      value={{
+                        status_1: lead.status_1 ?? null,
+                        status_1_remark: lead.status_1_remark ?? null,
+                        status_2: lead.status_2 ?? null,
+                        status_2_remark: lead.status_2_remark ?? null,
+                      }}
+                      onSaved={(next) => handleStatusSaved(lead.id, next)}
+                    />
                   </TableCell>
                   <TableCell className="hidden sm:table-cell">
                     <select
@@ -541,7 +526,19 @@ export default function LeadsClient({
                     </select>
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground hidden md:table-cell">
-                    {format(new Date(lead.created_at), "MMM d, yyyy")}
+                    {/* Date and time stacked: reps need to know a lead landed
+                        twenty minutes ago, not just "today". */}
+                    <span
+                      className="flex flex-col leading-tight"
+                      title={format(new Date(lead.created_at), "EEEE, d MMMM yyyy 'at' h:mm:ss a")}
+                    >
+                      <span className="whitespace-nowrap">
+                        {format(new Date(lead.created_at), "MMM d, yyyy")}
+                      </span>
+                      <span className="text-xs tabular-nums text-muted-foreground/80">
+                        {format(new Date(lead.created_at), "h:mm a")}
+                      </span>
+                    </span>
                   </TableCell>
                 </TableRow>
               ))
