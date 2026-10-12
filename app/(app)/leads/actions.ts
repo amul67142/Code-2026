@@ -8,6 +8,7 @@ import { sendLeadWhatsApp } from "@/lib/automation/lead-whatsapp";
 // Request-deduped auth: layout + all page actions share ONE auth round-trip.
 import { getCachedUserProfile as getUserProfile } from "@/lib/auth/cached-user";
 import { notifyLeadStageChange, notifyLeadAssigned } from "@/lib/notifications/notify";
+import { autoSendNewLead } from "@/lib/crm/outbound";
 
 // ── Get leads with optional filters ─────────────────────────────
 export async function getLeads(filters?: {
@@ -198,6 +199,16 @@ export async function createLead(formData: FormData) {
       isAuto: true,
     }).catch((e) => console.error("createLead: lead WhatsApp failed:", e));
   }
+
+  // Forward to any auto-send CRM connection. A lead typed in by hand is still
+  // a lead — without this, auto-send would only ever fire for leads that
+  // arrived through a webhook, which is a confusing half-feature.
+  // CSV import deliberately does NOT do this: importing thousands of rows
+  // would fire thousands of outbound requests, the same reason imports never
+  // auto-message.
+  await autoSendNewLead(profile.company_id, newLead.id, projectId || null).catch((e) =>
+    console.error("createLead: CRM forward failed:", e)
+  );
 
   revalidatePath("/leads");
   revalidatePath("/leads/kanban");

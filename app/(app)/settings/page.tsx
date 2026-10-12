@@ -10,6 +10,7 @@ import {
   User,
   Mail,
   MessageSquare,
+  Share2,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
@@ -76,6 +77,14 @@ const settingsItems = [
     description: "Connect webhooks, Google Ads, and Facebook Ads.",
     icon: Plug,
     href: "/settings/integrations",
+    ready: true,
+    minRole: "ADMIN",
+  },
+  {
+    title: "Connections",
+    description: "Send leads onward to Pabbly, Make, or any API.",
+    icon: Share2,
+    href: "/settings/connections",
     ready: true,
     minRole: "ADMIN",
   },

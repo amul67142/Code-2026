@@ -19,6 +19,7 @@ const SEGMENT_LABELS: Record<string, string> = {
   pipeline: "Pipeline",
   routing: "Routing",
   integrations: "Integrations",
+  connections: "Connections",
   webhooks: "Webhooks",
   billing: "Billing",
   new: "New",

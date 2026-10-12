@@ -36,6 +36,7 @@ import {
   Trash2,
   Send,
   Loader2,
+  Share2,
   X,
 } from "lucide-react";
 import Link from "next/link";
@@ -44,6 +45,7 @@ import { toast } from "sonner";
 import Papa from "papaparse";
 import { ImportLeadsDialog } from "./import-leads-dialog";
 import { StatusCell, type LeadStatuses } from "./status-cell";
+import { sendLeadsToCrm } from "../settings/connections/actions";
 
 const SOURCES = [
   "MANUAL",
@@ -65,6 +67,21 @@ const SOURCE_COLORS: Record<string, string> = {
   REFERRAL: "bg-purple-100 text-purple-700",
   CSV_IMPORT: "bg-cyan-100 text-cyan-700",
   OTHER: "bg-gray-100 text-gray-800",
+};
+
+/**
+ * Bulk actions ask for confirmation inline rather than through window.confirm:
+ * embedded browsers return false from it without ever drawing a dialog, which
+ * silently turns every one of these buttons into a no-op.
+ */
+type BulkAction = "whatsapp" | "crm" | "delete";
+
+const plural = (n: number) => `${n} lead${n > 1 ? "s" : ""}`;
+
+const CONFIRM_COPY: Record<BulkAction, (n: number) => string> = {
+  whatsapp: (n) => `Send your WhatsApp welcome template to ${plural(n)}?`,
+  crm: (n) => `Send ${plural(n)} to your connected CRM?`,
+  delete: (n) => `Delete ${plural(n)}? They leave the pipeline.`,
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -103,6 +120,7 @@ export default function LeadsClient({
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
   const [quota, setQuota] = useState<{ maxPerBatch: number; remainingToday: number } | null>(null);
+  const [confirming, setConfirming] = useState<BulkAction | null>(null);
 
   useEffect(() => {
     if (selected.size > 0 && quota === null) {
@@ -127,7 +145,6 @@ export default function LeadsClient({
 
   async function handleBulkDelete() {
     if (!selected.size) return;
-    if (!confirm(`Delete ${selected.size} lead${selected.size > 1 ? "s" : ""}? They will be removed from the pipeline.`)) return;
     setBulkBusy(true);
     try {
       const res = await bulkDeleteLeads(Array.from(selected));
@@ -140,6 +157,7 @@ export default function LeadsClient({
       }
     } finally {
       setBulkBusy(false);
+      setConfirming(null);
     }
   }
 
@@ -150,7 +168,6 @@ export default function LeadsClient({
       toast.error(`You can send to at most ${max} leads per batch.`);
       return;
     }
-    if (!confirm(`Send your WhatsApp welcome template to ${selected.size} lead${selected.size > 1 ? "s" : ""}?`)) return;
     setBulkBusy(true);
     try {
       const res = await sendBulkWhatsApp(Array.from(selected));
@@ -165,7 +182,43 @@ export default function LeadsClient({
       }
     } finally {
       setBulkBusy(false);
+      setConfirming(null);
     }
+  }
+
+  /**
+   * Push the selected leads to every active connection.
+   *
+   * This is the other half of the auto-send switch: with it off, nothing
+   * leaves BigLead until someone chooses these rows and presses this.
+   */
+  async function handleSendToCrm() {
+    if (!selected.size) return;
+    setBulkBusy(true);
+    try {
+      const res = await sendLeadsToCrm(Array.from(selected));
+      if (res.error) {
+        toast.error(res.error);
+        return;
+      }
+      if (res.failed) {
+        toast.error(
+          `${res.sent} delivered, ${res.failed} failed. Check Settings → Connections → Responses.`
+        );
+      } else {
+        toast.success(`${res.sent} delivered`);
+      }
+      setSelected(new Set());
+    } finally {
+      setBulkBusy(false);
+      setConfirming(null);
+    }
+  }
+
+  function runConfirmed() {
+    if (confirming === "whatsapp") handleBulkWhatsApp();
+    else if (confirming === "crm") handleSendToCrm();
+    else if (confirming === "delete") handleBulkDelete();
   }
 
   function applyFilters() {
@@ -379,14 +432,42 @@ export default function LeadsClient({
       {selected.size > 0 && (
         <div className="flex flex-wrap items-center gap-2 rounded-md border bg-muted/40 px-3 py-2">
           <span className="text-sm font-medium">{selected.size} selected</span>
-          <Button size="sm" variant="outline" onClick={handleBulkWhatsApp} disabled={bulkBusy}>
-            {bulkBusy ? <Loader2 className="mr-1.5 size-3.5 animate-spin" /> : <Send className="mr-1.5 size-3.5" />}
-            Send WhatsApp
-          </Button>
-          <Button size="sm" variant="outline" className="text-red-600 border-red-200 hover:bg-red-50" onClick={handleBulkDelete} disabled={bulkBusy}>
-            <Trash2 className="mr-1.5 size-3.5" /> Delete
-          </Button>
-          <button onClick={() => setSelected(new Set())} className="ml-auto p-1 rounded hover:bg-muted" aria-label="Clear selection">
+
+          {confirming ? (
+            /* Confirmation lives in the page, not a native confirm() dialog.
+               Embedded browsers (the desktop app's own pane among them) return
+               false from window.confirm without ever showing anything, which
+               made these buttons look dead. */
+            <>
+              <span className="text-sm">{CONFIRM_COPY[confirming](selected.size)}</span>
+              <Button size="sm" variant="outline" onClick={() => setConfirming(null)} disabled={bulkBusy}>
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                className={confirming === "delete" ? "bg-red-600 text-white hover:bg-red-700" : ""}
+                onClick={runConfirmed}
+                disabled={bulkBusy}
+              >
+                {bulkBusy && <Loader2 className="mr-1.5 size-3.5 animate-spin" />}
+                {confirming === "delete" ? "Delete" : "Send"}
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button size="sm" variant="outline" onClick={() => setConfirming("whatsapp")} disabled={bulkBusy}>
+                <Send className="mr-1.5 size-3.5" /> Send WhatsApp
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => setConfirming("crm")} disabled={bulkBusy}>
+                <Share2 className="mr-1.5 size-3.5" /> Send to CRM
+              </Button>
+              <Button size="sm" variant="outline" className="text-red-600 border-red-200 hover:bg-red-50" onClick={() => setConfirming("delete")} disabled={bulkBusy}>
+                <Trash2 className="mr-1.5 size-3.5" /> Delete
+              </Button>
+            </>
+          )}
+
+          <button onClick={() => { setConfirming(null); setSelected(new Set()); }} className="ml-auto p-1 rounded hover:bg-muted" aria-label="Clear selection">
             <X className="size-4 text-muted-foreground" />
           </button>
           {quota && (

@@ -27,6 +27,7 @@ import {
   BookOpen,
   Database,
   ListChecks,
+  Share2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -79,6 +80,7 @@ const navigation: NavItem[] = [
       { title: "Pipeline", href: "/settings/pipeline", icon: GitBranch, minRole: "ADMIN" },
       { title: "Routing", href: "/settings/routing", icon: Route, minRole: "ADMIN" },
       { title: "Integrations", href: "/settings/integrations", icon: Plug, minRole: "ADMIN" },
+      { title: "Connections", href: "/settings/connections", icon: Share2, minRole: "ADMIN" },
       { title: "Emails", href: "/settings/emails", icon: Mail, minRole: "SUPER_ADMIN" },
       { title: "Billing", href: "/settings/billing", icon: CreditCard, minRole: "SUPER_ADMIN" },
     ],

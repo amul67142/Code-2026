@@ -8,9 +8,11 @@
  *
  * Runs server-side with the service-role admin client (bypasses RLS).
  */
+import { after } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendLeadAcknowledgmentEmail } from "@/lib/automation/lead-email";
 import { sendLeadWhatsApp } from "@/lib/automation/lead-whatsapp";
+import { autoSendNewLead } from "@/lib/crm/outbound";
 
 export type IngestSource =
   | "FACEBOOK_ADS"
@@ -234,6 +236,21 @@ export async function ingestLead(input: IngestInput): Promise<IngestResult> {
       projectId,
       isAuto: true,
     }).catch((e) => console.error("ingestLead: lead WhatsApp failed:", e));
+  }
+
+  // ── 9. Forward to any outbound CRM connection set to auto-send ──
+  // Deferred until the response has been sent, the same way the AI agent is:
+  // a third-party CRM sitting on its 10s timeout must not hold up Meta's
+  // webhook, which would make it retry and double-send the lead.
+  // `after` needs a request scope; outside one (a script) just run it inline.
+  const forward = () =>
+    autoSendNewLead(companyId, lead.id, projectId).catch((e) =>
+      console.error("ingestLead: CRM forward failed:", e)
+    );
+  try {
+    after(forward);
+  } catch {
+    await forward();
   }
 
   return { leadId: lead.id };
