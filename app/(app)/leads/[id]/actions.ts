@@ -254,6 +254,87 @@ export async function getAgentsForReassignment() {
 
 import { sendFacebookCAPIEvent } from "@/lib/integrations/facebook-capi";
 
+/**
+ * Edit a lead's name and email.
+ *
+ * Phone is deliberately NOT editable, and this action will not accept it even
+ * if one is passed. The number is the lead's identity everywhere else: inbound
+ * WhatsApp replies are matched to a lead on the last ten digits, duplicate
+ * detection keys on it, and the portal that sent us the lead quotes it back.
+ * Editing it here would silently orphan a live WhatsApp conversation.
+ * A genuinely wrong number means a new lead, not a rewritten one.
+ */
+export async function updateLeadContact(
+  leadId: string,
+  data: { name: string; email: string }
+) {
+  const supabase = await createClient();
+  const profile = await getUserProfile();
+  if (!profile) return { error: "Unauthorized" };
+
+  const name = data.name?.trim() ?? "";
+  const email = data.email?.trim().toLowerCase() ?? "";
+
+  if (!name) return { error: "Name cannot be empty" };
+  if (name.length > 120) return { error: "Name is too long" };
+  // Deliberately permissive: enough to catch a typo, not to adjudicate RFC 5322.
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) {
+    return { error: "That email address does not look right" };
+  }
+
+  const { data: lead } = await supabase
+    .from("leads")
+    .select("name, email, assigned_to_id")
+    .eq("id", leadId)
+    .eq("company_id", profile.company_id)
+    .single();
+
+  if (!lead) return { error: "Lead not found" };
+
+  // The assigned agent owns their lead; admins manage the whole company. An
+  // admin who can bulk-delete leads can certainly correct a misspelt name.
+  const isAssigned = lead.assigned_to_id === profile.id;
+  const isAdmin = profile.role === "ADMIN" || profile.role === "SUPER_ADMIN";
+  if (!isAssigned && !isAdmin) {
+    return { error: "Only the assigned agent or an admin can edit these details" };
+  }
+
+  if (name === lead.name && email === (lead.email || "")) {
+    return { success: true, unchanged: true };
+  }
+
+  const { error } = await supabase
+    .from("leads")
+    .update({ name, email: email || null, updated_at: new Date().toISOString() })
+    .eq("id", leadId)
+    .eq("company_id", profile.company_id);
+
+  if (error) {
+    console.error("updateLeadContact error:", error);
+    return { error: "Failed to save" };
+  }
+
+  // Record the old values — a corrected name is useful, a quietly overwritten
+  // one is how you lose track of who a lead actually was.
+  const changes: string[] = [];
+  if (name !== lead.name) changes.push(`name "${lead.name}" to "${name}"`);
+  if (email !== (lead.email || "")) {
+    changes.push(`email "${lead.email || "none"}" to "${email || "none"}"`);
+  }
+
+  await supabase.from("activities").insert({
+    lead_id: leadId,
+    user_id: profile.id,
+    type: "NOTE",
+    description: `Updated ${changes.join(" and ")}`,
+    metadata: { before: { name: lead.name, email: lead.email }, after: { name, email } },
+  });
+
+  revalidatePath(`/leads/${leadId}`);
+  revalidatePath("/leads");
+  return { success: true, name, email: email || null };
+}
+
 export async function updateLeadQualification(leadId: string, isQualified: boolean) {
   const supabase = await createClient();
   const profile = await getUserProfile();

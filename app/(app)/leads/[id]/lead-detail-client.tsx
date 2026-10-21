@@ -22,7 +22,6 @@ import {
 import {
   ArrowLeft,
   Phone,
-  Mail,
   Calendar,
   User,
   MessageSquare,
@@ -42,6 +41,7 @@ import Link from "next/link";
 import { toast } from "sonner";
 import { format, formatDistanceToNow, isPast } from "date-fns";
 import { STATUS_OPTIONS } from "../status-options";
+import { LeadContactHeader } from "./contact-editor";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Lead = any;
@@ -255,25 +255,18 @@ export function LeadDetailClient({
           >
             <ArrowLeft className="h-4 w-4" />
           </Link>
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">{lead.name}</h1>
-            <div className="flex items-center gap-3 mt-1 text-sm text-muted-foreground">
-              {lead.phone && (
-                <span className="flex items-center gap-1">
-                  <Phone className="h-3 w-3" /> {lead.phone}
-                </span>
-              )}
-              {lead.email && (
-                <span className="flex items-center gap-1">
-                  <Mail className="h-3 w-3" /> {lead.email}
-                </span>
-              )}
-              <span className="flex items-center gap-1">
-                <Calendar className="h-3 w-3" />
-                {format(new Date(lead.created_at), "MMM d, yyyy")}
-              </span>
-            </div>
-          </div>
+          <LeadContactHeader
+            leadId={lead.id}
+            name={lead.name}
+            email={lead.email}
+            phone={lead.phone}
+            createdAt={lead.created_at}
+            canEdit={
+              lead.assigned_to_id === currentUser.id ||
+              currentUser.role === "ADMIN" ||
+              currentUser.role === "SUPER_ADMIN"
+            }
+          />
         </div>
 
         {/* Stage badge */}
