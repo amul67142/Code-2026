@@ -8,6 +8,7 @@ import {
   ArrowLeft,
   Check,
   ChevronDown,
+  History,
   Loader2,
   Pencil,
   Plus,
@@ -33,7 +34,9 @@ import {
   deleteConnection,
   getConnectionSecrets,
   getDeliveryLogs,
+  getUndeliveredSummary,
   saveConnection,
+  sendUndeliveredLeads,
   testConnection,
   toggleAutoSend,
   type ConnectionInput,
@@ -88,6 +91,14 @@ export default function ConnectionsClient({
   const [editing, setEditing] = useState<ConnectionInput | null>(null);
   const [logFilter, setLogFilter] = useState<string>("");
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  // Catch-up. The backlog scan is on demand, not on page load — it pages
+  // through every lead id in the connection's scope.
+  const [backlog, setBacklog] = useState<
+    { connectionId: string; name: string; count: number; capped: boolean }[] | null
+  >(null);
+  const [scanning, setScanning] = useState(false);
+  const [catchingUp, setCatchingUp] = useState<string | null>(null);
+  const [caughtUp, setCaughtUp] = useState<{ sent: number; failed: number } | null>(null);
   const [pending, startTransition] = useTransition();
 
   function refresh() {
@@ -159,6 +170,56 @@ export default function ConnectionsClient({
     });
   }
 
+  async function scanBacklog() {
+    setScanning(true);
+    setCaughtUp(null);
+    const res = await getUndeliveredSummary();
+    setScanning(false);
+    if ("error" in res && res.error) {
+      toast.error(res.error);
+      return;
+    }
+    setBacklog(res.connections || []);
+  }
+
+  /**
+   * Walk the backlog one batch at a time. The server recomputes what is
+   * outstanding on every call, so a lead the previous batch delivered is gone
+   * from the next — nothing is sent twice even if this is restarted.
+   */
+  async function catchUp(connectionId: string) {
+    setCatchingUp(connectionId);
+    setCaughtUp(null);
+    let sent = 0;
+    let failed = 0;
+    let batches = 0;
+
+    for (;;) {
+      const res = await sendUndeliveredLeads(connectionId);
+      if ("error" in res && res.error) {
+        toast.error(res.error);
+        break;
+      }
+      sent += res.sent ?? 0;
+      failed += res.failed ?? 0;
+      setBacklog((prev) =>
+        (prev || []).map((b) =>
+          b.connectionId === connectionId ? { ...b, count: res.remaining ?? 0 } : b
+        )
+      );
+      // A batch that delivered nothing means the rest are failing, not that
+      // the work is done — stop rather than hammer a broken endpoint.
+      if (res.done || (res.sent ?? 0) === 0) break;
+      if (++batches > 400) break;
+    }
+
+    setCatchingUp(null);
+    setCaughtUp({ sent, failed });
+    if (failed === 0 && sent > 0) toast.success(`Sent ${sent} lead${sent === 1 ? "" : "s"}`);
+    else if (failed > 0) toast.error(`${sent} sent, ${failed} failed — check Responses`);
+    setLogs(await getDeliveryLogs(undefined, 50));
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -212,6 +273,89 @@ export default function ConnectionsClient({
               onLogs={() => filterLogs(c.id)}
             />
           ))}
+        </div>
+      )}
+
+      {/* ── Catch up on leads that never went ── */}
+      {connections.length > 0 && (
+        <div className="rounded-lg border bg-card">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3">
+            <div>
+              <h2 className="flex items-center gap-2 font-semibold">
+                <History className="size-4" /> Catch up
+              </h2>
+              <p className="text-xs text-muted-foreground">
+                Leads that arrived before this connection existed, or while it was
+                on Manual only, never went anywhere. Find them and send them.
+              </p>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={scanBacklog}
+              disabled={scanning || !!catchingUp}
+            >
+              {scanning && <Loader2 className="mr-1.5 size-3 animate-spin" />}
+              {backlog ? "Re-check" : "Check for unsent leads"}
+            </Button>
+          </div>
+
+          {backlog && (
+            <div className="divide-y">
+              {backlog.length === 0 && (
+                <p className="px-4 py-4 text-sm text-muted-foreground">
+                  No active connections to check.
+                </p>
+              )}
+              {backlog.map((b) => (
+                <div
+                  key={b.connectionId}
+                  className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium">{b.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {b.count === 0 ? (
+                        <span className="text-emerald-600">Everything has been sent.</span>
+                      ) : (
+                        <>
+                          {b.count.toLocaleString()} lead{b.count === 1 ? "" : "s"} never
+                          delivered{b.capped && " (first 20,000 scanned)"}
+                        </>
+                      )}
+                    </p>
+                  </div>
+                  {b.count > 0 && (
+                    <Button
+                      size="sm"
+                      onClick={() => catchUp(b.connectionId)}
+                      disabled={!!catchingUp || scanning}
+                    >
+                      {catchingUp === b.connectionId ? (
+                        <>
+                          <Loader2 className="mr-1.5 size-3 animate-spin" />
+                          Sending — {b.count.toLocaleString()} left
+                        </>
+                      ) : (
+                        <>
+                          <Send className="mr-1.5 size-3" /> Send them now
+                        </>
+                      )}
+                    </Button>
+                  )}
+                </div>
+              ))}
+              {caughtUp && (
+                <p className="px-4 py-3 text-xs text-muted-foreground">
+                  Done — {caughtUp.sent} sent
+                  {caughtUp.failed > 0 && (
+                    <span className="text-red-600">, {caughtUp.failed} failed</span>
+                  )}
+                  . Failures stay in the backlog, so Re-check will list them again.
+                </p>
+              )}
+            </div>
+          )}
         </div>
       )}
 

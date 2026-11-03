@@ -325,6 +325,30 @@ export async function sendLeadToConnections(opts: {
       duration_ms: result.durationMs,
     });
 
+    // On the lead's own timeline too, not just the Responses log. A rep
+    // looking at a lead should see that it went to the client's CRM without
+    // having to know the Connections page exists. Failures are recorded as
+    // plainly as successes — a silent failure is the one that costs a deal.
+    await admin.from("activities").insert({
+      lead_id: leadId,
+      user_id: null,
+      type: "SYSTEM",
+      description: result.ok
+        ? `Sent to ${conn.name}${result.status ? ` — ${result.status}` : ""}`
+        : `Failed to send to ${conn.name}${
+            result.status ? ` — ${result.status}` : ""
+          }${result.error ? `: ${result.error}` : ""}`,
+      metadata: {
+        channel: "CRM",
+        connection_id: conn.id,
+        connection_name: conn.name,
+        trigger,
+        ok: result.ok,
+        response_status: result.status,
+        duration_ms: result.durationMs,
+      },
+    });
+
     // Counters are a convenience for the list view; the logs are the record.
     await admin
       .from("crm_connections")

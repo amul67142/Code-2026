@@ -360,3 +360,174 @@ export async function sendLeadsToCrm(leadIds: string[]) {
   revalidatePath("/settings/connections");
   return { sent, failed, connections: connections.length };
 }
+
+// ── Catching up: leads that never reached a connection ─────────────────────
+//
+// A connection added after leads were already in the pipeline, or one that sat
+// on "Manual only" for a while, leaves a backlog. These two actions find the
+// leads with no successful delivery and send them.
+//
+// "Successful" means a crm_delivery_logs row for that connection with a 2xx
+// response, matching what deliver() counts as ok. A lead that was attempted
+// and failed is still undelivered, so it gets retried here.
+
+/** Ceiling on a single scan. Beyond this the count reports as capped. */
+const MAX_SCAN = 20_000;
+/**
+ * Leads per send call. Deliveries run one at a time with a 10s timeout each,
+ * so a large batch would hit the serverless execution limit mid-run and lose
+ * track of what had been sent. The caller loops until `remaining` is 0.
+ */
+const SEND_BATCH = 25;
+
+/** Every id from a paged id-only select, up to MAX_SCAN. */
+async function collectIds(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  build: (from: number, to: number) => any,
+  column: string
+): Promise<string[]> {
+  const ids: string[] = [];
+  const PAGE = 1000;
+  for (let from = 0; from < MAX_SCAN; from += PAGE) {
+    const { data, error } = await build(from, from + PAGE - 1);
+    if (error) throw new Error(error.message);
+    const rows = (data || []) as Record<string, string>[];
+    for (const r of rows) if (r[column]) ids.push(r[column]);
+    if (rows.length < PAGE) break;
+  }
+  return ids;
+}
+
+async function undeliveredLeadIds(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  companyId: string,
+  conn: CrmConnection
+): Promise<string[]> {
+  // Leads in this connection's scope. A connection with no project takes the
+  // whole company; one scoped to a project takes only that project's leads.
+  // Oldest first, so a capped scan clears the longest-waiting leads.
+  const leadIds = await collectIds((from, to) => {
+    let q = supabase
+      .from("leads")
+      .select("id")
+      .eq("company_id", companyId)
+      .is("deleted_at", null)
+      .order("created_at", { ascending: true })
+      .range(from, to);
+    if (conn.project_id) q = q.eq("project_id", conn.project_id);
+    return q;
+  }, "id");
+
+  const delivered = new Set(
+    await collectIds(
+      (from, to) =>
+        supabase
+          .from("crm_delivery_logs")
+          .select("lead_id")
+          .eq("company_id", companyId)
+          .eq("connection_id", conn.id)
+          .gte("response_status", 200)
+          .lt("response_status", 300)
+          .range(from, to),
+      "lead_id"
+    )
+  );
+
+  return leadIds.filter((id) => !delivered.has(id));
+}
+
+/** Per active connection: how many leads in its scope have never landed. */
+export async function getUndeliveredSummary() {
+  const guard = await requireAdmin();
+  if ("error" in guard) return { error: guard.error };
+
+  const supabase = await createClient();
+  const { data: connections, error } = await supabase
+    .from("crm_connections")
+    .select("*")
+    .eq("company_id", guard.profile.company_id)
+    .eq("is_active", true);
+
+  // Migration 025 not run yet, most likely — nothing to report.
+  if (error) return { connections: [] };
+
+  const summary: {
+    connectionId: string;
+    name: string;
+    count: number;
+    capped: boolean;
+  }[] = [];
+
+  for (const conn of (connections || []) as CrmConnection[]) {
+    try {
+      const ids = await undeliveredLeadIds(supabase, guard.profile.company_id, conn);
+      summary.push({
+        connectionId: conn.id,
+        name: conn.name,
+        count: ids.length,
+        capped: ids.length >= MAX_SCAN,
+      });
+    } catch (e) {
+      console.error(`getUndeliveredSummary: ${conn.name} failed:`, e);
+    }
+  }
+  return { connections: summary };
+}
+
+/**
+ * Send the next batch of undelivered leads to one connection.
+ *
+ * Recomputes the backlog every call, so a lead delivered by the previous batch
+ * is gone from the next one and nothing is sent twice. Returns `remaining` so
+ * the caller can keep going until it reaches 0.
+ */
+export async function sendUndeliveredLeads(connectionId: string) {
+  const guard = await requireAdmin();
+  if ("error" in guard) return { error: guard.error };
+
+  const supabase = await createClient();
+  const { data: conn, error } = await supabase
+    .from("crm_connections")
+    .select("*")
+    .eq("id", connectionId)
+    .eq("company_id", guard.profile.company_id)
+    .maybeSingle();
+
+  if (error || !conn) return { error: "Connection not found" };
+  if (!conn.is_active) return { error: "That connection is switched off" };
+
+  let pending: string[];
+  try {
+    pending = await undeliveredLeadIds(
+      supabase,
+      guard.profile.company_id,
+      conn as CrmConnection
+    );
+  } catch (e) {
+    console.error("sendUndeliveredLeads: scan failed:", e);
+    return { error: "Could not work out which leads are outstanding" };
+  }
+
+  if (!pending.length) return { sent: 0, failed: 0, remaining: 0, done: true };
+
+  const batch = pending.slice(0, SEND_BATCH);
+  let sent = 0;
+  let failed = 0;
+  for (const leadId of batch) {
+    const res = await sendLeadToConnections({
+      companyId: guard.profile.company_id,
+      leadId,
+      connections: [conn as CrmConnection],
+      trigger: "MANUAL",
+    });
+    sent += res.sent;
+    failed += res.failed;
+  }
+
+  // Anything that failed is still outstanding and will come back on the next
+  // scan, so report what is left rather than assuming the batch cleared.
+  const remaining = Math.max(pending.length - sent, 0);
+  revalidatePath("/settings/connections");
+  return { sent, failed, remaining, done: remaining === 0 };
+}
