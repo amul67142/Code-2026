@@ -20,9 +20,44 @@ export interface LeadEmailInput {
 }
 
 export interface LeadEmailResult {
-  status: "SENT" | "FAILED" | "SKIPPED_NO_EMAIL" | "SKIPPED_PROJECT_OPTED_OUT";
+  status:
+    | "SENT"
+    | "FAILED"
+    | "SKIPPED_NO_EMAIL"
+    | "SKIPPED_PROJECT_OPTED_OUT"
+    | "SKIPPED_SYNTHETIC_EMAIL";
   providerId?: string;
   error?: string;
+}
+
+/**
+ * Does the lead row say BigLead generated this address?
+ *
+ * The stored flag is the ONLY way to know. Synthesized addresses sit on
+ * gmail.com, so they are indistinguishable from a real lead's own address —
+ * see the note in lib/leads/portal-email.ts.
+ *
+ * Fails CLOSED, unlike projectAllowsAutoMessaging: if we cannot read the flag
+ * we decline to send. Mailing a stranger is worse than a lead missing their
+ * acknowledgment, and a lookup only fails while migration 026 is pending — in
+ * which case no row is flagged and no address was swapped anyway.
+ */
+async function emailIsSynthetic(
+  admin: ReturnType<typeof createAdminClient>,
+  leadId: string
+): Promise<boolean> {
+  const { data, error } = await admin
+    .from("leads")
+    .select("email_is_synthetic")
+    .eq("id", leadId)
+    .maybeSingle();
+
+  if (error) {
+    if (/email_is_synthetic/.test(error.message || "")) return false; // column not there yet
+    console.error("emailIsSynthetic: lookup failed (not sending):", error.message);
+    return true;
+  }
+  return (data as { email_is_synthetic?: boolean | null } | null)?.email_is_synthetic === true;
 }
 
 export async function sendLeadAcknowledgmentEmail(
@@ -32,6 +67,14 @@ export async function sendLeadAcknowledgmentEmail(
 
   if (!input.leadEmail) {
     return { status: "SKIPPED_NO_EMAIL" };
+  }
+
+  // Never mail an address we invented (see lib/leads/portal-email.ts). This
+  // blocks the manual resend too, not just automatic sends — the address does
+  // not belong to the lead, so there is no one on the other end, and on a
+  // real-looking domain there may be an unrelated person.
+  if (await emailIsSynthetic(admin, input.leadId)) {
+    return { status: "SKIPPED_SYNTHETIC_EMAIL" };
   }
 
   // Per-project switch (mig 024): automatic sends only when the project allows.

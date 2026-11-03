@@ -118,6 +118,9 @@ export function buildLeadPayload(lead: Record<string, any>): Record<string, any>
     name: lead.name ?? null,
     phone: lead.phone ?? null,
     email: lead.email ?? null,
+    // So the receiving CRM can tell a real address from the placeholder we
+    // generated for a portal relay, and not mail the latter.
+    email_is_placeholder: lead.email_is_synthetic === true,
     source: lead.source ?? null,
     project: lead.projects?.name ?? null,
     stage: lead.pipeline_stages?.name ?? null,
@@ -144,6 +147,7 @@ export const TEMPLATE_VARS = [
   "name",
   "phone",
   "email",
+  "email_is_placeholder",
   "source",
   "project",
   "stage",

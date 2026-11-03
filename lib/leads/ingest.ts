@@ -13,6 +13,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { sendLeadAcknowledgmentEmail } from "@/lib/automation/lead-email";
 import { sendLeadWhatsApp } from "@/lib/automation/lead-whatsapp";
 import { autoSendNewLead } from "@/lib/crm/outbound";
+import { resolveLeadEmail } from "@/lib/leads/portal-email";
 
 export type IngestSource =
   | "FACEBOOK_ADS"
@@ -82,6 +83,11 @@ export async function ingestLead(input: IngestInput): Promise<IngestResult> {
     return { error: "No contact fields (name/phone/email) in payload" };
   }
 
+  // ── 0. Swap a portal relay address for a usable placeholder ──
+  // 99acres and friends send the lead's own number at their domain. Resolved
+  // here, before dedupe, so the stored address and the one we match on agree.
+  const resolvedEmail = resolveLeadEmail(normalized);
+
   // ── 1. Idempotency: skip if this platform lead was already ingested ──
   if (sourceMeta?.platformLeadId) {
     const { data: existingMeta } = await admin
@@ -95,9 +101,15 @@ export async function ingestLead(input: IngestInput): Promise<IngestResult> {
   }
 
   // ── 2. Duplicate rule: SKIP if same phone/email already in this project ──
-  if (routing.duplicateRule === "SKIP" && (normalized.email || normalized.phone)) {
+  // A synthesized address is NOT matched on. It sits on gmail.com, so it can
+  // collide with some unrelated lead's real address — and matching that would
+  // silently discard a genuine lead as a duplicate. The phone number is the
+  // identity for a portal lead anyway, and it is still matched below.
+  const dedupeEmail = resolvedEmail.synthetic ? null : resolvedEmail.email;
+
+  if (routing.duplicateRule === "SKIP" && (dedupeEmail || normalized.phone)) {
     const orConditions: string[] = [];
-    if (normalized.email) orConditions.push(`email.eq."${normalized.email}"`);
+    if (dedupeEmail) orConditions.push(`email.eq."${dedupeEmail}"`);
     if (normalized.phone) orConditions.push(`phone.eq."${normalized.phone}"`);
 
     if (orConditions.length > 0) {
@@ -130,28 +142,48 @@ export async function ingestLead(input: IngestInput): Promise<IngestResult> {
   }
 
   // ── 4. Insert the lead ──
-  const { data: lead, error: leadError } = await admin
+  const leadRow: Record<string, unknown> = {
+    company_id: companyId,
+    project_id: projectId,
+    name: normalized.name || "Unknown",
+    phone: normalized.phone,
+    email: resolvedEmail.email,
+    email_is_synthetic: resolvedEmail.synthetic,
+    email_original: resolvedEmail.original,
+    source,
+    stage_id: stageId,
+    score: typeof input.score === "number" ? input.score : 50,
+    tags: routing.autoTags && routing.autoTags.length ? routing.autoTags : [],
+    status: "ACTIVE",
+    notes: input.extra?.notes?.trim() || "Created via integration.",
+    bhk_preference: input.extra?.bhkPreference || null,
+    property_type: input.extra?.propertyType || null,
+    location_preference: input.extra?.locationPreference || null,
+    budget_min: input.extra?.budgetMin ?? null,
+    budget_max: input.extra?.budgetMax ?? null,
+  };
+
+  let { data: lead, error: leadError } = await admin
     .from("leads")
-    .insert({
-      company_id: companyId,
-      project_id: projectId,
-      name: normalized.name || "Unknown",
-      phone: normalized.phone,
-      email: normalized.email,
-      source,
-      stage_id: stageId,
-      score: typeof input.score === "number" ? input.score : 50,
-      tags: routing.autoTags && routing.autoTags.length ? routing.autoTags : [],
-      status: "ACTIVE",
-      notes: input.extra?.notes?.trim() || "Created via integration.",
-      bhk_preference: input.extra?.bhkPreference || null,
-      property_type: input.extra?.propertyType || null,
-      location_preference: input.extra?.locationPreference || null,
-      budget_min: input.extra?.budgetMin ?? null,
-      budget_max: input.extra?.budgetMax ?? null,
-    })
+    .insert(leadRow)
     .select("id")
     .single();
+
+  // Migration 026 pending? Drop its two columns and insert anyway. Losing the
+  // provenance of one address is a nuisance; dropping the lead is not
+  // recoverable — the portal will not send it again.
+  if (leadError && /email_is_synthetic|email_original/.test(leadError.message || "")) {
+    console.warn(
+      "ingestLead: leads.email_is_synthetic/email_original missing (migration 026 pending) — inserting without them"
+    );
+    delete leadRow.email_is_synthetic;
+    delete leadRow.email_original;
+    ({ data: lead, error: leadError } = await admin
+      .from("leads")
+      .insert(leadRow)
+      .select("id")
+      .single());
+  }
 
   if (leadError || !lead) {
     console.error("ingestLead: failed to insert lead:", leadError);
@@ -217,12 +249,12 @@ export async function ingestLead(input: IngestInput): Promise<IngestResult> {
   }
 
   // ── 8. Automation: acknowledge the lead via email + WhatsApp (best-effort) ──
-  if (normalized.email) {
+  if (resolvedEmail.email && !resolvedEmail.synthetic) {
     await sendLeadAcknowledgmentEmail({
       companyId,
       leadId: lead.id,
       leadName: normalized.name,
-      leadEmail: normalized.email,
+      leadEmail: resolvedEmail.email,
       projectId,
       isAuto: true,
     }).catch((e) => console.error("ingestLead: lead email failed:", e));

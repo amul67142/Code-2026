@@ -19,6 +19,12 @@ import { updateLeadContact } from "./actions";
  * replies are matched to a lead by its last ten digits, duplicate detection
  * keys on it, and the source portal quotes it back. Editing it would orphan a
  * live conversation. The server refuses it too, not just this form.
+ *
+ * A placeholder address (one BigLead generated because the portal sent a
+ * masked relay — see lib/leads/portal-email.ts) is labelled as such. BigLead
+ * will not mail it, but a rep who thinks it is real will paste it into their
+ * own mail client, which is exactly the mistake the label prevents. Typing a
+ * real address over it clears the placeholder.
  */
 export function LeadContactHeader({
   leadId,
@@ -27,6 +33,8 @@ export function LeadContactHeader({
   phone,
   createdAt,
   canEdit,
+  emailIsSynthetic = false,
+  emailOriginal = null,
 }: {
   leadId: string;
   name: string;
@@ -34,8 +42,14 @@ export function LeadContactHeader({
   phone: string | null;
   createdAt: string;
   canEdit: boolean;
+  emailIsSynthetic?: boolean;
+  emailOriginal?: string | null;
 }) {
-  const [current, setCurrent] = useState({ name, email: email || "" });
+  const [current, setCurrent] = useState({
+    name,
+    email: email || "",
+    synthetic: emailIsSynthetic,
+  });
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState({ name, email: email || "" });
   const [pending, startTransition] = useTransition();
@@ -53,7 +67,13 @@ export function LeadContactHeader({
         toast.error(res.error);
         return;
       }
-      setCurrent({ name: draft.name.trim(), email: draft.email.trim().toLowerCase() });
+      // The "unchanged" reply carries no fields, so fall back to the draft
+      // (identical to what is on screen) rather than blanking the address.
+      setCurrent((prev) => ({
+        name: res.name ?? draft.name.trim(),
+        email: res.email ?? draft.email.trim().toLowerCase(),
+        synthetic: res.emailIsSynthetic ?? prev.synthetic,
+      }));
       setEditing(false);
       toast.success(res.unchanged ? "No changes" : "Details updated");
     });
@@ -74,6 +94,14 @@ export function LeadContactHeader({
             if (e.key === "Escape") setEditing(false);
           }}
         />
+        {current.synthetic && (
+          <p className="text-xs text-amber-600 dark:text-amber-500">
+            {emailOriginal
+              ? `The portal sent ${emailOriginal} — its own relay, not the lead's address.`
+              : "The portal never sent a real address."}{" "}
+            The email below is a placeholder. Replace it if you learn the real one.
+          </p>
+        )}
         <Input
           type="email"
           className="text-sm"
@@ -133,8 +161,21 @@ export function LeadContactHeader({
           </span>
         )}
         {current.email ? (
-          <span className="flex items-center gap-1">
-            <Mail className="h-3 w-3" /> {current.email}
+          <span
+            className="flex items-center gap-1"
+            title={
+              current.synthetic
+                ? `Placeholder. ${emailOriginal ? `The portal sent ${emailOriginal}, its own relay.` : "The portal sent no real address."} Nothing reaches this inbox — use the phone number.`
+                : undefined
+            }
+          >
+            <Mail className="h-3 w-3" />
+            <span className={current.synthetic ? "italic" : undefined}>{current.email}</span>
+            {current.synthetic && (
+              <span className="rounded bg-amber-100 px-1 text-[10px] font-medium uppercase tracking-wide text-amber-700 dark:bg-amber-950 dark:text-amber-500">
+                placeholder
+              </span>
+            )}
           </span>
         ) : canEdit ? (
           <button onClick={open} className="flex items-center gap-1 hover:text-foreground">

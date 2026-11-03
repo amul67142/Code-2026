@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { sendFacebookCAPIEvent } from "@/lib/integrations/facebook-capi";
 import { sendLeadAcknowledgmentEmail } from "@/lib/automation/lead-email";
+import { resolveLeadEmail } from "@/lib/leads/portal-email";
 import { sendLeadWhatsApp } from "@/lib/automation/lead-whatsapp";
 // Request-deduped auth: layout + all page actions share ONE auth round-trip.
 import { getCachedUserProfile as getUserProfile } from "@/lib/auth/cached-user";
@@ -142,11 +143,15 @@ export async function createLead(formData: FormData) {
     resolvedStageId = firstStage?.id;
   }
 
+  const resolvedEmail = resolveLeadEmail({ name, phone, email });
+
   const { data: newLead, error: insertError } = await supabase.from("leads").insert({
     company_id: profile.company_id,
     name,
     phone: phone || null,
-    email: email || null,
+    email: resolvedEmail.email,
+    email_is_synthetic: resolvedEmail.synthetic,
+    email_original: resolvedEmail.original,
     source: source || "MANUAL",
     project_id: projectId || null,
     stage_id: resolvedStageId || null,
@@ -179,12 +184,12 @@ export async function createLead(formData: FormData) {
   }
 
   // Automation: acknowledge the lead via email + WhatsApp (best-effort)
-  if (email) {
+  if (resolvedEmail.email && !resolvedEmail.synthetic) {
     await sendLeadAcknowledgmentEmail({
       companyId: profile.company_id,
       leadId: newLead.id,
       leadName: name,
-      leadEmail: email,
+      leadEmail: resolvedEmail.email,
       projectId: projectId || null,
       isAuto: true,
     }).catch((e) => console.error("createLead: lead email failed:", e));
@@ -255,6 +260,7 @@ export async function updateLeadStage(leadId: string, stageId: string) {
           id,
           name,
           email,
+          email_is_synthetic,
           phone,
           budget_max,
           project_id,
@@ -284,6 +290,7 @@ export async function updateLeadStage(leadId: string, stageId: string) {
             token: project.facebook_conversions_token,
             eventName: "Purchase",
             email: lead.email,
+            emailIsPlaceholder: lead.email_is_synthetic === true,
             phone: lead.phone,
             customData: {
               currency: "INR",
@@ -383,12 +390,20 @@ export async function bulkImportLeads(leads: any[]) {
   try {
     const CHUNK_SIZE = 500;
     for (let i = 0; i < leads.length; i += CHUNK_SIZE) {
-      const chunk = leads.slice(i, i + CHUNK_SIZE).map((l) => ({
-        ...l,
-        company_id: profile.company_id,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      }));
+      const chunk = leads.slice(i, i + CHUNK_SIZE).map((l) => {
+        // A portal CSV export carries the same masked relay addresses the
+        // webhook does, so the same swap applies here.
+        const resolved = resolveLeadEmail(l);
+        return {
+          ...l,
+          email: resolved.email,
+          email_is_synthetic: resolved.synthetic,
+          email_original: resolved.original,
+          company_id: profile.company_id,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+      });
 
       const { error } = await supabase.from("leads").insert(chunk);
       if (error) {

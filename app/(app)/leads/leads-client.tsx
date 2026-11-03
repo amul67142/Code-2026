@@ -316,6 +316,8 @@ export default function LeadsClient({
       "Lead Name": l.name,
       "Phone": l.phone || "",
       "Email": l.email || "",
+      "Email Is Placeholder": l.email_is_synthetic ? "Yes" : "",
+      "Portal Relay Email": l.email_original || "",
       "Stage": l.stage?.name || "",
       "Source": l.source || "",
       "Project": l.project?.name || "",
@@ -542,7 +544,18 @@ export default function LeadsClient({
                         </span>
                       )}
                       {lead.email && (
-                        <span className="flex items-center gap-1 text-muted-foreground">
+                        <span
+                          className={`flex items-center gap-1 text-muted-foreground${
+                            lead.email_is_synthetic
+                              ? " italic decoration-dotted underline-offset-2 [text-decoration-line:underline]"
+                              : ""
+                          }`}
+                          title={
+                            lead.email_is_synthetic
+                              ? `Placeholder — ${lead.source?.includes("99ACRES") ? "99acres" : "the portal"} sent ${lead.email_original || "a masked relay"} instead of a real address. Nothing reaches this inbox; use the phone number.`
+                              : undefined
+                          }
+                        >
                           <Mail className="h-3 w-3" />
                           {lead.email}
                         </span>

@@ -16,6 +16,14 @@ interface CAPIEventParams {
   token: string;
   eventName: "Lead" | "Contact" | "Purchase";
   email?: string | null;
+  /**
+   * True when `email` is a placeholder BigLead generated for a portal lead
+   * (leads.email_is_synthetic). It is never hashed or sent: Meta matches the
+   * hash against real accounts, so a made-up address either matches nothing
+   * or credits an unrelated person with the conversion. Pass the column — it
+   * cannot be inferred from the address, which looks entirely ordinary.
+   */
+  emailIsPlaceholder?: boolean;
   phone?: string | null;
   customData?: Record<string, any>;
   testEventCode?: string | null;
@@ -29,6 +37,7 @@ export async function sendFacebookCAPIEvent({
   token,
   eventName,
   email,
+  emailIsPlaceholder = false,
   phone,
   customData = {},
   testEventCode,
@@ -39,7 +48,8 @@ export async function sendFacebookCAPIEvent({
 
   // Hash user data to protect privacy (strictly required by Meta)
   const userData: Record<string, string> = {};
-  if (email) {
+  // The phone number is the real identifier for a portal lead and still goes.
+  if (email && !emailIsPlaceholder) {
     userData.em = sha256Hash(email);
   }
   if (phone) {

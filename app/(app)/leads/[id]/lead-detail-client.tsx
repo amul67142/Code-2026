@@ -259,6 +259,8 @@ export function LeadDetailClient({
             leadId={lead.id}
             name={lead.name}
             email={lead.email}
+            emailIsSynthetic={lead.email_is_synthetic === true}
+            emailOriginal={lead.email_original ?? null}
             phone={lead.phone}
             createdAt={lead.created_at}
             canEdit={
