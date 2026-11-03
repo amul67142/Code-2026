@@ -15,8 +15,6 @@ import { formatDistanceToNow } from "date-fns";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { getAiOverview } from "./actions";
-import { getCachedUserProfile } from "@/lib/auth/cached-user";
-import { getAccessFlags } from "@/lib/billing/state";
 
 export const metadata = {
   title: "AI Agent | Big Lead CRM",
@@ -27,13 +25,6 @@ export const dynamic = "force-dynamic";
 export default async function AiAgentOverviewPage() {
   const data = await getAiOverview();
   if (!data) redirect("/dashboard");
-
-  // The agent is a Basic-plan feature. Setup stays open on the trial so it is
-  // ready the moment they pay — but it must be obvious that it will not reply.
-  const profile = await getCachedUserProfile();
-  const planAllowsAgent = profile?.company_id
-    ? (await getAccessFlags(profile.company_id)).aiAgent
-    : false;
 
   const cfg = data.config;
   const statusBadge = !cfg
@@ -94,18 +85,6 @@ export default async function AiAgentOverviewPage() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      {!planAllowsAgent && (
-        <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          <AlertCircle className="mt-0.5 size-4 shrink-0" />
-          <p>
-            <strong>The AI agent is part of the Basic plan and does not reply during the free trial.</strong>{" "}
-            You can set it up now — it starts answering the moment you subscribe.{" "}
-            <Link href="/settings/billing" className="font-semibold underline underline-offset-2">
-              Choose a plan
-            </Link>
-          </p>
-        </div>
-      )}
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
