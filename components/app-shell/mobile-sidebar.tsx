@@ -139,7 +139,7 @@ export function MobileSidebar() {
         </div>
 
         {/* Navigation */}
-        <ScrollArea className="flex-1 py-2">
+        <ScrollArea className="flex-1 min-h-0 py-2">
           <nav className="flex flex-col gap-0.5 px-2">
             {visibleNav.map((item) => {
               const isActive =
