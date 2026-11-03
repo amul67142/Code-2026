@@ -8,7 +8,7 @@ import { headers } from "next/headers";
 
 import { getURL } from "@/lib/utils";
 import { sendWelcomeEmail } from "@/lib/email";
-import { hasActiveAccess } from "@/lib/billing/access";
+import { getAccessFlags } from "@/lib/billing/state";
 
 export async function login(formData: FormData) {
   const email = formData.get("email") as string;
@@ -69,12 +69,7 @@ export async function login(formData: FormData) {
 
   let hasPaid = false;
   if (userProfile?.company_id) {
-    const { data: sub } = await supabase
-      .from("subscriptions")
-      .select("status, current_period_end")
-      .eq("company_id", userProfile.company_id)
-      .maybeSingle();
-    hasPaid = hasActiveAccess(sub);
+    hasPaid = (await getAccessFlags(userProfile.company_id)).access;
   }
 
   const companyName = (userProfile?.companies as any)?.name;

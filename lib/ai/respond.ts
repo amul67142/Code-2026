@@ -16,6 +16,7 @@ import {
 } from "@/lib/integrations/whatsapp";
 import { getAgentConfig, loadAgentContext } from "./context";
 import { runAgentTurn } from "./agent";
+import { getAccessFlags } from "@/lib/billing/state";
 import { splitMessages, typingDelayMs, sleep } from "./humanize";
 
 export interface AiRespondInput {
@@ -39,6 +40,10 @@ export async function maybeAiRespond(input: AiRespondInput): Promise<void> {
     // Gate 0 — feature enabled for this company at all?
     const config = await getAgentConfig(input.companyId);
     if (!config?.enabled) return;
+
+    // Gate 0b — the plan includes it. Not on the free trial, and not on a
+    // locked workspace: a lapsed customer must not keep a bot answering.
+    if (!(await getAccessFlags(input.companyId)).aiAgent) return;
 
     // Gate 1 — conversation-level state.
     const { data: conv } = await admin

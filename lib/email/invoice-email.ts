@@ -200,7 +200,9 @@ export async function sendInvoiceEmail(params: SendInvoiceEmailParams) {
 
   return sendEmail({
     to: params.to,
-    subject: `Invoice ${params.invoiceNumber} for ${params.planName} Plan — BigLead CRM`,
+    // planName is a description now ("WhatsApp credits (500)"), not always a
+    // plan, so it is no longer suffixed with " Plan".
+    subject: `Invoice ${params.invoiceNumber} — ${params.planName} — BigLead CRM`,
     html,
   });
 }

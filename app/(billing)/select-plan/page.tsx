@@ -2,69 +2,80 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { SelectPlanClient } from "./select-plan-client";
-import { hasActiveAccess } from "@/lib/billing/access";
+import { getBillingState } from "@/lib/billing/state";
+import { reconcilePendingOrders } from "@/lib/billing/fulfil";
 
 export const metadata = {
   title: "Unlock Your Workspace — BigLead CRM",
-  description: "Select a plan to activate your account and start capturing real estate leads.",
+  description: "Start your free trial or choose a plan to activate your account.",
 };
+
+// Billing state behind auth cookies — never prerender.
+export const dynamic = "force-dynamic";
 
 export default async function SelectPlanPage() {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
 
-  if (!user) {
-    redirect("/login");
-  }
-
-  const adminClient = createAdminClient();
-
-  // 1. Fetch user profile
-  const { data: userProfile } = await adminClient
+  const admin = createAdminClient();
+  const { data: profile } = await admin
     .from("users")
-    .select("id, company_id, companies(name)")
+    .select("id, company_id, phone, companies(name)")
     .eq("auth_user_id", user.id)
     .maybeSingle();
 
-  // 2. Fetch subscription status (include current_period_end for cancelled grace period)
-  let hasPaid = false;
-  let isLapsed = false;
-  if (userProfile?.company_id) {
-    const { data: sub } = await adminClient
-      .from("subscriptions")
-      .select("status, current_period_end")
-      .eq("company_id", userProfile.company_id)
-      .maybeSingle();
-    hasPaid = hasActiveAccess(sub);
-    // ACTIVE-or-CANCELLED row whose period has lapsed → they HAD access before.
-    isLapsed = !!sub && !hasPaid;
+  let phase: string = "NONE";
+  let seatsUsed = 1;
+  let waitingLeads = 0;
+  let trialUsed = false;
+
+  if (profile?.company_id) {
+    // A payment whose confirmation never reached us is applied here, so
+    // "refresh this page" after a dropped connection actually works.
+    await reconcilePendingOrders(profile.company_id).catch(() => 0);
+
+    const state = await getBillingState(profile.company_id);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const companyName = (profile.companies as any)?.name;
+    const onboarded = !!companyName && companyName !== "Pending Onboarding";
+    if (state.access) redirect(onboarded ? "/dashboard" : "/onboarding");
+
+    phase = state.phase;
+    seatsUsed = Math.max(1, state.seatsUsed);
+    trialUsed = !!state.trialEndsAt;
+
+    // Leads that arrived while locked: the reason to pay today.
+    const lockedSince =
+      state.phase === "TRIAL_ENDED" ? state.trialEndsAt : state.phase === "LOCKED" ? state.periodEnd : null;
+    if (lockedSince) {
+      const { count } = await admin
+        .from("leads")
+        .select("id", { count: "exact", head: true })
+        .eq("company_id", profile.company_id)
+        .is("deleted_at", null)
+        .gte("created_at", lockedSince);
+      waitingLeads = count || 0;
+    }
   }
 
-  // 3. Fetch pricing plans
-  const { data: plans } = await adminClient
-    .from("pricing_plans")
-    .select("*")
-    .order("sort_order", { ascending: true });
-
-  const companyName = (userProfile?.companies as any)?.name;
-  const isOnboarded = !!userProfile && companyName && companyName !== "Pending Onboarding";
-
-  // If already paid and onboarded, go directly to dashboard
-  if (hasPaid && isOnboarded) {
-    redirect("/dashboard");
-  }
-
-  // If already paid but not onboarded, go to onboarding
-  if (hasPaid && !isOnboarded) {
-    redirect("/onboarding");
+  // One trial per phone number as well as per workspace.
+  const phone = String(user.user_metadata?.phone || profile?.phone || "").replace(/\D/g, "");
+  if (!trialUsed && phone.length >= 10) {
+    const { data: claim } = await admin.from("trial_claims").select("phone").eq("phone", phone).maybeSingle();
+    trialUsed = !!claim;
   }
 
   return (
     <div className="min-h-screen bg-[#fafafa] flex flex-col justify-between py-12 px-4 sm:px-6 lg:px-8">
       <SelectPlanClient
-        initialPlans={plans || []}
         userEmail={user.email || ""}
-        isLapsed={isLapsed}
+        phase={phase}
+        trialAvailable={!trialUsed}
+        seatsUsed={seatsUsed}
+        waitingLeads={waitingLeads}
       />
     </div>
   );

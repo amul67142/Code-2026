@@ -85,6 +85,45 @@ export const razorpayClient = {
   },
 
   /**
+   * A one-time order: a month of the plan, extra seats, or WhatsApp credits.
+   * Amount in whole rupees, GST-inclusive.
+   */
+  async createOrder(amountInr: number, receipt: string, notes: Record<string, string>) {
+    if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET) {
+      throw new Error("Missing RAZORPAY_KEY_ID or RAZORPAY_KEY_SECRET environment variables.");
+    }
+    return razorpay.orders.create({
+      amount: Math.round(amountInr * 100),
+      currency: "INR",
+      receipt: receipt.slice(0, 40),
+      notes,
+    });
+  },
+
+  /** The payments made against one order — used to find ones we never heard about. */
+  async fetchOrderPayments(orderId: string) {
+    const res = await razorpay.orders.fetchPayments(orderId);
+    return res.items || [];
+  },
+
+  /**
+   * Check the signature Razorpay Checkout hands the browser after a payment.
+   * This — not the webhook — is what activates a purchase, so a webhook that
+   * never arrives cannot leave a paying customer locked out. Uses the real
+   * secret only: the test fallback above must never validate a live payment.
+   */
+  verifyOrderPayment(orderId: string, paymentId: string, signature: string): boolean {
+    if (!RAZORPAY_KEY_SECRET || !orderId || !paymentId || !signature) return false;
+    const expected = crypto
+      .createHmac("sha256", RAZORPAY_KEY_SECRET)
+      .update(`${orderId}|${paymentId}`)
+      .digest("hex");
+    const a = Buffer.from(expected);
+    const b = Buffer.from(signature);
+    return a.length === b.length && crypto.timingSafeEqual(a, b);
+  },
+
+  /**
    * Securely validates incoming webhook payload signatures from Razorpay.
    */
   verifyWebhookSignature(rawBody: string, signature: string): boolean {

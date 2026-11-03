@@ -4,7 +4,42 @@ import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { getURL } from "@/lib/utils";
 import { sendInviteEmail } from "@/lib/email";
+import { getBillingState } from "@/lib/billing/state";
+import { EXTRA_SEAT_MONTHLY_INR, inr } from "@/lib/billing/plans";
 import { validateAgentAlert, type AgentAlertSettings, type AgentAlertRow } from "@/lib/team/agent-alert-settings";
+
+/**
+ * Null if one more seat-taking member fits, else the message to show. The
+ * member being invited or promoted is skipped when they already hold a seat,
+ * so a re-invite or an AGENT -> ADMIN change never trips the limit.
+ */
+async function seatAvailable(
+  admin: ReturnType<typeof createAdminClient>,
+  companyId: string,
+  who: { email?: string; userId?: string }
+): Promise<string | null> {
+  const state = await getBillingState(companyId);
+  if (state.isPlatform) return null;
+
+  let q = admin
+    .from("users")
+    .select("role, status")
+    .eq("company_id", companyId)
+    .is("deleted_at", null);
+  // Case-insensitive exact match: escape ilike's wildcards, since "_" is
+  // common in addresses and would otherwise match any character.
+  const exactEmail = (who.email || "").replace(/[\\%_]/g, "\\$&");
+  q = who.userId ? q.eq("id", who.userId) : q.ilike("email", exactEmail);
+  const { data: member } = await q.maybeSingle();
+  const holdsSeat =
+    !!member && member.role !== "READ_ONLY" && (member.status === "ACTIVE" || member.status === "INVITED");
+  if (holdsSeat) return null;
+
+  if (state.seatsUsed < state.seats) return null;
+  return state.phase === "TRIAL"
+    ? `The free trial includes ${state.seats} seats, and all are in use. Choose more seats when you pick your plan, or invite this person as Read Only.`
+    : `All ${state.seats} seats are in use. Add a seat in Settings → Billing (${inr(EXTRA_SEAT_MONTHLY_INR)}/month), or invite this person as Read Only.`;
+}
 
 export async function getTeamMembers() {
   const supabase = await createClient();
@@ -57,6 +92,13 @@ export async function inviteTeamMember(
   // Only Admins and Super Admins can invite
   if (profile.role !== "ADMIN" && profile.role !== "SUPER_ADMIN") {
     return { error: "Insufficient permissions to invite users" };
+  }
+
+  // Seats: everyone active or invited takes one, except READ_ONLY. Someone
+  // already holding a seat (a re-invite) does not take a second.
+  if (role !== "READ_ONLY") {
+    const seatError = await seatAvailable(adminClient, profile.company_id, { email });
+    if (seatError) return { error: seatError };
   }
 
   // Check the alert setup BEFORE the invite email goes out: a bad number
@@ -187,6 +229,11 @@ export async function updateUserRole(userId: string, newRole: string) {
 
   if (profile?.role !== "ADMIN" && profile?.role !== "SUPER_ADMIN") {
     return { error: "Insufficient permissions" };
+  }
+
+  if (newRole !== "READ_ONLY") {
+    const seatError = await seatAvailable(createAdminClient(), profile.company_id, { userId });
+    if (seatError) return { error: seatError };
   }
 
   const { error } = await supabase

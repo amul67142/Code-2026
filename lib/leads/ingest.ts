@@ -15,6 +15,7 @@ import { sendLeadWhatsApp } from "@/lib/automation/lead-whatsapp";
 import { autoSendNewLead } from "@/lib/crm/outbound";
 import { resolveLeadEmail } from "@/lib/leads/portal-email";
 import { sendAgentLeadAlert } from "@/lib/automation/agent-lead-alert";
+import { getAccessFlags } from "@/lib/billing/state";
 
 export type IngestSource =
   | "FACEBOOK_ADS"
@@ -70,6 +71,8 @@ export interface IngestInput {
 
 export interface IngestResult {
   leadId?: string;
+  /** Saved, but the workspace is locked: nothing else was done with it. */
+  locked?: boolean;
   skipped?: boolean;
   reason?: string;
   error?: string;
@@ -207,6 +210,16 @@ export async function ingestLead(input: IngestInput): Promise<IngestResult> {
       // Non-fatal — the lead exists; metadata is supplementary
       console.error("ingestLead: failed to insert lead_source_meta:", metaError);
     }
+  }
+
+  // ── 5b. Locked workspace: keep the lead, do nothing else ──
+  // A trial or plan that has run out locks the dashboard, but leads keep
+  // arriving from portals and ads that will never resend them. So the lead is
+  // stored (it is waiting when they pay) and everything that acts on it —
+  // assignment, messages to the lead, agent alerts, the CRM forward — stops,
+  // because the workspace is not paid for.
+  if (!(await getAccessFlags(companyId)).access) {
+    return { leadId: lead.id, locked: true };
   }
 
   // ── 6. Assignment ──

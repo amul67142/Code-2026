@@ -3,7 +3,8 @@ import { redirect } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCachedAuthUser } from "@/lib/auth/cached-user";
 import { UserProvider, type UserProfile } from "@/lib/user-context";
-import { hasActiveAccess } from "@/lib/billing/access";
+import { getAccessFlags, type AccessFlags } from "@/lib/billing/state";
+import { BillingNotice } from "@/components/app-shell/billing-notice";
 import { AutoLogout } from "@/components/auto-logout";
 
 export const metadata = {
@@ -35,15 +36,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     .eq("auth_user_id", user.id)
     .maybeSingle();
 
-  // Check subscription status (include current_period_end for cancelled grace period)
+  // Access: a running free trial counts, and the platform company is never
+  // locked. Same rule every other gate uses (lib/billing/state.ts).
   let hasPaid = false;
+  let notice: AccessFlags["notice"] = null;
   if (userProfile?.company_id) {
-    const { data: sub } = await adminClient
-      .from("subscriptions")
-      .select("status, current_period_end")
-      .eq("company_id", userProfile.company_id)
-      .maybeSingle();
-    hasPaid = hasActiveAccess(sub);
+    const flags = await getAccessFlags(userProfile.company_id);
+    hasPaid = flags.access;
+    notice = flags.notice;
   }
 
   const companyName = (userProfile?.companies as any)?.name;
@@ -90,6 +90,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         {/* Main content area */}
         <div className="flex flex-1 flex-col min-w-0">
           <Header />
+          {notice && <BillingNotice kind={notice.kind} endsAt={notice.endsAt} soon={notice.soon} />}
           <main className="flex-1 overflow-y-auto p-4 lg:p-6">{children}</main>
         </div>
       </div>

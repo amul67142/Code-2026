@@ -17,6 +17,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { decryptToken } from "@/lib/integrations/crypto";
 import { sendWhatsAppTemplate, normalizeWhatsAppNumber } from "@/lib/integrations/whatsapp";
+import { sendTemplateWithCredit } from "@/lib/billing/credits";
 import {
   fitAlertMapping,
   templateVariableCount,
@@ -212,13 +213,15 @@ export async function sendAgentLeadAlert(input: {
   };
 
   try {
-    const res = await sendWhatsAppTemplate(
-      conn.phone_number_id,
-      decryptToken(conn.access_token_enc),
-      to,
-      templateName,
-      language,
-      components
+    const res = await sendTemplateWithCredit(input.companyId, `Agent alert: ${templateName}`, () =>
+      sendWhatsAppTemplate(
+        conn.phone_number_id,
+        decryptToken(conn.access_token_enc),
+        to,
+        templateName,
+        language,
+        components
+      )
     );
     const providerId = res.messages?.[0]?.id;
 

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { processInboundWhatsApp } from "@/lib/leads/whatsapp-inbound";
 import { rateLimit } from "@/lib/rate-limit";
+import { settleCreditForMessage } from "@/lib/billing/credits";
 
 /**
  * WhatsApp Cloud API webhook.
@@ -139,6 +140,12 @@ export async function POST(req: NextRequest) {
               .update({ status: "FAILED", error_message: errMsg })
               .eq("provider_id", s.id)
               .eq("channel", "WHATSAPP");
+          }
+          // Settle the credit held for this template: delivered or read
+          // charges it, failed gives it back. A no-op for messages that were
+          // never charged (Live Chat replies, the platform's own sends).
+          if (s.status === "delivered" || s.status === "read" || s.status === "failed") {
+            await settleCreditForMessage(s.id, s.status);
           }
         } catch (e) {
           console.error("WA status handler error:", e);

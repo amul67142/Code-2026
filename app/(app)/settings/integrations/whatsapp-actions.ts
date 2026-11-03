@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { sendTemplateWithCredit } from "@/lib/billing/credits";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
 import { encryptToken, decryptToken } from "@/lib/integrations/crypto";
@@ -288,13 +289,15 @@ export async function sendTestWhatsApp(toPhone: string) {
   if (!conn || conn.status !== "ACTIVE") return { error: "Connect WhatsApp first" };
 
   try {
-    await sendWhatsAppTemplate(
-      conn.phone_number_id,
-      decryptToken(conn.access_token_enc),
-      normalizeWhatsAppNumber(toPhone),
-      conn.default_template || "hello_world",
-      conn.template_language || "en_US",
-      [] // hello_world has no variables
+    await sendTemplateWithCredit(profile.company_id, "Connection test", () =>
+      sendWhatsAppTemplate(
+        conn.phone_number_id,
+        decryptToken(conn.access_token_enc),
+        normalizeWhatsAppNumber(toPhone),
+        conn.default_template || "hello_world",
+        conn.template_language || "en_US",
+        [] // hello_world has no variables
+      )
     );
     return { success: true };
   } catch (err) {

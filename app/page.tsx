@@ -26,7 +26,6 @@ import {
 import { cn } from "@/lib/utils";
 import { motion } from "motion/react";
 import { LeadCaptureModal } from "@/components/LeadCaptureModal";
-import { PricingSection } from "@/components/PricingSection";
 import { Reveal } from "@/components/Reveal";
 import { SectionGradient } from "@/components/SectionGradient";
 import { SourcesFlow } from "@/components/SourcesFlow";
@@ -157,7 +156,6 @@ export default function HomePage() {
           )}>
             <a href="#pipeline" className={cn("transition-colors", isDark ? "hover:text-white" : "hover:text-gray-900")}>Pipeline</a>
             <a href="#features" className={cn("transition-colors", isDark ? "hover:text-white" : "hover:text-gray-900")}>Features</a>
-            <a href="#pricing"  className={cn("transition-colors", isDark ? "hover:text-white" : "hover:text-gray-900")}>Pricing</a>
           </nav>
 
           <div className="flex items-center gap-2">
@@ -767,28 +765,6 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* ── PRICING ── */}
-        <section id="pricing" className={cn(
-          "py-24 text-white relative overflow-hidden transition-colors duration-500",
-          isDark ? "bg-black" : "bg-gray-950"
-        )}>
-          {/* Radial gradient backing for pricing */}
-          <div className={cn(
-            "absolute top-0 left-1/4 w-[500px] h-[500px] rounded-full blur-[140px] pointer-events-none transition-all duration-700",
-            isDark ? "bg-zinc-950/20 opacity-20" : "bg-gray-900/30 opacity-100"
-          )} />
-          <div className={cn(
-            "absolute bottom-0 right-1/4 w-[500px] h-[500px] rounded-full blur-[140px] pointer-events-none transition-all duration-700",
-            isDark ? "bg-gray-950/20 opacity-20" : "bg-zinc-900/30 opacity-100"
-          )} />
-
-          <div className="container mx-auto px-4 max-w-6xl relative z-10">
-            <Reveal y={28}>
-              <PricingSection isDark={isDark} onCtaClick={() => setLeadModalOpen(true)} />
-            </Reveal>
-          </div>
-        </section>
-
         {/* ── BOTTOM CTA ── */}
         <section className={cn(
           "relative overflow-hidden py-24 border-t transition-colors duration-500",
@@ -820,18 +796,6 @@ export default function HomePage() {
                 >
                   Get Demo
                 </button>
-                <Link
-                  href="#pricing"
-                  className={cn(
-                    buttonVariants({ variant:"outline", size:"lg" }),
-                    "h-14 px-10 text-lg rounded-full transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0 shadow-sm",
-                    isDark
-                      ? "border-gray-800 bg-black hover:bg-zinc-900/60 text-gray-300 hover:text-white"
-                      : "border-gray-250 hover:bg-gray-50 text-gray-700"
-                  )}
-                >
-                  View Pricing
-                </Link>
               </div>
             </Reveal>
           </div>
@@ -867,7 +831,6 @@ export default function HomePage() {
                 title: "Product",   
                 links: [
                   { name: "Features", href: "#features" },
-                  { name: "Pricing", href: "#pricing" },
                   { name: "Integrations", href: "/integrations" },
                   { name: "Changelog", href: "/changelog" }
                 ] 

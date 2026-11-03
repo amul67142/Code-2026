@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { InsufficientCreditsError, sendTemplateWithCredit } from "@/lib/billing/credits";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCachedUserProfile } from "@/lib/auth/cached-user";
 import { decryptToken } from "@/lib/integrations/crypto";
@@ -137,6 +138,7 @@ export async function sendBulkWhatsApp(leadIds: string[]) {
   const companyName = company?.name || "Our Team";
 
   let sent = 0;
+  let outOfCredits = false;
   let failed = 0;
   let skipped = 0;
 
@@ -175,7 +177,9 @@ export async function sendBulkWhatsApp(leadIds: string[]) {
     }
 
     try {
-      const res = await sendWhatsAppTemplate(conn.phone_number_id, token, to, templateName, language, components);
+      const res = await sendTemplateWithCredit(profile.company_id, `Bulk: ${templateName}`, () =>
+        sendWhatsAppTemplate(conn.phone_number_id, token, to, templateName, language, components)
+      );
       sent++;
       await admin.from("message_log").insert({
         company_id: profile.company_id,
@@ -189,6 +193,12 @@ export async function sendBulkWhatsApp(leadIds: string[]) {
         is_auto: false,
       });
     } catch (err) {
+      // Nothing was sent and nothing will be: the rest of the batch would
+      // fail identically, so stop and say why.
+      if (err instanceof InsufficientCreditsError) {
+        outOfCredits = true;
+        break;
+      }
       failed++;
       await admin.from("message_log").insert({
         company_id: profile.company_id,
@@ -210,6 +220,7 @@ export async function sendBulkWhatsApp(leadIds: string[]) {
     sent,
     failed,
     skipped,
+    outOfCredits,
     remainingToday: Math.max(0, remaining - sent - failed),
   };
 }

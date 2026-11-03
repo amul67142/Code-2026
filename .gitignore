@@ -42,3 +42,6 @@ next-env.d.ts
 
 # Supabase CLI cache (never commit: it held one-off scripts with credentials)
 supabase/.temp/
+
+.vercel
+.env*

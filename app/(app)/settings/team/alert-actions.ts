@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getCachedUserProfile } from "@/lib/auth/cached-user";
 import { decryptToken } from "@/lib/integrations/crypto";
 import { sendWhatsAppTemplate } from "@/lib/integrations/whatsapp";
+import { sendTemplateWithCredit } from "@/lib/billing/credits";
 import {
   ALERT_FIELDS,
   STANDARD_ALERT_TEMPLATE,
@@ -197,13 +198,15 @@ export async function sendTestAgentAlert(userId: string) {
     : [];
 
   try {
-    await sendWhatsAppTemplate(
-      conn.phone_number_id,
-      decryptToken(conn.access_token_enc),
-      agent.phone,
-      agent.wa_notify_template,
-      language,
-      components
+    await sendTemplateWithCredit(guard.profile.company_id, "Test agent alert", () =>
+      sendWhatsAppTemplate(
+        conn.phone_number_id,
+        decryptToken(conn.access_token_enc),
+        agent.phone,
+        agent.wa_notify_template,
+        language,
+        components
+      )
     );
     return { success: true };
   } catch (err) {

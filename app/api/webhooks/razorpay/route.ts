@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { createAdminClient } from "@/lib/supabase/server";
 import { razorpayClient } from "@/lib/billing/razorpay";
 import { sendInvoiceEmail } from "@/lib/email/invoice-email";
+import { fulfilOrder } from "@/lib/billing/fulfil";
 
 // GET handler — health check verification
 export async function GET() {
@@ -199,6 +200,19 @@ export async function POST(request: Request) {
           })
           .eq("id", localSub.company_id);
 
+        break;
+      }
+
+      // One-time orders (plan month, seats, credits). The browser confirms
+      // these itself via /api/billing/verify; this is the backup for a
+      // browser that closed first. fulfilOrder runs each order exactly once.
+      case "order.paid": {
+        const orderId = data.order?.entity?.id;
+        const paymentId = data.payment?.entity?.id;
+        if (orderId && paymentId) {
+          const result = await fulfilOrder(orderId, paymentId);
+          console.log(`order.paid ${orderId}: ${result.status}`);
+        }
         break;
       }
 

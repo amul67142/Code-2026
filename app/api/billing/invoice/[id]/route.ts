@@ -43,7 +43,8 @@ export async function GET(
         billing_period_start,
         billing_period_end,
         company_id,
-        subscription_id
+        subscription_id,
+        description
       `)
       .eq("id", invoiceId)
       .single();
@@ -76,6 +77,10 @@ export async function GET(
         planName = (sub.pricing_plans as any).name + " Plan";
       }
     }
+
+    // What was bought. Invoices from one-time orders (a plan month, extra
+    // seats, WhatsApp credits) store it; older subscription invoices do not.
+    const lineItem = invoice.description || `${planName} — Monthly Subscription`;
 
     // 7. Format values
     const formattedAmount = new Intl.NumberFormat("en-IN", {
@@ -337,7 +342,7 @@ export async function GET(
           <div style="text-align: right;">Amount</div>
         </div>
         <div class="line-row">
-          <div class="desc">${planName} — Monthly Subscription</div>
+          <div class="desc">${lineItem}</div>
           <div class="qty">1</div>
           <div class="amt">${formattedAmount}</div>
         </div>

@@ -12,6 +12,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { decryptToken } from "@/lib/integrations/crypto";
 import { sendWhatsAppTemplate, normalizeWhatsAppNumber } from "@/lib/integrations/whatsapp";
 import { projectAllowsAutoMessaging } from "@/lib/automation/project-messaging";
+import { sendTemplateWithCredit } from "@/lib/billing/credits";
 
 export interface LeadWhatsAppInput {
   companyId: string;
@@ -132,13 +133,15 @@ export async function sendLeadWhatsApp(
   }
 
   try {
-    const res = await sendWhatsAppTemplate(
-      conn.phone_number_id,
-      decryptToken(conn.access_token_enc),
-      to,
-      templateName,
-      language,
-      components
+    const res = await sendTemplateWithCredit(input.companyId, `Welcome: ${templateName}`, () =>
+      sendWhatsAppTemplate(
+        conn.phone_number_id,
+        decryptToken(conn.access_token_enc),
+        to,
+        templateName,
+        language,
+        components
+      )
     );
     const providerId = res.messages?.[0]?.id;
 

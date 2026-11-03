@@ -9,6 +9,7 @@ export {
   sendStageChangeEmail,
   sendPasswordResetEmail,
   sendTrialExpiryEmail,
+  sendBillingReminderEmail,
   sendWeeklyReportEmail,
   getWelcomeEmailHtml,
   getInviteEmailHtml,
@@ -19,5 +20,6 @@ export {
   getStageChangeEmailHtml,
   getPasswordResetEmailHtml,
   getTrialExpiryEmailHtml,
+  getBillingReminderEmailHtml,
   getWeeklyReportEmailHtml,
 } from "./templates";

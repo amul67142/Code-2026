@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { hasActiveAccess } from "@/lib/billing/access";
+import { getAccessFlags } from "@/lib/billing/state";
 import OnboardingClient from "./onboarding-client";
 
 export const metadata = {
@@ -31,14 +31,11 @@ export default async function OnboardingPage() {
     .eq("auth_user_id", user.id)
     .maybeSingle();
 
+  // Same rule as the app layout and the lock screen. They must agree, or a
+  // trial user bounces between /onboarding and /select-plan forever.
   let hasPaid = false;
   if (userProfile?.company_id) {
-    const { data: sub } = await admin
-      .from("subscriptions")
-      .select("status, current_period_end")
-      .eq("company_id", userProfile.company_id)
-      .maybeSingle();
-    hasPaid = hasActiveAccess(sub);
+    hasPaid = (await getAccessFlags(userProfile.company_id)).access;
   }
   if (!hasPaid) redirect("/select-plan");
 

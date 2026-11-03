@@ -253,3 +253,25 @@ export async function sendWeeklyReportEmail(to: string, name: string, stats: { t
     html: getWeeklyReportEmailHtml(name, stats),
   });
 }
+
+// ── Billing reminder (trial ending / ended, renewal due) ─────────
+// One template for all four reminders: the headline and line carry the
+// difference, so the wording stays in lib/billing/reminders.ts beside the
+// WhatsApp text it mirrors.
+export function getBillingReminderEmailHtml(name: string, headline: string, line: string, payUrl: string) {
+  return layout(`
+    <h1>${headline}</h1>
+    <p>Hi ${name},</p>
+    <p>${line}</p>
+    <p style="text-align:center; margin-top:24px"><a href="${payUrl}" class="btn">Pay now →</a></p>
+    <p class="meta" style="margin-top:16px">Prices include GST. Questions? Just reply to this email.</p>
+  `);
+}
+
+export async function sendBillingReminderEmail(to: string, name: string, headline: string, line: string, payUrl: string) {
+  return sendEmail({
+    to,
+    subject: `${headline} — Big Lead CRM`,
+    html: getBillingReminderEmailHtml(name, headline, line, payUrl),
+  });
+}
