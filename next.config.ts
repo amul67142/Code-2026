@@ -8,6 +8,18 @@ const nextConfig: NextConfig = {
     },
   },
 
+  /**
+   * /pricing showed the old plans. Pricing now lives only behind signup
+   * (select-plan), so send old links home. Browsers and crawlers still ask
+   * for /favicon.ico even though the page links app/icon.png.
+   */
+  async redirects() {
+    return [
+      { source: "/pricing", destination: "/", permanent: false },
+      { source: "/favicon.ico", destination: "/icon.png", permanent: true },
+    ];
+  },
+
   /** Security headers applied to all routes */
   async headers() {
     return [
