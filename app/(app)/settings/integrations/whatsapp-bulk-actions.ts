@@ -29,6 +29,7 @@ export async function getWhatsAppMessageLog(filter?: "SENT" | "FAILED" | "INBOUN
     .select("id, direction, to_address, subject, status, error_message, is_auto, created_at, leads(id, name)")
     .eq("company_id", profile.company_id)
     .eq("channel", "WHATSAPP")
+    .eq("recipient_type", "LEAD")
     .order("created_at", { ascending: false })
     .limit(200);
 
@@ -113,10 +114,15 @@ export async function sendBulkWhatsApp(leadIds: string[]) {
   // Template extras (image header / variable presence).
   const { data: tplRow } = await admin
     .from("whatsapp_templates")
-    .select("header_image_url, body_text")
+    .select("header_image_url, body_text, purpose")
     .eq("company_id", profile.company_id)
     .eq("name", templateName)
     .maybeSingle();
+  // A bulk blast of an agent alert would send "new lead assigned to you" to
+  // every selected customer. Refuse before a single message goes out.
+  if (tplRow?.purpose === "AGENT_LEAD_ALERT") {
+    return { error: "Your welcome template is set to an agent alert. Choose a lead welcome template first." };
+  }
 
   // Company + leads (with project names for variables).
   const [{ data: company }, { data: leads }] = await Promise.all([

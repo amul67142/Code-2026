@@ -15,6 +15,15 @@ function isAdmin(role?: string) {
   return role === "ADMIN" || role === "SUPER_ADMIN";
 }
 
+/**
+ * Who a template is written for (migration 027). A lead welcome and an alert
+ * to our own agent read nothing alike, and picking the wrong one either tells
+ * a customer "new lead assigned to you" or tells an agent "thanks for your
+ * interest". The purpose is what keeps the pickers apart.
+ */
+export type TemplatePurpose = "LEAD_WELCOME" | "AGENT_LEAD_ALERT" | "OTHER";
+const PURPOSES: TemplatePurpose[] = ["LEAD_WELCOME", "AGENT_LEAD_ALERT", "OTHER"];
+
 /** Compute the sync cooldown: first re-sync after 60s, then 300s (anti-spam). */
 function cooldownFor(count: number): number {
   if (count < 1) return 0;
@@ -38,7 +47,7 @@ export async function getWhatsAppTemplates() {
   const [{ data: templates }, { data: conn }] = await Promise.all([
     admin
       .from("whatsapp_templates")
-      .select("id, name, language, category, body_text, status, rejection_reason, created_at")
+      .select("id, name, language, category, body_text, status, rejection_reason, purpose, created_at")
       .eq("company_id", profile.company_id)
       .order("created_at", { ascending: false }),
     admin
@@ -69,6 +78,7 @@ export async function createWhatsAppTemplate(input: {
   /** From uploadTemplateHeaderImage — public URL (send time) + Meta handle (create time). */
   headerImageUrl?: string;
   headerImageHandle?: string;
+  purpose?: TemplatePurpose;
 }) {
   const profile = await getCachedUserProfile();
   if (!profile?.company_id) return { error: "Unauthorized" };
@@ -157,6 +167,9 @@ export async function createWhatsAppTemplate(input: {
       header_image_url: input.headerImageUrl || null,
       status: metaStatus,
       meta_template_id: metaId || null,
+      purpose: PURPOSES.includes(input.purpose as TemplatePurpose)
+        ? input.purpose
+        : "LEAD_WELCOME",
       created_by_id: profile.id,
       updated_at: new Date().toISOString(),
     },
@@ -238,13 +251,16 @@ export async function setWelcomeTemplate(name: string, language: string) {
   // Only allow using an APPROVED template.
   const { data: tpl } = await admin
     .from("whatsapp_templates")
-    .select("status")
+    .select("status, purpose")
     .eq("company_id", profile.company_id)
     .eq("name", name)
     .eq("language", language)
     .maybeSingle();
   if (!tpl) return { error: "Template not found." };
   if (tpl.status !== "APPROVED") return { error: "Only approved templates can be used." };
+  if (tpl.purpose === "AGENT_LEAD_ALERT") {
+    return { error: "That is an agent alert template — it would be sent to your customers. Pick a lead welcome template." };
+  }
 
   const { error } = await admin
     .from("whatsapp_connections")
@@ -253,5 +269,48 @@ export async function setWelcomeTemplate(name: string, language: string) {
   if (error) return { error: "Failed to set welcome template." };
 
   revalidatePath("/settings/integrations");
+  return { success: true };
+}
+
+// ── Retag who a template is for ─────────────────────────────────
+// Templates found by Sync (created directly in Meta) arrive as LEAD_WELCOME;
+// this is how one gets moved into the agent alert group.
+export async function setTemplatePurpose(templateId: string, purpose: TemplatePurpose) {
+  const profile = await getCachedUserProfile();
+  if (!profile?.company_id) return { error: "Unauthorized" };
+  if (!isAdmin(profile.role)) return { error: "Admin access required" };
+  if (!PURPOSES.includes(purpose)) return { error: "Unknown template group." };
+
+  const admin = createAdminClient();
+  const { data: tpl } = await admin
+    .from("whatsapp_templates")
+    .select("name, language")
+    .eq("id", templateId)
+    .eq("company_id", profile.company_id)
+    .maybeSingle();
+  if (!tpl) return { error: "Template not found." };
+
+  // Moving the live welcome template out of the welcome group would leave
+  // every new lead greeted with an agent alert. Make them pick another first.
+  if (purpose !== "LEAD_WELCOME") {
+    const { data: conn } = await admin
+      .from("whatsapp_connections")
+      .select("default_template, template_language")
+      .eq("company_id", profile.company_id)
+      .maybeSingle();
+    if (conn?.default_template === tpl.name && (conn?.template_language || "en_US") === tpl.language) {
+      return { error: "This is your current welcome message. Choose a different welcome template first." };
+    }
+  }
+
+  const { error } = await admin
+    .from("whatsapp_templates")
+    .update({ purpose, updated_at: new Date().toISOString() })
+    .eq("id", templateId)
+    .eq("company_id", profile.company_id);
+  if (error) return { error: "Could not update the template." };
+
+  revalidatePath("/settings/whatsapp-templates");
+  revalidatePath("/settings/team");
   return { success: true };
 }

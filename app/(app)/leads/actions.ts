@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { sendFacebookCAPIEvent } from "@/lib/integrations/facebook-capi";
 import { sendLeadAcknowledgmentEmail } from "@/lib/automation/lead-email";
 import { resolveLeadEmail } from "@/lib/leads/portal-email";
+import { sendAgentLeadAlert } from "@/lib/automation/agent-lead-alert";
 import { sendLeadWhatsApp } from "@/lib/automation/lead-whatsapp";
 // Request-deduped auth: layout + all page actions share ONE auth round-trip.
 import { getCachedUserProfile as getUserProfile } from "@/lib/auth/cached-user";
@@ -181,6 +182,13 @@ export async function createLead(formData: FormData) {
       actorUserId: profile.id,
       leadName: name,
     });
+    if (finalAssignee !== profile.id) {
+      await sendAgentLeadAlert({
+        companyId: profile.company_id,
+        leadId: newLead.id,
+        agentUserId: finalAssignee,
+      }).catch((e) => console.error("createLead: agent alert failed:", e));
+    }
   }
 
   // Automation: acknowledge the lead via email + WhatsApp (best-effort)
@@ -326,6 +334,15 @@ export async function updateLeadAssignment(leadId: string, assignedToId: string 
   const profile = await getUserProfile();
   if (!profile) return { error: "Unauthorized" };
 
+  // Read the current owner first: re-saving the same assignee must not send a
+  // second (billable) WhatsApp alert.
+  const { data: before } = await supabase
+    .from("leads")
+    .select("assigned_to_id")
+    .eq("id", leadId)
+    .eq("company_id", profile.company_id)
+    .maybeSingle();
+
   const { error } = await supabase
     .from("leads")
     .update({ assigned_to_id: assignedToId, updated_at: new Date().toISOString() })
@@ -357,6 +374,15 @@ export async function updateLeadAssignment(leadId: string, assignedToId: string 
       actorUserId: profile.id,
       leadName,
     });
+
+    // Taking a lead yourself needs no alert; neither does an unchanged owner.
+    if (assignedToId !== profile.id && assignedToId !== before?.assigned_to_id) {
+      await sendAgentLeadAlert({
+        companyId: profile.company_id,
+        leadId,
+        agentUserId: assignedToId,
+      }).catch((e) => console.error("updateLeadAssignment: agent alert failed:", e));
+    }
 
     // Log activity on the lead
     const { error: actError } = await supabase.from("activities").insert({

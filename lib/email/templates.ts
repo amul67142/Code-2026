@@ -53,7 +53,7 @@ export function getInviteEmailHtml(inviterName: string, companyName: string, inv
     <p><strong>${inviterName}</strong> has invited you to join <strong>${companyName}</strong> on Big Lead CRM.</p>
     <p>Click the button below to accept the invitation and set up your account:</p>
     <p style="margin-top:24px; text-align:center"><a href="${inviteUrl}" class="btn">Accept Invite →</a></p>
-    <p class="meta" style="margin-top:16px">This invite link will expire in 7 days.</p>
+    <p class="meta" style="margin-top:16px">The link works once and expires after a while. If it has, ask ${inviterName} to send the invite again.</p>
   `);
 }
 

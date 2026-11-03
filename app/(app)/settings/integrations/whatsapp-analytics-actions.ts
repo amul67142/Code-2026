@@ -55,6 +55,9 @@ export async function getWhatsAppAnalytics(): Promise<WhatsAppAnalytics> {
       .select("id", { count: "exact", head: true })
       .eq("company_id", profile.company_id)
       .eq("channel", "WHATSAPP")
+      // Outreach analytics: agent alerts would inflate "sent" with messages
+      // that never went to a customer.
+      .eq("recipient_type", "LEAD")
       .gte("created_at", since);
 
   // Counts from our own message log (last 30 days).

@@ -9,7 +9,16 @@ export const metadata = {
   title: "New WhatsApp Template | Big Lead CRM",
 };
 
-export default async function NewWhatsAppTemplatePage() {
+export default async function NewWhatsAppTemplatePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ purpose?: string }>;
+}) {
+  const { purpose } = await searchParams;
+  // Arriving from the Team page's "Write my own" lands on the agent alert form.
+  const initialPurpose =
+    purpose === "AGENT_LEAD_ALERT" || purpose === "OTHER" ? purpose : "LEAD_WELCOME";
+
   const [conn, profile] = await Promise.all([
     getWhatsAppConnection(),
     getCachedUserProfile(),
@@ -51,7 +60,7 @@ export default async function NewWhatsAppTemplatePage() {
           </Link>
         </div>
       ) : (
-        <TemplateCreateClient companyName={companyName} />
+        <TemplateCreateClient companyName={companyName} initialPurpose={initialPurpose} />
       )}
     </div>
   );

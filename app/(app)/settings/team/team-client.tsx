@@ -2,6 +2,14 @@
 
 import { useState } from "react";
 import { inviteTeamMember, updateUserRole, removeUser } from "./actions";
+import { saveAgentAlert, sendTestAgentAlert } from "./alert-actions";
+import {
+  AgentAlertFields,
+  alertSettingsFromMember,
+  emptyAlertSettings,
+  type AlertSetup,
+} from "./agent-alert-fields";
+import type { AgentAlertSettings } from "@/lib/team/agent-alert-settings";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -31,8 +39,23 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Mail, Shield, User, UserX, Loader2 } from "lucide-react";
+import { Mail, Shield, User, UserX, Loader2, MessageCircle, Pencil, Send } from "lucide-react";
 import { format } from "date-fns";
+
+/** The columns this page reads off a users row. */
+interface TeamMember {
+  id: string;
+  name: string | null;
+  email: string;
+  role: string;
+  status: string;
+  last_login_at: string | null;
+  phone?: string | null;
+  wa_notify_enabled?: boolean;
+  wa_notify_template?: string | null;
+  wa_notify_template_language?: string | null;
+  wa_notify_variables?: string[] | null;
+}
 
 const ROLES = [
   { value: "SUPER_ADMIN", label: "Super Admin" },
@@ -42,12 +65,27 @@ const ROLES = [
   { value: "READ_ONLY", label: "Read Only" },
 ];
 
-export default function TeamClient({ initialTeam, currentRole }: { initialTeam: any[], currentRole: string }) {
+export default function TeamClient({
+  initialTeam,
+  currentRole,
+  initialAlertSetup,
+}: {
+  initialTeam: any[];
+  currentRole: string;
+  initialAlertSetup: AlertSetup;
+}) {
   const [team, setTeam] = useState(initialTeam);
   const [isInviting, setIsInviting] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState("AGENT");
+  const [inviteAlert, setInviteAlert] = useState<AgentAlertSettings>(emptyAlertSettings());
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [alertSetup, setAlertSetup] = useState<AlertSetup>(initialAlertSetup);
+  // Editing alerts for an existing member.
+  const [editing, setEditing] = useState<TeamMember | null>(null);
+  const [editAlert, setEditAlert] = useState<AgentAlertSettings>(emptyAlertSettings());
+  const [savingAlert, setSavingAlert] = useState(false);
+  const [testingAlert, setTestingAlert] = useState(false);
   const isAdmin = currentRole === "ADMIN" || currentRole === "SUPER_ADMIN";
 
   async function handleInvite(e: React.FormEvent) {
@@ -56,7 +94,11 @@ export default function TeamClient({ initialTeam, currentRole }: { initialTeam: 
 
     setIsInviting(true);
     try {
-      const res = await inviteTeamMember(inviteEmail, inviteRole);
+      // Only send alert settings when something was actually set — a blank
+      // form must not wipe a returning member's saved number.
+      const alert =
+        inviteAlert.enabled || inviteAlert.phone.trim() ? inviteAlert : undefined;
+      const res = await inviteTeamMember(inviteEmail, inviteRole, alert);
       if (res.error) {
         toast.error(res.error);
       } else {
@@ -64,8 +106,9 @@ export default function TeamClient({ initialTeam, currentRole }: { initialTeam: 
         setDialogOpen(false);
         setInviteEmail("");
         setInviteRole("AGENT");
+        setInviteAlert(emptyAlertSettings());
         // Opt: Refresh data (will happen on navigation/focus via NextJS cache, but we can optimistically add)
-        window.location.reload(); 
+        window.location.reload();
       }
     } catch (err: any) {
       toast.error(err.message);
@@ -86,7 +129,7 @@ export default function TeamClient({ initialTeam, currentRole }: { initialTeam: 
 
   async function handleRemove(userId: string) {
     if (!confirm("Are you sure you want to deactivate this user?")) return;
-    
+
     const res = await removeUser(userId);
     if (res.error) {
       toast.error(res.error);
@@ -94,6 +137,60 @@ export default function TeamClient({ initialTeam, currentRole }: { initialTeam: 
       toast.success("User deactivated.");
       setTeam(team.filter(t => t.id !== userId));
     }
+  }
+
+  function openAlertEditor(member: TeamMember) {
+    setEditing(member);
+    setEditAlert(alertSettingsFromMember(member));
+  }
+
+  /** Save, and reflect the stored values in the table. Returns true on success. */
+  async function persistAlert(): Promise<boolean> {
+    if (!editing) return false;
+    setSavingAlert(true);
+    const res = await saveAgentAlert(editing.id, editAlert);
+    setSavingAlert(false);
+    if ("error" in res && res.error) {
+      toast.error(res.error);
+      return false;
+    }
+    if ("row" in res && res.row) {
+      const row = res.row;
+      setTeam((prev) => prev.map((t) => (t.id === editing.id ? { ...t, ...row } : t)));
+      setEditing((prev) => (prev ? { ...prev, ...row } : prev));
+    }
+    return true;
+  }
+
+  async function handleSaveAlert() {
+    if (await persistAlert()) {
+      toast.success(editAlert.enabled ? "WhatsApp alerts saved." : "WhatsApp alerts turned off.");
+      setEditing(null);
+    }
+  }
+
+  // Test what is on screen, not what was last saved.
+  async function handleTestAlert() {
+    if (!editing) return;
+    if (!(await persistAlert())) return;
+    setTestingAlert(true);
+    const res = await sendTestAgentAlert(editing.id);
+    setTestingAlert(false);
+    if ("error" in res && res.error) toast.error(res.error);
+    else toast.success(`Test alert sent to ${editAlert.phone}. Check their WhatsApp.`);
+  }
+
+  /** One-word state for the table, so a misconfigured agent is visible at a glance. */
+  function alertState(member: TeamMember): { label: string; tone: string } {
+    if (!member.wa_notify_enabled) return { label: "Off", tone: "text-muted-foreground" };
+    const tpl = alertSetup.templates.find(
+      (t) =>
+        t.name === member.wa_notify_template &&
+        t.language === (member.wa_notify_template_language || "en_US")
+    );
+    if (!tpl) return { label: "Template missing", tone: "text-red-600" };
+    if (tpl.status !== "APPROVED") return { label: "Waiting for Meta", tone: "text-amber-600" };
+    return { label: "On", tone: "text-emerald-600" };
   }
 
   return (
@@ -105,14 +202,14 @@ export default function TeamClient({ initialTeam, currentRole }: { initialTeam: 
             Manage your team, invite agents, and configure access levels.
           </p>
         </div>
-        
+
         {isAdmin && (
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger render={<Button />}>
               <Mail className="mr-2 h-4 w-4" />
               Invite Member
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Invite Team Member</DialogTitle>
                 <DialogDescription>
@@ -122,9 +219,9 @@ export default function TeamClient({ initialTeam, currentRole }: { initialTeam: 
               <form onSubmit={handleInvite} className="space-y-4 pt-4">
                 <div className="space-y-2">
                   <Label>Email Address</Label>
-                  <Input 
-                    type="email" 
-                    placeholder="agent@biglead.site" 
+                  <Input
+                    type="email"
+                    placeholder="agent@biglead.site"
                     value={inviteEmail}
                     onChange={(e) => setInviteEmail(e.target.value)}
                     required
@@ -145,6 +242,13 @@ export default function TeamClient({ initialTeam, currentRole }: { initialTeam: 
                     </SelectContent>
                   </Select>
                 </div>
+                <AgentAlertFields
+                  value={inviteAlert}
+                  onChange={setInviteAlert}
+                  setup={alertSetup}
+                  onSetupChange={setAlertSetup}
+                  disabled={isInviting}
+                />
                 <DialogFooter>
                   <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
                     Cancel
@@ -167,12 +271,15 @@ export default function TeamClient({ initialTeam, currentRole }: { initialTeam: 
               <TableHead>User</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Role</TableHead>
+              <TableHead>WhatsApp alerts</TableHead>
               <TableHead>Last Login</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {team.filter(t => t.status !== "INACTIVE").map((member) => (
+            {team.filter(t => t.status !== "INACTIVE").map((member) => {
+              const state = alertState(member);
+              return (
               <TableRow key={member.id}>
                 <TableCell>
                   <div className="flex items-center gap-3">
@@ -192,8 +299,8 @@ export default function TeamClient({ initialTeam, currentRole }: { initialTeam: 
                 </TableCell>
                 <TableCell>
                   {isAdmin ? (
-                    <Select 
-                      value={member.role} 
+                    <Select
+                      value={member.role}
                       onValueChange={(val) => val && handleRoleChange(member.id, val)}
                     >
                       <SelectTrigger className="h-8 w-[130px] text-xs">
@@ -214,14 +321,30 @@ export default function TeamClient({ initialTeam, currentRole }: { initialTeam: 
                     </Badge>
                   )}
                 </TableCell>
+                <TableCell>
+                  <div className="flex items-center gap-1.5">
+                    <MessageCircle className={`h-3.5 w-3.5 ${state.tone}`} />
+                    <span className={`text-xs font-medium ${state.tone}`}>{state.label}</span>
+                    {isAdmin && (
+                      <button
+                        onClick={() => openAlertEditor(member)}
+                        className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                        aria-label={`WhatsApp alerts for ${member.name || member.email}`}
+                        title="WhatsApp alerts"
+                      >
+                        <Pencil className="h-3 w-3" />
+                      </button>
+                    )}
+                  </div>
+                </TableCell>
                 <TableCell className="text-sm text-muted-foreground">
                   {member.last_login_at ? format(new Date(member.last_login_at), "MMM d, yyyy") : "Never"}
                 </TableCell>
                 <TableCell className="text-right">
                   {isAdmin && currentRole !== member.role && (
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
+                    <Button
+                      variant="ghost"
+                      size="icon"
                       className="text-red-500 hover:text-red-600 hover:bg-red-50"
                       onClick={() => handleRemove(member.id)}
                     >
@@ -230,10 +353,11 @@ export default function TeamClient({ initialTeam, currentRole }: { initialTeam: 
                   )}
                 </TableCell>
               </TableRow>
-            ))}
+              );
+            })}
             {team.filter(t => t.status !== "INACTIVE").length === 0 && (
               <TableRow>
-                <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
+                <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
                   No team members found.
                 </TableCell>
               </TableRow>
@@ -241,6 +365,49 @@ export default function TeamClient({ initialTeam, currentRole }: { initialTeam: 
           </TableBody>
         </Table>
       </div>
+
+      {/* ── WhatsApp alerts for an existing member ── */}
+      <Dialog open={!!editing} onOpenChange={(open) => !open && setEditing(null)}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>WhatsApp lead alerts</DialogTitle>
+            <DialogDescription>
+              {editing?.name || editing?.email} — alerted whenever a lead is assigned to them.
+            </DialogDescription>
+          </DialogHeader>
+          <AgentAlertFields
+            value={editAlert}
+            onChange={setEditAlert}
+            setup={alertSetup}
+            onSetupChange={setAlertSetup}
+            disabled={savingAlert || testingAlert}
+          />
+          <DialogFooter className="gap-2 sm:justify-between">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleTestAlert}
+              disabled={!editAlert.enabled || savingAlert || testingAlert}
+            >
+              {testingAlert ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Send className="mr-2 h-4 w-4" />
+              )}
+              Save &amp; send test
+            </Button>
+            <div className="flex gap-2">
+              <Button type="button" variant="outline" onClick={() => setEditing(null)}>
+                Cancel
+              </Button>
+              <Button type="button" onClick={handleSaveAlert} disabled={savingAlert || testingAlert}>
+                {savingAlert ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                Save
+              </Button>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

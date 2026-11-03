@@ -3,6 +3,8 @@
 import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { getURL } from "@/lib/utils";
+import { sendInviteEmail } from "@/lib/email";
+import { validateAgentAlert, type AgentAlertSettings, type AgentAlertRow } from "@/lib/team/agent-alert-settings";
 
 export async function getTeamMembers() {
   const supabase = await createClient();
@@ -32,7 +34,12 @@ export async function getTeamMembers() {
   return { team, currentRole: profile.role };
 }
 
-export async function inviteTeamMember(email: string, role: string) {
+export async function inviteTeamMember(
+  email: string,
+  role: string,
+  /** Optional WhatsApp lead alerts, set up in the same dialog. */
+  alert?: AgentAlertSettings
+) {
   const supabase = await createClient();
   const adminClient = createAdminClient();
 
@@ -52,56 +59,55 @@ export async function inviteTeamMember(email: string, role: string) {
     return { error: "Insufficient permissions to invite users" };
   }
 
+  // Check the alert setup BEFORE the invite email goes out: a bad number
+  // should be fixed in the dialog, not discovered after the person is invited.
+  let alertRow: AgentAlertRow | null = null;
+  if (alert) {
+    const checked = await validateAgentAlert(adminClient, profile.company_id, alert);
+    if ("error" in checked) return { error: checked.error };
+    alertRow = checked.row;
+  }
+
   const redirectUrl = `${getURL()}/invite`;
 
-  // Check if user already exists in Supabase Auth (e.g. previously removed and re-invited)
-  const { data: existingUsers } = await adminClient.auth.admin.listUsers();
-  const existingAuthUser = existingUsers?.users?.find(
-    (u: any) => u.email?.toLowerCase() === email.toLowerCase()
-  );
-
-  let authUserId: string;
-
-  if (existingAuthUser) {
-    // User already exists in Auth — just re-send the invite email
-    authUserId = existingAuthUser.id;
-
-    // Generate a new invite link by using the admin generateLink method
-    const { error: linkError } = await adminClient.auth.admin.generateLink({
-      type: "invite",
-      email: email,
-      options: {
-        redirectTo: redirectUrl,
-        data: { role },
-      },
-    });
-
-    if (linkError) {
-      console.error("Re-invite link error:", linkError);
-      // Fallback: try sending a magic link instead
-      const { error: magicError } = await adminClient.auth.admin.inviteUserByEmail(email, {
-        data: { role },
-        redirectTo: redirectUrl,
-      });
-      if (magicError) {
-        // If it's "already registered", we can still reactivate the profile
-        console.error("Magic link fallback error:", magicError);
-      }
-    }
-  } else {
-    // Fresh invite — user doesn't exist in Auth at all
-    const { data: authUser, error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(email, {
-      data: { role },
-      redirectTo: redirectUrl,
-    });
-
-    if (inviteError) {
-      console.error("Invite Error:", inviteError);
-      return { error: inviteError.message || "Failed to send invitation email." };
-    }
-
-    authUserId = authUser.user.id;
+  // Make the sign-in link ourselves and send it through Resend, the same way
+  // forgot-password does. Two reasons not to let Supabase send it:
+  //  - Supabase refuses to invite an address that already has a confirmed
+  //    login (email_exists). This used to be logged and swallowed, and the
+  //    admin was told "invitation sent" when nothing had gone out.
+  //  - Its built-in mailer is rate-limited to a handful of emails an hour and
+  //    meant for testing, so invites to a new team would quietly stop arriving.
+  //
+  // An address with no account (or an invite never accepted) gets an invite
+  // link. One that already has a login gets a recovery link instead, which
+  // Supabase does allow — and lands them on the same "set your password"
+  // page. Trying the invite first and reading the error also replaces a
+  // listUsers() lookup that only ever saw the first 50 accounts.
+  const linkOptions = { redirectTo: redirectUrl };
+  let linkType: "invite" | "recovery" = "invite";
+  let { data: link, error: linkError } = await adminClient.auth.admin.generateLink({
+    type: "invite",
+    email,
+    options: { ...linkOptions, data: { role } },
+  });
+  if (linkError?.code === "email_exists") {
+    linkType = "recovery";
+    ({ data: link, error: linkError } = await adminClient.auth.admin.generateLink({
+      type: "recovery",
+      email,
+      options: linkOptions,
+    }));
   }
+
+  const hashedToken = link?.properties?.hashed_token;
+  if (linkError || !link?.user || !hashedToken) {
+    console.error("Invite link error:", linkError);
+    return { error: linkError?.message || "Could not create an invite link." };
+  }
+  const authUserId = link.user.id;
+  // Through our own verifier, so the session is set server-side, then on to
+  // /invite, which asks for a password and activates the profile.
+  const acceptUrl = `${getURL()}/auth/confirm?token_hash=${hashedToken}&type=${linkType}&next=/invite`;
 
   // Check if profile already exists in our users table (could be a soft-deleted one)
   const { data: existingProfile } = await adminClient
@@ -119,6 +125,7 @@ export async function inviteTeamMember(email: string, role: string) {
         status: "INVITED",
         role: role,
         deleted_at: null,
+        ...(alertRow || {}),
       })
       .eq("id", existingProfile.id);
   } else {
@@ -132,12 +139,34 @@ export async function inviteTeamMember(email: string, role: string) {
         name: email.split("@")[0],
         role: role,
         status: "INVITED",
+        ...(alertRow || {}),
       });
 
     if (profileError) {
       console.error("Profile creation error:", profileError);
       return { error: "User profile could not be created or already exists." };
     }
+  }
+
+  // Send only once the profile exists: /invite looks it up, so an email sent
+  // first could land the person on "profile not found".
+  const [{ data: company }, { data: inviter }] = await Promise.all([
+    adminClient.from("companies").select("name").eq("id", profile.company_id).maybeSingle(),
+    adminClient.from("users").select("name").eq("auth_user_id", user.id).maybeSingle(),
+  ]);
+  const sent = await sendInviteEmail(
+    email,
+    inviter?.name || "Your admin",
+    company?.name || "your team",
+    acceptUrl
+  );
+  if (!sent.success) {
+    console.error("Invite email failed:", sent.error);
+    revalidatePath("/settings/team");
+    // The member is saved, so this is not a dead end — Invite again retries.
+    return {
+      error: `Saved, but the invite email could not be sent (${sent.error || "unknown error"}). Try inviting again.`,
+    };
   }
 
   revalidatePath("/settings/team");

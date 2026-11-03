@@ -7,7 +7,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2, Info, Send, Plus, X, Link2, Phone, MessageSquare, ExternalLink, ImagePlus } from "lucide-react";
 import { toast } from "sonner";
-import { createWhatsAppTemplate } from "../../integrations/whatsapp-templates-actions";
+import {
+  createWhatsAppTemplate,
+  type TemplatePurpose,
+} from "../../integrations/whatsapp-templates-actions";
+import {
+  ALERT_FIELDS,
+  STANDARD_ALERT_TEMPLATE,
+  defaultAlertMapping,
+} from "@/lib/automation/agent-alert-fields";
 import { uploadTemplateHeaderImage } from "../../integrations/whatsapp-bulk-actions";
 
 const WA_ICON =
@@ -22,20 +30,56 @@ interface UiButton {
   phone_number?: string;
 }
 
-export function TemplateCreateClient({ companyName }: { companyName?: string | null }) {
+const WELCOME_BODY =
+  "Hi {{1}}, thanks for your interest in {{2}}! 👋 We'll reach out shortly — feel free to reply here anytime.";
+const WELCOME_SAMPLES = ["Rahul", "Prestige Lakeside"];
+
+export function TemplateCreateClient({
+  companyName,
+  initialPurpose = "LEAD_WELCOME",
+}: {
+  companyName?: string | null;
+  initialPurpose?: TemplatePurpose;
+}) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
-  const [name, setName] = useState("");
+  const startsAsAlert = initialPurpose === "AGENT_LEAD_ALERT";
+  // Who the template is for decides everything else: the example, the
+  // guidance, and which picker it appears in afterwards.
+  const [purpose, setPurpose] = useState<TemplatePurpose>(initialPurpose);
+  const [name, setName] = useState(startsAsAlert ? STANDARD_ALERT_TEMPLATE.name : "");
   const [category, setCategory] = useState<"UTILITY" | "MARKETING">("UTILITY");
   const [language] = useState("en_US");
-  const [body, setBody] = useState(
-    "Hi {{1}}, thanks for your interest in {{2}}! 👋 We'll reach out shortly — feel free to reply here anytime."
+  const [body, setBody] = useState(startsAsAlert ? STANDARD_ALERT_TEMPLATE.body : WELCOME_BODY);
+  const [samples, setSamples] = useState<string[]>(
+    startsAsAlert ? STANDARD_ALERT_TEMPLATE.samples : WELCOME_SAMPLES
   );
-  const [samples, setSamples] = useState<string[]>(["Rahul", "Prestige Lakeside"]);
+  const isAlert = purpose === "AGENT_LEAD_ALERT";
 
   // In automated sends, variables are filled as:
-  const VAR_MEANINGS = ["Lead's name (automatic)", "Project name (automatic)"];
+  const VAR_MEANINGS = isAlert
+    ? defaultAlertMapping(12).map((f) => `${ALERT_FIELDS[f]} by default — changeable per agent`)
+    : ["Lead's name (automatic)", "Project name (automatic)"];
+
+  /**
+   * Switch purpose, swapping the example body only while it is untouched —
+   * never overwrite something the admin has written.
+   */
+  function changePurpose(next: TemplatePurpose) {
+    setPurpose(next);
+    if (next === "AGENT_LEAD_ALERT" && body === WELCOME_BODY) {
+      setBody(STANDARD_ALERT_TEMPLATE.body);
+      setSamples(STANDARD_ALERT_TEMPLATE.samples);
+      if (!name) setName(STANDARD_ALERT_TEMPLATE.name);
+      // An alert is operational, never promotional.
+      setCategory("UTILITY");
+    } else if (next !== "AGENT_LEAD_ALERT" && body === STANDARD_ALERT_TEMPLATE.body) {
+      setBody(WELCOME_BODY);
+      setSamples(WELCOME_SAMPLES);
+      if (name === STANDARD_ALERT_TEMPLATE.name) setName("");
+    }
+  }
 
   // interactive actions (buttons)
   const [actionMode, setActionMode] = useState<ActionMode>("NONE");
@@ -133,6 +177,7 @@ export function TemplateCreateClient({ companyName }: { companyName?: string | n
         buttons: actionMode === "NONE" ? [] : buttons.filter((b) => b.text.trim()),
         headerImageUrl: headerImage?.url,
         headerImageHandle: headerImage?.handle,
+        purpose,
       });
       if (res.error) {
         toast.error(res.error);
@@ -148,7 +193,61 @@ export function TemplateCreateClient({ companyName }: { companyName?: string | n
     <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-8 items-start">
       {/* ── Left: the form ── */}
       <div className="space-y-6 min-w-0">
-        {/* Meta guidance */}
+        {/* Who is this for */}
+        <div className="space-y-2">
+          <Label>Who is this template for?</Label>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            {(
+              [
+                ["LEAD_WELCOME", "Your customers", "Welcome message when a lead enquires."],
+                [
+                  "AGENT_LEAD_ALERT",
+                  "Your own agents",
+                  "Alert with the lead's name and number when one is assigned to them.",
+                ],
+              ] as [TemplatePurpose, string, string][]
+            ).map(([value, title, hint]) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => changePurpose(value)}
+                className={`rounded-lg border p-3 text-left transition-colors ${
+                  purpose === value
+                    ? "border-primary bg-primary/5 ring-1 ring-primary"
+                    : "hover:bg-muted/50"
+                }`}
+              >
+                <span className="block text-sm font-medium">{title}</span>
+                <span className="mt-0.5 block text-xs text-muted-foreground">{hint}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {isAlert ? (
+          <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900 leading-relaxed space-y-2">
+            <p className="flex items-center gap-1.5 font-semibold">
+              <Info className="size-4" /> Agent lead alerts
+            </p>
+            <ul className="list-disc pl-5 space-y-1 text-[13px]">
+              <li>
+                Sent from your WhatsApp number to <strong>your own agent</strong> — never to a
+                customer. It appears only in the agent alert picker on the Team page.
+              </li>
+              <li>
+                Variables default to <strong>lead name</strong>, then <strong>lead number</strong>,
+                then <strong>project</strong>. Each agent&apos;s mapping can be changed on the Team
+                page.
+              </li>
+              <li>
+                The number is sent with its country code, so WhatsApp shows it as a tap-to-call link.
+              </li>
+              <li>
+                Keep it Utility and plain — it is an operational notice, which Meta approves fastest.
+              </li>
+            </ul>
+          </div>
+        ) : (
         <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900 leading-relaxed space-y-2">
           <p className="flex items-center gap-1.5 font-semibold">
             <Info className="size-4" /> How Meta templates work
@@ -174,6 +273,7 @@ export function TemplateCreateClient({ companyName }: { companyName?: string | n
             </li>
           </ul>
         </div>
+        )}
 
         <div className="space-y-2">
           <Label htmlFor="tpl-name">Template name</Label>
@@ -181,7 +281,7 @@ export function TemplateCreateClient({ companyName }: { companyName?: string | n
             id="tpl-name"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="lead_welcome"
+            placeholder={isAlert ? "agent_new_lead_alert" : "lead_welcome"}
             className="h-10 max-w-sm"
           />
           <p className="text-xs text-muted-foreground">Lowercase letters, numbers and underscores only.</p>

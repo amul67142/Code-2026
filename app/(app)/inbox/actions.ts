@@ -68,6 +68,8 @@ export async function getChatMessages(leadId: string) {
       .eq("company_id", profile.company_id)
       .eq("lead_id", leadId)
       .eq("channel", "WHATSAPP")
+      // The lead's own thread — not our internal alerts to agents about them.
+      .eq("recipient_type", "LEAD")
       .order("created_at", { ascending: true })
       .limit(500),
     admin

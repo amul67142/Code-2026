@@ -23,7 +23,13 @@ export interface LeadWhatsAppInput {
 }
 
 export interface LeadWhatsAppResult {
-  status: "SENT" | "FAILED" | "SKIPPED_NO_PHONE" | "SKIPPED_NO_CONNECTION" | "SKIPPED_PROJECT_OPTED_OUT";
+  status:
+    | "SENT"
+    | "FAILED"
+    | "SKIPPED_NO_PHONE"
+    | "SKIPPED_NO_CONNECTION"
+    | "SKIPPED_PROJECT_OPTED_OUT"
+    | "SKIPPED_AGENT_TEMPLATE";
   providerId?: string;
   error?: string;
 }
@@ -88,10 +94,19 @@ export async function sendLeadWhatsApp(
     // If the template has an image header, it must be supplied at send time.
     const { data: tplRow } = await admin
       .from("whatsapp_templates")
-      .select("header_image_url, body_text")
+      .select("header_image_url, body_text, purpose")
       .eq("company_id", input.companyId)
       .eq("name", templateName)
       .maybeSingle();
+    // Backstop for every path that can set a welcome template (connection
+    // default, project override): an agent alert reads "new lead assigned to
+    // you: <name>, <number>" and must never reach the customer.
+    if (tplRow?.purpose === "AGENT_LEAD_ALERT") {
+      console.error(
+        `sendLeadWhatsApp: refused — "${templateName}" is an agent alert template, not a lead welcome`
+      );
+      return { status: "SKIPPED_AGENT_TEMPLATE", error: "Welcome template is an agent alert" };
+    }
     if (tplRow?.header_image_url) {
       components.push({
         type: "header",
