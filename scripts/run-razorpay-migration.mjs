@@ -6,10 +6,9 @@ import pg from "pg";
 import { readFileSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
+import { DATABASE_URL } from "./db-url.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-
-const DATABASE_URL = "postgresql://postgres.hqzyikjgxrswcsjelkra:amuldev2026@aws-1-ap-southeast-1.pooler.supabase.com:6543/postgres";
 
 async function main() {
   const client = new pg.Client({
