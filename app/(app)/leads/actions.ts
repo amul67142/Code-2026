@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
 import { sendFacebookCAPIEvent } from "@/lib/integrations/facebook-capi";
 import { sendLeadAcknowledgmentEmail } from "@/lib/automation/lead-email";
@@ -189,6 +190,14 @@ export async function createLead(formData: FormData) {
 
   const resolvedEmail = resolveLeadEmail({ name, phone, email });
 
+  // An agent only sees leads assigned to them, so a lead they add is theirs.
+  const finalAssignee =
+    profile.role === "AGENT"
+      ? profile.id
+      : assignedToId && assignedToId !== "unassigned"
+        ? assignedToId
+        : null;
+
   const { data: newLead, error: insertError } = await supabase.from("leads").insert({
     company_id: profile.company_id,
     name,
@@ -199,7 +208,7 @@ export async function createLead(formData: FormData) {
     source: source || "MANUAL",
     project_id: projectId || null,
     stage_id: resolvedStageId || null,
-    assigned_to_id: (assignedToId && assignedToId !== "unassigned") ? assignedToId : null,
+    assigned_to_id: finalAssignee,
     budget_min: budgetMin ? parseFloat(budgetMin) : null,
     budget_max: budgetMax ? parseFloat(budgetMax) : null,
     notes: notes || null,
@@ -215,8 +224,6 @@ export async function createLead(formData: FormData) {
   }
 
   // Real-time notify the assigned agent about the new lead.
-  const finalAssignee =
-    assignedToId && assignedToId !== "unassigned" ? assignedToId : null;
   if (finalAssignee) {
     await notifyLeadAssigned({
       leadId: newLead.id,
@@ -376,6 +383,8 @@ export async function updateLeadAssignment(leadId: string, assignedToId: string 
   const supabase = await createClient();
   const profile = await getUserProfile();
   if (!profile) return { error: "Unauthorized" };
+  // An agent only sees their own leads, so giving one away would lose it.
+  if (profile.role === "AGENT") return { error: "Ask a team lead or admin to reassign this lead" };
 
   // Read the current owner first: re-saving the same assignee must not send a
   // second (billable) WhatsApp alert.
@@ -396,6 +405,14 @@ export async function updateLeadAssignment(leadId: string, assignedToId: string 
     console.error("updateLeadAssignment error:", error);
     return { error: "Failed to assign lead" };
   }
+
+  // The chat follows the lead, or the old agent would keep the conversation.
+  const { error: chatError } = await createAdminClient()
+    .from("wa_conversations")
+    .update({ assigned_agent_id: assignedToId, updated_at: new Date().toISOString() })
+    .eq("company_id", profile.company_id)
+    .eq("lead_id", leadId);
+  if (chatError) console.error("updateLeadAssignment: chat not moved:", chatError);
 
   // ── Create notifications & activity log ──────────────────────
   if (assignedToId) {
@@ -477,6 +494,8 @@ export async function bulkImportLeads(leads: any[], projectId?: string) {
         return {
           ...l,
           project_id: projectId || null,
+          // An agent only sees leads assigned to them.
+          ...(profile.role === "AGENT" ? { assigned_to_id: profile.id } : {}),
           email: resolved.email,
           email_is_synthetic: resolved.synthetic,
           email_original: resolved.original,

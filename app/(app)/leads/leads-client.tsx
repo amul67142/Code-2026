@@ -46,6 +46,7 @@ import { format } from "date-fns";
 import { toast } from "sonner";
 import Papa from "papaparse";
 import { ImportLeadsDialog } from "./import-leads-dialog";
+import { useUser } from "@/lib/user-context";
 import { StatusCell } from "./status-cell";
 import { STATUS_SLOTS, remarkKey, statusKey, type LeadStatuses } from "./status-options";
 import { sendLeadsToCrm } from "../settings/connections/actions";
@@ -118,6 +119,7 @@ export default function LeadsClient({
   initialTotal,
   pageSize,
 }: LeadsClientProps) {
+  const isAgent = useUser().role === "AGENT";
   const [leads, setLeads] = useState<Lead[]>(initialLeads);
   const [total, setTotal] = useState(initialTotal);
   const [page, setPage] = useState(1);
@@ -625,6 +627,7 @@ export default function LeadsClient({
                       className="h-8 w-[150px] text-xs rounded-md border border-input bg-background px-2 py-1 focus:outline-none focus:ring-2 focus:ring-ring"
                       value={lead.assigned_user?.id || "unassigned"}
                       onChange={(e) => handleAssign(lead.id, e.target.value)}
+                      disabled={isAgent}
                     >
                       <option value="unassigned">Unassigned</option>
                       {initialAgents.map((a) => (

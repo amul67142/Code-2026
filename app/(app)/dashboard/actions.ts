@@ -96,12 +96,17 @@ export async function getDashboardData() {
     .limit(5);
 
   // ── Overdue Tasks ──────────────────────────
-  const { count: overdueTasks } = await supabase
-    .from("tasks")
-    .select("*", { count: "exact", head: true })
-    .eq("company_id", companyId)
-    .eq("status", "PENDING")
-    .lt("due_at", new Date().toISOString());
+  // Leads are scoped to the agent by the database; tasks are not.
+  const myTasks = () => {
+    const q = supabase
+      .from("tasks")
+      .select("*", { count: "exact", head: true })
+      .eq("company_id", companyId)
+      .eq("status", "PENDING");
+    return profile.role === "AGENT" ? q.eq("assigned_to_id", profile.id) : q;
+  };
+
+  const { count: overdueTasks } = await myTasks().lt("due_at", new Date().toISOString());
 
   // ── Tasks Due Today ────────────────────────
   const todayStart = new Date();
@@ -109,11 +114,7 @@ export async function getDashboardData() {
   const todayEnd = new Date();
   todayEnd.setHours(23, 59, 59, 999);
 
-  const { count: tasksDueToday } = await supabase
-    .from("tasks")
-    .select("*", { count: "exact", head: true })
-    .eq("company_id", companyId)
-    .eq("status", "PENDING")
+  const { count: tasksDueToday } = await myTasks()
     .gte("due_at", todayStart.toISOString())
     .lte("due_at", todayEnd.toISOString());
 
