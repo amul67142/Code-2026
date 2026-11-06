@@ -25,6 +25,8 @@ export async function getMyAssignedLeads() {
       `
       id, name, phone, email, status, source,
       status_1, status_1_remark, status_2, status_2_remark,
+      status_3, status_3_remark, status_4, status_4_remark,
+      status_5, status_5_remark, status_6, status_6_remark,
       created_at,
       pipeline_stages ( id, name, color )
     `

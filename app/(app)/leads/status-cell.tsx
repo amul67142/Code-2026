@@ -6,14 +6,21 @@ import { Input } from "@/components/ui/input";
 import { Loader2, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { updateLeadStatus } from "./[id]/actions";
-import { STATUS_OPTIONS, statusClass } from "./status-options";
-
-export interface LeadStatuses {
-  status_1: string | null;
-  status_1_remark: string | null;
-  status_2: string | null;
-  status_2_remark: string | null;
-}
+import {
+  STATUS_OPTIONS,
+  allStatusesUsed,
+  openStatusSlots,
+  remarkKey,
+  savedStatuses,
+  statusClass,
+  statusDraft,
+  statusKey,
+  statusSavedMessage,
+  type LeadStatuses,
+  type StatusDraft,
+  type StatusField,
+  type StatusSlot,
+} from "./status-options";
 
 const SELECT_CLASS =
   "h-8 w-full rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-2 focus:ring-ring";
@@ -36,7 +43,7 @@ export function StatusCell({
 }: {
   leadId: string;
   leadName: string;
-  value: LeadStatuses;
+  value: Partial<LeadStatuses>;
   onSaved: (next: LeadStatuses) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -44,18 +51,11 @@ export function StatusCell({
 
   // Draft state, seeded from the row each time the editor opens so an
   // abandoned edit never leaks into the next one.
-  const [s1, setS1] = useState(value.status_1 || "");
-  const [r1, setR1] = useState(value.status_1_remark || "");
-  const [s2, setS2] = useState(value.status_2 || "");
-  const [r2, setR2] = useState(value.status_2_remark || "");
+  const [draft, setDraft] = useState<StatusDraft>(() => statusDraft(value));
+  const set = (field: StatusField, text: string) => setDraft((d) => ({ ...d, [field]: text }));
 
   function handleOpenChange(next: boolean) {
-    if (next) {
-      setS1(value.status_1 || "");
-      setR1(value.status_1_remark || "");
-      setS2(value.status_2 || "");
-      setR2(value.status_2_remark || "");
-    }
+    if (next) setDraft(statusDraft(value));
     setOpen(next);
   }
 
@@ -63,46 +63,35 @@ export function StatusCell({
     startTransition(async () => {
       // Empty strings are sent deliberately — that is how a status gets
       // cleared. Omitting the key would leave the old value in place.
-      const res = await updateLeadStatus(leadId, {
-        status_1: s1,
-        status_1_remark: r1.trim(),
-        status_2: s2,
-        status_2_remark: r2.trim(),
-      });
+      const res = await updateLeadStatus(leadId, draft);
 
       if (res?.error) {
         toast.error(res.error);
         return;
       }
 
-      onSaved({
-        status_1: s1 || null,
-        status_1_remark: r1.trim() || null,
-        status_2: s2 || null,
-        status_2_remark: r2.trim() || null,
-      });
+      const next = savedStatuses(draft);
+      onSaved(next);
       setOpen(false);
-      toast.success("Status updated");
+      toast.success(statusSavedMessage(value, next));
     });
   }
 
-  const hasAny = !!(value.status_1 || value.status_2);
+  const slots = openStatusSlots(value);
+  const hasAny = slots.some((n) => value[statusKey(n)]);
 
   return (
     <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger
-        className="group -mx-1.5 -my-1 flex w-full max-w-[170px] cursor-pointer flex-col gap-1 rounded px-1.5 py-1 text-left transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="group -mx-1.5 -my-1 flex w-full max-w-[280px] cursor-pointer flex-col gap-1 rounded px-1.5 py-1 text-left transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         aria-label={`Edit status for ${leadName}`}
       >
         {hasAny ? (
-          <>
-            {value.status_1 && (
-              <StatusLine slot={1} status={value.status_1} remark={value.status_1_remark} />
-            )}
-            {value.status_2 && (
-              <StatusLine slot={2} status={value.status_2} remark={value.status_2_remark} />
-            )}
-          </>
+          <span className="grid grid-cols-2 gap-x-2 gap-y-1">
+            {slots.map((n) => (
+              <StatusLine key={n} slot={n} status={value[statusKey(n)]} remark={value[remarkKey(n)]} />
+            ))}
+          </span>
         ) : (
           <span className="flex items-center gap-1 text-xs text-muted-foreground">
             <Pencil className="size-3 opacity-0 transition-opacity group-hover:opacity-100" />
@@ -111,27 +100,31 @@ export function StatusCell({
         )}
       </PopoverTrigger>
 
-      <PopoverContent align="start" className="w-[280px] gap-0 p-3">
+      <PopoverContent
+        align="start"
+        className="max-h-[80vh] w-[440px] max-w-[calc(100vw-2rem)] gap-0 overflow-y-auto p-3"
+      >
         <p className="mb-2 truncate text-xs font-medium text-muted-foreground">{leadName}</p>
 
-        <Slot
-          label="Status 1"
-          status={s1}
-          remark={r1}
-          onStatus={setS1}
-          onRemark={setR1}
-          disabled={pending}
-        />
-        <div className="mt-3">
-          <Slot
-            label="Status 2"
-            status={s2}
-            remark={r2}
-            onStatus={setS2}
-            onRemark={setR2}
-            disabled={pending}
-          />
+        <div className="grid grid-cols-2 gap-3">
+          {slots.map((n) => (
+            <Slot
+              key={n}
+              label={`Status ${n}`}
+              status={draft[statusKey(n)]}
+              remark={draft[remarkKey(n)]}
+              onStatus={(v) => set(statusKey(n), v)}
+              onRemark={(v) => set(remarkKey(n), v)}
+              disabled={pending}
+            />
+          ))}
         </div>
+
+        {allStatusesUsed(value) && (
+          <p className="mt-3 text-[11px] text-muted-foreground">
+            All 6 statuses are used. Open the lead to add further updates in its activity log.
+          </p>
+        )}
 
         <div className="mt-3 flex items-center justify-end gap-2">
           <button
@@ -162,19 +155,25 @@ function StatusLine({
   status,
   remark,
 }: {
-  slot: 1 | 2;
-  status: string;
-  remark: string | null;
+  slot: StatusSlot;
+  status?: string | null;
+  remark?: string | null;
 }) {
   return (
-    <span className="flex flex-col">
-      <span
-        className={`inline-block w-fit rounded border px-1.5 py-0.5 text-[10px] ${statusClass(status)}`}
-      >
-        {slot}: {status}
-      </span>
+    <span className="flex min-w-0 flex-col">
+      {status ? (
+        <span
+          className={`inline-block w-fit max-w-full truncate rounded border px-1.5 py-0.5 text-[10px] ${statusClass(status)}`}
+        >
+          {slot}: {status}
+        </span>
+      ) : (
+        <span className="w-fit rounded border border-dashed px-1.5 py-0.5 text-[10px] text-muted-foreground">
+          {slot}: —
+        </span>
+      )}
       {remark && (
-        <span className="max-w-[150px] truncate text-[10px] text-muted-foreground" title={remark}>
+        <span className="truncate text-[10px] text-muted-foreground" title={remark}>
           {remark}
         </span>
       )}

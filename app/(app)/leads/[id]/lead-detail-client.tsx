@@ -40,7 +40,17 @@ import {
 import Link from "next/link";
 import { toast } from "sonner";
 import { format, formatDistanceToNow, isPast } from "date-fns";
-import { STATUS_OPTIONS } from "../status-options";
+import {
+  STATUS_OPTIONS,
+  allStatusesUsed,
+  openStatusSlots,
+  remarkKey,
+  savedStatuses,
+  statusDraft,
+  statusKey,
+  statusSavedMessage,
+  type StatusDraft,
+} from "../status-options";
 import { LeadContactHeader } from "./contact-editor";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -104,10 +114,7 @@ export function LeadDetailClient({
   const canEdit = isAssigned || isSuperAdmin;
 
   // Status form
-  const [status1, setStatus1] = useState(lead.status_1 || "");
-  const [status1Remark, setStatus1Remark] = useState(lead.status_1_remark || "");
-  const [status2, setStatus2] = useState(lead.status_2 || "");
-  const [status2Remark, setStatus2Remark] = useState(lead.status_2_remark || "");
+  const [statuses, setStatuses] = useState<StatusDraft>(() => statusDraft(lead));
   const [savingStatus, setSavingStatus] = useState(false);
 
   // Qualification status state
@@ -156,16 +163,11 @@ export function LeadDetailClient({
   async function handleSaveStatus() {
     setSavingStatus(true);
     try {
-      const result = await updateLeadStatus(lead.id, {
-        status_1: status1 || undefined,
-        status_1_remark: status1Remark || undefined,
-        status_2: status2 || undefined,
-        status_2_remark: status2Remark || undefined,
-      });
+      const result = await updateLeadStatus(lead.id, statuses);
       if (result.error) {
         toast.error(result.error);
       } else {
-        toast.success("Status updated successfully");
+        toast.success(statusSavedMessage(lead, savedStatuses(statuses)));
         router.refresh();
       }
     } catch {
@@ -426,56 +428,38 @@ export function LeadDetailClient({
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Status 1 */}
-                <div className="space-y-2">
-                  <Label>Status 1</Label>
-                  <select
-                    className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                    value={status1}
-                    onChange={(e) => setStatus1(e.target.value)}
-                    disabled={!canEdit}
-                  >
-                    <option value="">Select status...</option>
-                    {STATUS_OPTIONS.map((s) => (
-                      <option key={s} value={s}>
-                        {s}
-                      </option>
-                    ))}
-                  </select>
-                  <Textarea
-                    placeholder="Remark for Status 1..."
-                    value={status1Remark}
-                    onChange={(e) => setStatus1Remark(e.target.value)}
-                    disabled={!canEdit}
-                    className="min-h-[60px] text-sm"
-                  />
-                </div>
-
-                {/* Status 2 */}
-                <div className="space-y-2">
-                  <Label>Status 2</Label>
-                  <select
-                    className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                    value={status2}
-                    onChange={(e) => setStatus2(e.target.value)}
-                    disabled={!canEdit}
-                  >
-                    <option value="">Select status...</option>
-                    {STATUS_OPTIONS.map((s) => (
-                      <option key={s} value={s}>
-                        {s}
-                      </option>
-                    ))}
-                  </select>
-                  <Textarea
-                    placeholder="Remark for Status 2..."
-                    value={status2Remark}
-                    onChange={(e) => setStatus2Remark(e.target.value)}
-                    disabled={!canEdit}
-                    className="min-h-[60px] text-sm"
-                  />
-                </div>
+                {openStatusSlots(lead).map((n) => (
+                  <div key={n} className="space-y-2">
+                    <Label>Status {n}</Label>
+                    <select
+                      className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                      value={statuses[statusKey(n)]}
+                      onChange={(e) => setStatuses((d) => ({ ...d, [statusKey(n)]: e.target.value }))}
+                      disabled={!canEdit}
+                    >
+                      <option value="">Select status...</option>
+                      {STATUS_OPTIONS.map((s) => (
+                        <option key={s} value={s}>
+                          {s}
+                        </option>
+                      ))}
+                    </select>
+                    <Textarea
+                      placeholder={`Remark for Status ${n}...`}
+                      value={statuses[remarkKey(n)]}
+                      onChange={(e) => setStatuses((d) => ({ ...d, [remarkKey(n)]: e.target.value }))}
+                      disabled={!canEdit}
+                      className="min-h-[60px] text-sm"
+                    />
+                  </div>
+                ))}
               </div>
+
+              {allStatusesUsed(lead) && (
+                <p className="text-sm text-muted-foreground">
+                  All 6 statuses are used. Add further updates in Log Activity.
+                </p>
+              )}
 
               {canEdit && (
                 <div className="flex justify-end">

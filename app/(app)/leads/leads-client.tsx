@@ -44,7 +44,8 @@ import { format } from "date-fns";
 import { toast } from "sonner";
 import Papa from "papaparse";
 import { ImportLeadsDialog } from "./import-leads-dialog";
-import { StatusCell, type LeadStatuses } from "./status-cell";
+import { StatusCell } from "./status-cell";
+import { STATUS_SLOTS, remarkKey, statusKey, type LeadStatuses } from "./status-options";
 import { sendLeadsToCrm } from "../settings/connections/actions";
 
 const SOURCES = [
@@ -322,10 +323,12 @@ export default function LeadsClient({
       "Source": l.source || "",
       "Project": l.project?.name || "",
       "Assigned To": l.assigned_user?.name || "Unassigned",
-      "Status 1": l.status_1 || "",
-      "Status 1 Remark": l.status_1_remark || "",
-      "Status 2": l.status_2 || "",
-      "Status 2 Remark": l.status_2_remark || "",
+      ...Object.fromEntries(
+        STATUS_SLOTS.flatMap((n) => [
+          [`Status ${n}`, l[statusKey(n)] || ""],
+          [`Status ${n} Remark`, l[remarkKey(n)] || ""],
+        ])
+      ),
       "Created At": l.created_at ? format(new Date(l.created_at), "PPp") : "",
     }));
 
@@ -596,12 +599,7 @@ export default function LeadsClient({
                     <StatusCell
                       leadId={lead.id}
                       leadName={lead.name}
-                      value={{
-                        status_1: lead.status_1 ?? null,
-                        status_1_remark: lead.status_1_remark ?? null,
-                        status_2: lead.status_2 ?? null,
-                        status_2_remark: lead.status_2_remark ?? null,
-                      }}
+                      value={lead}
                       onSaved={(next) => handleStatusSaved(lead.id, next)}
                     />
                   </TableCell>

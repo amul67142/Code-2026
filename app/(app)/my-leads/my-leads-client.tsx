@@ -26,32 +26,18 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { updateLeadStatus } from "../leads/[id]/actions";
-
-const STATUS_OPTIONS = [
-  "New",
-  "Contacted",
-  "Interested",
-  "Not Interested",
-  "Follow Up",
-  "Site Visit Scheduled",
-  "Site Visit Done",
-  "Negotiation",
-  "Booking Done",
-  "Lost",
-];
-
-const STATUS_COLORS: Record<string, string> = {
-  New: "bg-blue-50 text-blue-700 border-blue-200",
-  Contacted: "bg-cyan-50 text-cyan-700 border-cyan-200",
-  Interested: "bg-green-50 text-green-700 border-green-200",
-  "Not Interested": "bg-red-50 text-red-700 border-red-200",
-  "Follow Up": "bg-amber-50 text-amber-700 border-amber-200",
-  "Site Visit Scheduled": "bg-purple-50 text-purple-700 border-purple-200",
-  "Site Visit Done": "bg-indigo-50 text-indigo-700 border-indigo-200",
-  Negotiation: "bg-orange-50 text-orange-700 border-orange-200",
-  "Booking Done": "bg-emerald-50 text-emerald-700 border-emerald-200",
-  Lost: "bg-gray-50 text-gray-500 border-gray-200",
-};
+import {
+  STATUS_OPTIONS,
+  allStatusesUsed,
+  openStatusSlots,
+  remarkKey,
+  savedStatuses,
+  statusClass,
+  statusDraft,
+  statusKey,
+  statusSavedMessage,
+  type StatusDraft,
+} from "../leads/status-options";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function MyLeadsClient({ initialLeads = [] }: { initialLeads?: any[] }) {
@@ -59,10 +45,7 @@ export function MyLeadsClient({ initialLeads = [] }: { initialLeads?: any[] }) {
   const [search, setSearch] = useState("");
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [selectedLead, setSelectedLead] = useState<any>(null);
-  const [status1, setStatus1] = useState("");
-  const [status1Remark, setStatus1Remark] = useState("");
-  const [status2, setStatus2] = useState("");
-  const [status2Remark, setStatus2Remark] = useState("");
+  const [statuses, setStatuses] = useState<StatusDraft>(() => statusDraft({}));
   const [savingStatus, setSavingStatus] = useState(false);
 
   const filteredLeads = leads.filter((lead) => {
@@ -78,40 +61,21 @@ export function MyLeadsClient({ initialLeads = [] }: { initialLeads?: any[] }) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const openStatusDialog = (lead: any) => {
     setSelectedLead(lead);
-    setStatus1(lead.status_1 || "");
-    setStatus1Remark(lead.status_1_remark || "");
-    setStatus2(lead.status_2 || "");
-    setStatus2Remark(lead.status_2_remark || "");
+    setStatuses(statusDraft(lead));
   };
 
   const handleSaveStatus = async () => {
     if (!selectedLead) return;
     setSavingStatus(true);
     try {
-      const result = await updateLeadStatus(selectedLead.id, {
-        status_1: status1 || undefined,
-        status_1_remark: status1Remark || undefined,
-        status_2: status2 || undefined,
-        status_2_remark: status2Remark || undefined,
-      });
+      const result = await updateLeadStatus(selectedLead.id, statuses);
 
       if (result.error) {
         toast.error(result.error);
       } else {
-        toast.success("Lead status updated!");
-        setLeads((prev) =>
-          prev.map((l) =>
-            l.id === selectedLead.id
-              ? {
-                  ...l,
-                  status_1: status1,
-                  status_1_remark: status1Remark,
-                  status_2: status2,
-                  status_2_remark: status2Remark,
-                }
-              : l
-          )
-        );
+        const saved = savedStatuses(statuses);
+        toast.success(statusSavedMessage(selectedLead, saved));
+        setLeads((prev) => prev.map((l) => (l.id === selectedLead.id ? { ...l, ...saved } : l)));
         setSelectedLead(null);
       }
     } catch {
@@ -222,56 +186,30 @@ export function MyLeadsClient({ initialLeads = [] }: { initialLeads?: any[] }) {
 
                 {/* Statuses */}
                 <div className="grid grid-cols-2 gap-2">
-                  <div className="space-y-1">
-                    <p className="text-[10px] uppercase font-medium text-muted-foreground">
-                      Status 1
-                    </p>
-                    {lead.status_1 ? (
-                      <span
-                        className={`inline-block text-xs px-2 py-0.5 rounded-full border ${
-                          STATUS_COLORS[lead.status_1] ||
-                          "bg-gray-50 text-gray-600 border-gray-200"
-                        }`}
-                      >
-                        {lead.status_1}
-                      </span>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">—</span>
-                    )}
-                    {lead.status_1_remark && (
-                      <p
-                        className="text-[11px] text-muted-foreground truncate"
-                        title={lead.status_1_remark}
-                      >
-                        {lead.status_1_remark}
+                  {openStatusSlots(lead).map((n) => (
+                    <div key={n} className="space-y-1">
+                      <p className="text-[10px] uppercase font-medium text-muted-foreground">
+                        Status {n}
                       </p>
-                    )}
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-[10px] uppercase font-medium text-muted-foreground">
-                      Status 2
-                    </p>
-                    {lead.status_2 ? (
-                      <span
-                        className={`inline-block text-xs px-2 py-0.5 rounded-full border ${
-                          STATUS_COLORS[lead.status_2] ||
-                          "bg-gray-50 text-gray-600 border-gray-200"
-                        }`}
-                      >
-                        {lead.status_2}
-                      </span>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">—</span>
-                    )}
-                    {lead.status_2_remark && (
-                      <p
-                        className="text-[11px] text-muted-foreground truncate"
-                        title={lead.status_2_remark}
-                      >
-                        {lead.status_2_remark}
-                      </p>
-                    )}
-                  </div>
+                      {lead[statusKey(n)] ? (
+                        <span
+                          className={`inline-block text-xs px-2 py-0.5 rounded-full border ${statusClass(lead[statusKey(n)])}`}
+                        >
+                          {lead[statusKey(n)]}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
+                      {lead[remarkKey(n)] && (
+                        <p
+                          className="text-[11px] text-muted-foreground truncate"
+                          title={lead[remarkKey(n)]}
+                        >
+                          {lead[remarkKey(n)]}
+                        </p>
+                      )}
+                    </div>
+                  ))}
                 </div>
 
                 {/* Footer */}
@@ -301,58 +239,44 @@ export function MyLeadsClient({ initialLeads = [] }: { initialLeads?: any[] }) {
         open={!!selectedLead}
         onOpenChange={(open) => !open && setSelectedLead(null)}
       >
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
           <DialogHeader>
             <DialogTitle>Update Status — {selectedLead?.name}</DialogTitle>
             <DialogDescription>
               Set the current pipeline statuses and add internal remarks.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label>Status 1</Label>
-              <select
-                className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                value={status1}
-                onChange={(e) => setStatus1(e.target.value)}
-              >
-                <option value="">Select status...</option>
-                {STATUS_OPTIONS.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </select>
-              <Textarea
-                placeholder="Remark for Status 1..."
-                value={status1Remark}
-                onChange={(e) => setStatus1Remark(e.target.value)}
-                className="min-h-[60px] text-sm"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>Status 2</Label>
-              <select
-                className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                value={status2}
-                onChange={(e) => setStatus2(e.target.value)}
-              >
-                <option value="">Select status...</option>
-                {STATUS_OPTIONS.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </select>
-              <Textarea
-                placeholder="Remark for Status 2..."
-                value={status2Remark}
-                onChange={(e) => setStatus2Remark(e.target.value)}
-                className="min-h-[60px] text-sm"
-              />
-            </div>
+          <div className="grid gap-4 py-4 sm:grid-cols-2">
+            {selectedLead &&
+              openStatusSlots(selectedLead).map((n) => (
+                <div key={n} className="space-y-2">
+                  <Label>Status {n}</Label>
+                  <select
+                    className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                    value={statuses[statusKey(n)]}
+                    onChange={(e) => setStatuses((d) => ({ ...d, [statusKey(n)]: e.target.value }))}
+                  >
+                    <option value="">Select status...</option>
+                    {STATUS_OPTIONS.map((s) => (
+                      <option key={s} value={s}>
+                        {s}
+                      </option>
+                    ))}
+                  </select>
+                  <Textarea
+                    placeholder={`Remark for Status ${n}...`}
+                    value={statuses[remarkKey(n)]}
+                    onChange={(e) => setStatuses((d) => ({ ...d, [remarkKey(n)]: e.target.value }))}
+                    className="min-h-[60px] text-sm"
+                  />
+                </div>
+              ))}
           </div>
+          {selectedLead && allStatusesUsed(selectedLead) && (
+            <p className="text-sm text-muted-foreground">
+              All 6 statuses are used. Open the lead to add further updates in Log Activity.
+            </p>
+          )}
           <div className="flex justify-end">
             <Button onClick={handleSaveStatus} disabled={savingStatus}>
               {savingStatus && (

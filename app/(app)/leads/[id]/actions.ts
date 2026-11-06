@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { notifyLeadQualification } from "@/lib/notifications/notify";
+import { STATUS_FIELDS, STATUS_SLOTS, remarkKey, statusKey, type StatusField } from "../status-options";
 
 // ── Helper: get current user's profile ──────────────────────────
 async function getUserProfile() {
@@ -73,12 +74,7 @@ export async function getLeadActivities(leadId: string) {
 // ── Update lead status (permission-gated) ──────────────────────
 export async function updateLeadStatus(
   leadId: string,
-  data: {
-    status_1?: string;
-    status_1_remark?: string;
-    status_2?: string;
-    status_2_remark?: string;
-  }
+  data: Partial<Record<StatusField, string>>
 ) {
   const supabase = await createClient();
   const profile = await getUserProfile();
@@ -87,7 +83,7 @@ export async function updateLeadStatus(
   // Check permission: only assigned agent or SUPER_ADMIN
   const { data: lead } = await supabase
     .from("leads")
-    .select("assigned_to_id")
+    .select("*")
     .eq("id", leadId)
     .eq("company_id", profile.company_id)
     .single();
@@ -101,10 +97,30 @@ export async function updateLeadStatus(
     return { error: "Only the assigned agent or Super Admin can update status" };
   }
 
+  // Only status fields, whatever the caller sent. `undefined` means "not
+  // touched"; an empty string means the rep deliberately cleared it.
+  const update: Record<string, string | null> = {};
+  for (const field of STATUS_FIELDS) {
+    const value = data[field];
+    if (value !== undefined) update[field] = value.trim() || null;
+  }
+
+  // History: one line per slot that really changed, not every field on the form.
+  const changes: string[] = [];
+  for (const slot of STATUS_SLOTS) {
+    const status = statusKey(slot);
+    const remark = remarkKey(slot);
+    const nextStatus = status in update ? update[status] : lead[status];
+    const nextRemark = remark in update ? update[remark] : lead[remark];
+    if ((nextStatus || "") === (lead[status] || "") && (nextRemark || "") === (lead[remark] || "")) continue;
+    changes.push(`Status ${slot}: ${nextStatus || "cleared"}${nextRemark ? ` (${nextRemark})` : ""}`);
+  }
+  if (changes.length === 0) return { success: true };
+
   const { error } = await supabase
     .from("leads")
     .update({
-      ...data,
+      ...update,
       updated_at: new Date().toISOString(),
     })
     .eq("id", leadId)
@@ -115,23 +131,12 @@ export async function updateLeadStatus(
     return { error: "Failed to update status" };
   }
 
-  // Log activity
-  // `undefined` means "field not touched"; an empty string means the rep
-  // deliberately cleared it, which is worth recording too.
-  const changes: string[] = [];
-  if (data.status_1 !== undefined)
-    changes.push(`Status 1: ${data.status_1 || "cleared"}`);
-  if (data.status_2 !== undefined)
-    changes.push(`Status 2: ${data.status_2 || "cleared"}`);
-
   await supabase.from("activities").insert({
     lead_id: leadId,
     user_id: profile.id,
     type: "NOTE",
-    description: changes.length
-      ? `Updated status — ${changes.join(", ")}`
-      : "Updated status",
-    metadata: data,
+    description: `Updated status — ${changes.join(", ")}`,
+    metadata: update,
   });
 
   revalidatePath(`/leads/${leadId}`);
