@@ -402,12 +402,23 @@ export async function updateLeadAssignment(leadId: string, assignedToId: string 
 
 // ── Bulk Import Leads ──────────────────────────────────────────────
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function bulkImportLeads(leads: any[]) {
+export async function bulkImportLeads(leads: any[], projectId?: string) {
   const supabase = await createClient();
   const profile = await getUserProfile();
   if (!profile) return { error: "Unauthorized" };
 
   if (!leads || leads.length === 0) return { error: "No leads to import" };
+
+  // The id comes from the browser, so check it is this company's project.
+  if (projectId) {
+    const { data: project } = await supabase
+      .from("projects")
+      .select("id")
+      .eq("id", projectId)
+      .eq("company_id", profile.company_id)
+      .maybeSingle();
+    if (!project) return { error: "That project was not found. Please choose it again." };
+  }
 
   // POLICY: bulk imports NEVER trigger auto email/WhatsApp. Blasting a CSV of
   // hundreds of numbers looks like spam and can tank the client's WABA quality
@@ -422,6 +433,7 @@ export async function bulkImportLeads(leads: any[]) {
         const resolved = resolveLeadEmail(l);
         return {
           ...l,
+          project_id: projectId || null,
           email: resolved.email,
           email_is_synthetic: resolved.synthetic,
           email_original: resolved.original,

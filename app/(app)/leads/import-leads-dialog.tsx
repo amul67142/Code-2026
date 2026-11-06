@@ -20,6 +20,7 @@ import { bulkImportLeads } from "./actions";
 interface ImportLeadsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  projects: { id: string; name: string }[];
 }
 
 const CRM_FIELDS = [
@@ -47,7 +48,7 @@ const LEAD_SOURCES = [
   "OTHER",
 ];
 
-export function ImportLeadsDialog({ open, onOpenChange }: ImportLeadsDialogProps) {
+export function ImportLeadsDialog({ open, onOpenChange, projects }: ImportLeadsDialogProps) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [step, setStep] = useState<1 | 2 | 3>(1);
@@ -63,6 +64,7 @@ export function ImportLeadsDialog({ open, onOpenChange }: ImportLeadsDialogProps
   // Mapping state: mapping[crmFieldKey] = csvHeaderName
   const [mapping, setMapping] = useState<Record<string, string>>({});
   const [defaultSource, setDefaultSource] = useState<string>("CSV_IMPORT");
+  const [projectId, setProjectId] = useState("");
 
   // Reset state when closed
   const handleOpenChange = (newOpen: boolean) => {
@@ -74,6 +76,7 @@ export function ImportLeadsDialog({ open, onOpenChange }: ImportLeadsDialogProps
         setCsvData([]);
         setMapping({});
         setDefaultSource("CSV_IMPORT");
+        setProjectId("");
       }, 200);
     }
     onOpenChange(newOpen);
@@ -148,11 +151,14 @@ export function ImportLeadsDialog({ open, onOpenChange }: ImportLeadsDialogProps
     }).filter(lead => lead.name && lead.name.trim() !== ""); // Must have a name
 
     try {
-      const result = await bulkImportLeads(validLeads);
+      const result = await bulkImportLeads(validLeads, projectId || undefined);
       if (result.error) {
         toast.error(result.error);
       } else {
-        toast.success(`Successfully imported ${validLeads.length} leads!`);
+        const project = projects.find((p) => p.id === projectId);
+        toast.success(
+          `Successfully imported ${validLeads.length} leads${project ? ` to ${project.name}` : ""}!`
+        );
         router.refresh();
         handleOpenChange(false);
       }
@@ -254,6 +260,27 @@ export function ImportLeadsDialog({ open, onOpenChange }: ImportLeadsDialogProps
                     We found {csvData.filter(r => r[mapping["name"]]?.trim()).length} valid rows to import from {fileName}.
                   </p>
                 </div>
+              </div>
+
+              <div className="border-t pt-4">
+                <Label htmlFor="import-project" className="mb-2 block text-sm">Project</Label>
+                <select
+                  id="import-project"
+                  className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                  value={projectId}
+                  onChange={(e) => setProjectId(e.target.value)}
+                  disabled={isImporting}
+                >
+                  <option value="">No project</option>
+                  {projects.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
+                  <AlertCircle className="h-3 w-3" /> All imported leads will be tagged to this project.
+                </p>
               </div>
 
               <div className="border-t pt-4">

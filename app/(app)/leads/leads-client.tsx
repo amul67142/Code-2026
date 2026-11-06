@@ -103,12 +103,14 @@ interface LeadsClientProps {
   initialLeads: Lead[];
   initialStages: Stage[];
   initialAgents: Agent[];
+  projects: { id: string; name: string }[];
 }
 
 export default function LeadsClient({
   initialLeads,
   initialStages,
   initialAgents,
+  projects,
 }: LeadsClientProps) {
   const [leads, setLeads] = useState<Lead[]>(initialLeads);
   const [isPending, startTransition] = useTransition();
@@ -345,7 +347,7 @@ export default function LeadsClient({
 
   return (
     <div className="space-y-4">
-      <ImportLeadsDialog open={isImportOpen} onOpenChange={setIsImportOpen} />
+      <ImportLeadsDialog open={isImportOpen} onOpenChange={setIsImportOpen} projects={projects} />
       
       {/* Header */}
       <div className="flex items-center justify-between">
