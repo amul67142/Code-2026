@@ -2,8 +2,10 @@
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
+import { assertOwner } from "@/lib/owner/session";
 
 export async function getOwnerDashboardData() {
+  await assertOwner();
   const supabase = createAdminClient();
 
   // Fetch Companies
@@ -61,6 +63,7 @@ export async function getOwnerDashboardData() {
 
 
 export async function deleteCompany(id: string) {
+  await assertOwner();
   const supabase = createAdminClient();
   const { error } = await supabase.from("companies").delete().eq("id", id);
   if (error) throw new Error("Failed to delete company: " + error.message);
@@ -69,6 +72,7 @@ export async function deleteCompany(id: string) {
 }
 
 export async function deleteUser(id: string) {
+  await assertOwner();
   const supabase = createAdminClient();
   const { error } = await supabase.from("users").delete().eq("id", id);
   if (error) throw new Error("Failed to delete user: " + error.message);
@@ -79,6 +83,7 @@ export async function deleteUser(id: string) {
 // ── Pricing Plans ──
 
 export async function getPricingPlans() {
+  await assertOwner();
   const supabase = createAdminClient();
   const { data, error } = await supabase
     .from("pricing_plans")
@@ -100,6 +105,7 @@ export async function upsertPricingPlan(plan: {
   sort_order: number;
   features: { text: string; included: boolean }[];
 }) {
+  await assertOwner();
   const supabase = createAdminClient();
   const payload = {
     ...plan,
@@ -119,6 +125,7 @@ export async function upsertPricingPlan(plan: {
 }
 
 export async function deletePricingPlan(id: string) {
+  await assertOwner();
   const supabase = createAdminClient();
   const { error } = await supabase.from("pricing_plans").delete().eq("id", id);
   if (error) throw new Error("Failed to delete plan: " + error.message);
@@ -127,6 +134,7 @@ export async function deletePricingPlan(id: string) {
 }
 
 export async function getOwnerRevenueMetrics() {
+  await assertOwner();
   const supabase = createAdminClient();
 
   // 1. Fetch Invoices with joined company names

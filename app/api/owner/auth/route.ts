@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
+import { OWNER_COOKIE, ownerSessionToken } from "@/lib/owner/session";
 
 export async function POST(request: Request) {
   try {
@@ -16,7 +17,7 @@ export async function POST(request: Request) {
 
     if (password === ownerSecret) {
       const cookieStore = await cookies();
-      cookieStore.set("owner_session", "authenticated", {
+      cookieStore.set(OWNER_COOKIE, (await ownerSessionToken())!, {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
         sameSite: "strict",

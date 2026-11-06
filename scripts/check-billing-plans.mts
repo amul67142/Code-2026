@@ -13,7 +13,7 @@ import {
   EXTRA_SEAT_MONTHLY_INR,
   INCLUDED_SEATS,
 } from "../lib/billing/plans";
-import { hasActiveAccess, isOnTrial, trialEnded } from "../lib/billing/access";
+import { extendedEnd, hasActiveAccess, isFreeAccount, isOnTrial, trialEnded } from "../lib/billing/access";
 
 let fail = 0;
 function check(label: string, actual: unknown, expected: unknown) {
@@ -70,6 +70,23 @@ check("no subscription: locked", hasActiveAccess(null), false);
 check("isOnTrial", isOnTrial({ status: "TRIALING", trial_ends_at: iso(DAY) }), true);
 check("trialEnded", trialEnded({ status: "TRIALING", trial_ends_at: iso(-DAY) }), true);
 check("a paid account is not 'trial ended'", trialEnded({ status: "ACTIVE", trial_ends_at: iso(-DAY) }), false);
+
+// ── What the owner may change ─────────────────────────────────────
+check("trial running: free", isFreeAccount({ status: "TRIALING", trial_ends_at: iso(DAY) }), true);
+check("trial ended: still free, so it can be revived", isFreeAccount({ status: "TRIALING", trial_ends_at: iso(-DAY) }), true);
+check("pending checkout: not free", isFreeAccount({ status: "TRIALING", trial_ends_at: null }), false);
+check("promo demo: free", isFreeAccount({ status: "ACTIVE", current_period_end: iso(DAY), amount_inr: 0 }), true);
+check("paying customer: not free", isFreeAccount({ status: "ACTIVE", current_period_end: iso(DAY), amount_inr: 1999 }), false);
+check("autopay customer: not free", isFreeAccount({ status: "ACTIVE", current_period_end: iso(DAY), razorpay_sub_id: "sub_1" }), false);
+check("legacy row with no end date: not free", isFreeAccount({ status: "ACTIVE", amount_inr: 0 }), false);
+check("cancelled: not free", isFreeAccount({ status: "CANCELLED", current_period_end: iso(DAY) }), false);
+check("no subscription: not free", isFreeAccount(null), false);
+const NOW = Date.UTC(2026, 10, 6);
+check("running trial: days add to the end date",
+  extendedEnd(new Date(NOW + 2 * DAY).toISOString(), 7, NOW).getTime(), NOW + 9 * DAY);
+check("ended trial: days count from today, not the old date",
+  extendedEnd(new Date(NOW - 10 * DAY).toISOString(), 7, NOW).getTime(), NOW + 7 * DAY);
+check("no end date: days count from today", extendedEnd(null, 3, NOW).getTime(), NOW + 3 * DAY);
 
 console.log(fail === 0 ? "\nAll checks passed." : `\n${fail} FAILED`);
 process.exit(fail === 0 ? 0 : 1);

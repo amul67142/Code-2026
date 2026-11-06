@@ -1,17 +1,11 @@
 "use server";
 
-import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
-
-/** Owner-portal guard — actions only run with the owner session cookie. */
-async function requireOwner() {
-  const store = await cookies();
-  return !!store.get("owner_session")?.value;
-}
+import { isOwner } from "@/lib/owner/session";
 
 export async function getPromoCodes() {
-  if (!(await requireOwner())) return { promos: [], plans: [] };
+  if (!(await isOwner())) return { promos: [], plans: [] };
   const admin = createAdminClient();
 
   const [{ data: promos }, { data: plans }] = await Promise.all([
@@ -37,7 +31,7 @@ export async function createPromoCode(input: {
   maxUses: number;
   expiresAt?: string | null;
 }) {
-  if (!(await requireOwner())) return { error: "Unauthorized" };
+  if (!(await isOwner())) return { error: "Unauthorized" };
 
   // Auto-generate a readable code if none given (e.g. BIGLEAD-7K2M9Q).
   let code = (input.code || "").trim().toUpperCase().replace(/[^A-Z0-9-]/g, "");
@@ -71,7 +65,7 @@ export async function createPromoCode(input: {
 }
 
 export async function togglePromoCode(id: string, isActive: boolean) {
-  if (!(await requireOwner())) return { error: "Unauthorized" };
+  if (!(await isOwner())) return { error: "Unauthorized" };
   const admin = createAdminClient();
   const { error } = await admin.from("promo_codes").update({ is_active: isActive }).eq("id", id);
   if (error) return { error: "Failed to update promo code" };

@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { updateSession } from "@/lib/supabase/middleware";
+import { OWNER_COOKIE, isOwnerToken } from "@/lib/owner/session";
 
 /** Routes that require authentication */
 const PROTECTED_ROUTES = [
@@ -30,7 +31,7 @@ export async function proxy(request: NextRequest) {
   // 0. Owner Subdomain Routing
   if (hostname.startsWith("owner.") || hostname.startsWith("owner-")) {
     const isOwnerLoginRoute = pathname === "/owner-admin/login";
-    const ownerSession = request.cookies.get("owner_session");
+    const ownerSession = await isOwnerToken(request.cookies.get(OWNER_COOKIE)?.value);
     
     if (!ownerSession && !isOwnerLoginRoute) {
       const loginUrl = request.nextUrl.clone();
@@ -60,7 +61,7 @@ export async function proxy(request: NextRequest) {
   // main domain. Login sets the owner_session cookie via /api/owner/auth.
   if (pathname.startsWith("/owner-admin")) {
     const isOwnerLogin = pathname === "/owner-admin/login";
-    const ownerSession = request.cookies.get("owner_session");
+    const ownerSession = await isOwnerToken(request.cookies.get(OWNER_COOKIE)?.value);
     if (!ownerSession && !isOwnerLogin) {
       const loginUrl = request.nextUrl.clone();
       loginUrl.pathname = "/owner-admin/login";

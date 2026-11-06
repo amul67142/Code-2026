@@ -61,6 +61,25 @@ export function trialEnded(sub: AccessSubscription | null): boolean {
   );
 }
 
+/**
+ * A free trial or a promo-code demo: nothing has been paid, so the owner may
+ * change its end date and seats. A checkout still waiting for payment, a paying
+ * customer and a legacy row with no end date are not.
+ */
+export function isFreeAccount(
+  sub: (AccessSubscription & { amount_inr?: number | null; razorpay_sub_id?: string | null }) | null
+): boolean {
+  if (!sub) return false;
+  if (sub.status === "TRIALING") return !!sub.trial_ends_at;
+  return sub.status === "ACTIVE" && !!sub.current_period_end && !sub.amount_inr && !sub.razorpay_sub_id;
+}
+
+/** Days are added to the current end, or to today if it has already passed. */
+export function extendedEnd(currentEnd: string | null | undefined, days: number, now: number): Date {
+  const end = currentEnd ? new Date(currentEnd).getTime() : 0;
+  return new Date(Math.max(end, now) + days * 24 * 60 * 60 * 1000);
+}
+
 /** True when the subscription exists but its paid period has lapsed. */
 export function isExpired(sub: AccessSubscription | null): boolean {
   if (!sub) return false;

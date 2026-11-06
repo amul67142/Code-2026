@@ -14,7 +14,8 @@ import { decryptToken } from "@/lib/integrations/crypto";
 import { normalizeWhatsAppNumber, sendWhatsAppTemplate } from "@/lib/integrations/whatsapp";
 import { sendBillingReminderEmail } from "@/lib/email";
 import { getURL } from "@/lib/utils";
-import { RENEWAL_GRACE_DAYS, TRIAL_DAYS, inr, monthlyPrice } from "@/lib/billing/plans";
+import { INCLUDED_SEATS, RENEWAL_GRACE_DAYS, inr, monthlyPrice } from "@/lib/billing/plans";
+import { countSeatsUsed } from "@/lib/billing/state";
 
 /**
  * The WhatsApp template, as it must be created and approved on the SpaceTrans
@@ -61,7 +62,7 @@ function copy(kind: Kind, endIso: string, seats: number): { headline: string; li
     case "TRIAL_1D":
       return {
         headline: "Your free trial ends soon",
-        line: `Your ${TRIAL_DAYS}-day free trial ends on ${when(endIso)}. After that your dashboard locks until you pay ${price}/month. New leads will still be saved.`,
+        line: `Your free trial ends on ${when(endIso)}. After that your dashboard locks until you pay ${price}/month. New leads will still be saved.`,
       };
     case "TRIAL_ENDED":
       return {
@@ -88,6 +89,8 @@ interface Due {
   kind: Kind;
   endIso: string;
   seats: number;
+  /** Trial or promo: seats were granted, not bought. */
+  free: boolean;
 }
 
 /** Which reminders are due right now. Tuned for one run a day. */
@@ -96,7 +99,7 @@ async function findDue(): Promise<Due[]> {
   const now = Date.now();
   const { data: subs } = await admin
     .from("subscriptions")
-    .select("company_id, status, trial_ends_at, current_period_end, seats, razorpay_sub_id, companies!inner(is_platform, deleted_at)")
+    .select("company_id, status, trial_ends_at, current_period_end, seats, amount_inr, razorpay_sub_id, companies!inner(is_platform, deleted_at)")
     .in("status", ["TRIALING", "ACTIVE"]);
 
   const due: Due[] = [];
@@ -105,20 +108,21 @@ async function findDue(): Promise<Due[]> {
     const company = s.companies as any;
     if (company?.is_platform || company?.deleted_at) continue;
     const seats = s.seats || 3;
+    const free = s.status === "TRIALING" || !s.amount_inr;
 
     if (s.status === "TRIALING" && s.trial_ends_at) {
       const left = new Date(s.trial_ends_at).getTime() - now;
       // 36h, not 24h: with one run a day, a 24h window misses any trial that
       // ends just after the run.
-      if (left > 0 && left <= 36 * HOUR) due.push({ companyId: s.company_id, kind: "TRIAL_1D", endIso: s.trial_ends_at, seats });
-      else if (left <= 0 && left > -7 * DAY) due.push({ companyId: s.company_id, kind: "TRIAL_ENDED", endIso: s.trial_ends_at, seats });
+      if (left > 0 && left <= 36 * HOUR) due.push({ companyId: s.company_id, kind: "TRIAL_1D", endIso: s.trial_ends_at, seats, free });
+      else if (left <= 0 && left > -7 * DAY) due.push({ companyId: s.company_id, kind: "TRIAL_ENDED", endIso: s.trial_ends_at, seats, free });
     }
 
     // Autopay subscriptions renew themselves; "please pay" would confuse them.
     if (s.status === "ACTIVE" && s.current_period_end && !s.razorpay_sub_id) {
       const left = new Date(s.current_period_end).getTime() - now;
-      if (left > 0 && left <= 3.5 * DAY) due.push({ companyId: s.company_id, kind: "RENEW_3D", endIso: s.current_period_end, seats });
-      else if (left <= 0 && left > -7 * DAY) due.push({ companyId: s.company_id, kind: "RENEW_DUE", endIso: s.current_period_end, seats });
+      if (left > 0 && left <= 3.5 * DAY) due.push({ companyId: s.company_id, kind: "RENEW_3D", endIso: s.current_period_end, seats, free });
+      else if (left <= 0 && left > -7 * DAY) due.push({ companyId: s.company_id, kind: "RENEW_DUE", endIso: s.current_period_end, seats, free });
     }
   }
   return due;
@@ -196,7 +200,9 @@ export async function sendDueReminders(): Promise<{ sent: number; skipped: numbe
 
     const name = owner?.name || "there";
     const workspace = company?.name && company.name !== "Pending Onboarding" ? company.name : "BigLead";
-    const { headline, line } = copy(d.kind, d.endIso, d.seats);
+    // Quote what checkout will charge: seats in use, not seats the owner granted.
+    const seats = d.free ? Math.max(INCLUDED_SEATS, await countSeatsUsed(d.companyId)) : d.seats;
+    const { headline, line } = copy(d.kind, d.endIso, seats);
 
     let whatsapp: string;
     if ("skip" in sender) whatsapp = `SKIPPED: ${sender.skip}`;
