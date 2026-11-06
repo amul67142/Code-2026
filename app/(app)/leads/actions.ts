@@ -13,16 +13,21 @@ import { notifyLeadStageChange, notifyLeadAssigned } from "@/lib/notifications/n
 import { autoSendNewLead } from "@/lib/crm/outbound";
 
 // ── Get leads with optional filters ─────────────────────────────
-export async function getLeads(filters?: {
+const LEADS_PAGE_SIZE = 100;
+const EXPORT_BATCH_SIZE = 1000; // the most PostgREST returns in one request
+
+export interface LeadFilters {
   stage_id?: string;
   source?: string;
   search?: string;
   status?: string;
-}) {
-  const supabase = await createClient();
-  const profile = await getUserProfile();
-  if (!profile) throw new Error("Unauthorized");
+}
 
+function leadsQuery(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  companyId: string,
+  filters?: LeadFilters
+) {
   let query = supabase
     .from("leads")
     .select(
@@ -31,11 +36,16 @@ export async function getLeads(filters?: {
       pipeline_stages ( id, name, color ),
       projects ( id, name ),
       assigned_user:users!leads_assigned_to_id_fkey ( id, name )
-    `
+    `,
+      { count: "exact" }
     )
-    .eq("company_id", profile.company_id)
+    .eq("company_id", companyId)
     .is("deleted_at", null)
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    // A CSV import stamps many leads with the same time. Without a tie-break
+    // their order can differ between requests, repeating or losing rows
+    // across pages.
+    .order("id", { ascending: true });
 
   if (filters?.stage_id) {
     query = query.eq("stage_id", filters.stage_id);
@@ -51,14 +61,47 @@ export async function getLeads(filters?: {
       `name.ilike.%${filters.search}%,phone.ilike.%${filters.search}%,email.ilike.%${filters.search}%`
     );
   }
+  return query;
+}
 
-  const { data, error } = await query.limit(100);
+/** One page of leads, plus how many match the filters in total. */
+export async function getLeads(filters?: LeadFilters, page = 1) {
+  const supabase = await createClient();
+  const profile = await getUserProfile();
+  if (!profile) throw new Error("Unauthorized");
+
+  const from = (Math.max(1, Math.floor(page)) - 1) * LEADS_PAGE_SIZE;
+  const { data, error, count } = await leadsQuery(supabase, profile.company_id, filters).range(
+    from,
+    from + LEADS_PAGE_SIZE - 1
+  );
   if (error) {
     console.error("getLeads error:", error);
     throw new Error("Failed to fetch leads");
   }
 
-  return data;
+  return { leads: data || [], total: count ?? 0, pageSize: LEADS_PAGE_SIZE };
+}
+
+/** Every lead matching the filters, not just the page on screen. */
+export async function getLeadsForExport(filters?: LeadFilters) {
+  const supabase = await createClient();
+  const profile = await getUserProfile();
+  if (!profile) throw new Error("Unauthorized");
+
+  const all: NonNullable<Awaited<ReturnType<typeof leadsQuery>>["data"]> = [];
+  for (;;) {
+    const { data, error } = await leadsQuery(supabase, profile.company_id, filters).range(
+      all.length,
+      all.length + EXPORT_BATCH_SIZE - 1
+    );
+    if (error) {
+      console.error("getLeadsForExport error:", error);
+      throw new Error("Failed to export leads");
+    }
+    all.push(...(data || []));
+    if (!data || data.length < EXPORT_BATCH_SIZE) return all;
+  }
 }
 
 // ── Get leads grouped by pipeline stage (for Kanban) ────────────

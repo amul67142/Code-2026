@@ -12,7 +12,7 @@ export const metadata = {
  * Fetches data on the server so the page renders instantly.
  */
 export default async function LeadsPage() {
-  const [leads, stages, agents, projects] = await Promise.all([
+  const [{ leads, total, pageSize }, stages, agents, projects] = await Promise.all([
     getLeads(),
     getStages(),
     getAgentsForAssignment(),
@@ -23,6 +23,8 @@ export default async function LeadsPage() {
   return (
     <LeadsClient
       initialLeads={leads}
+      initialTotal={total}
+      pageSize={pageSize}
       initialStages={stages}
       initialAgents={agents}
       projects={projects.map((p: { id: string; name: string }) => ({ id: p.id, name: p.name }))}

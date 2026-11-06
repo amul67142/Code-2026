@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import { getLeads, updateLeadAssignment } from "./actions";
+import { getLeads, getLeadsForExport, updateLeadAssignment, type LeadFilters } from "./actions";
 import {
   bulkDeleteLeads,
   sendBulkWhatsApp,
@@ -35,6 +35,8 @@ import {
   Upload,
   Trash2,
   Send,
+  ChevronLeft,
+  ChevronRight,
   Loader2,
   Share2,
   X,
@@ -104,6 +106,8 @@ interface LeadsClientProps {
   initialStages: Stage[];
   initialAgents: Agent[];
   projects: { id: string; name: string }[];
+  initialTotal: number;
+  pageSize: number;
 }
 
 export default function LeadsClient({
@@ -111,8 +115,16 @@ export default function LeadsClient({
   initialStages,
   initialAgents,
   projects,
+  initialTotal,
+  pageSize,
 }: LeadsClientProps) {
   const [leads, setLeads] = useState<Lead[]>(initialLeads);
+  const [total, setTotal] = useState(initialTotal);
+  const [page, setPage] = useState(1);
+  // The filters behind the rows on screen. Text typed in the search box only
+  // counts once it has been applied.
+  const [appliedFilters, setAppliedFilters] = useState<LeadFilters>({});
+  const [exporting, setExporting] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [search, setSearch] = useState("");
   const [stageFilter, setStageFilter] = useState("all");
@@ -155,8 +167,9 @@ export default function LeadsClient({
         toast.error(res.error);
       } else {
         toast.success(`Deleted ${res.deleted} lead${(res.deleted || 0) > 1 ? "s" : ""}`);
-        setLeads((prev) => prev.filter((l: Lead) => !selected.has(l.id)));
-        setSelected(new Set());
+        // Refill the page; if that was all of the last page, step back one.
+        const pagesLeft = Math.max(1, Math.ceil((total - (res.deleted || 0)) / pageSize));
+        loadLeads(appliedFilters, Math.min(page, pagesLeft));
       }
     } finally {
       setBulkBusy(false);
@@ -224,55 +237,46 @@ export default function LeadsClient({
     else if (confirming === "delete") handleBulkDelete();
   }
 
-  function applyFilters() {
+  function buildFilters(stage: string, source: string): LeadFilters {
+    const filters: LeadFilters = {};
+    if (stage !== "all") filters.stage_id = stage;
+    if (source !== "all") filters.source = source;
+    if (search.trim()) filters.search = search.trim();
+    return filters;
+  }
+
+  function loadLeads(filters: LeadFilters, nextPage: number) {
     startTransition(async () => {
       try {
-        const filters: Record<string, string> = {};
-        if (stageFilter !== "all") filters.stage_id = stageFilter;
-        if (sourceFilter !== "all") filters.source = sourceFilter;
-        if (search.trim()) filters.search = search.trim();
-
-        const data = await getLeads(filters);
-        setLeads(data);
+        const data = await getLeads(filters, nextPage);
+        setLeads(data.leads);
+        setTotal(data.total);
+        setPage(nextPage);
+        setAppliedFilters(filters);
+        // Bulk actions must only ever touch rows the user can see.
+        setSelected(new Set());
+        setConfirming(null);
+        document.querySelector("main")?.scrollTo({ top: 0 });
       } catch {
-        console.error("Failed to filter leads");
+        toast.error("Failed to load leads");
       }
     });
+  }
+
+  function applyFilters() {
+    loadLeads(buildFilters(stageFilter, sourceFilter), 1);
   }
 
   function handleStageChange(v: string | null) {
     const val = v ?? "all";
     setStageFilter(val);
-    // Trigger filter immediately
-    startTransition(async () => {
-      try {
-        const filters: Record<string, string> = {};
-        if (val !== "all") filters.stage_id = val;
-        if (sourceFilter !== "all") filters.source = sourceFilter;
-        if (search.trim()) filters.search = search.trim();
-        const data = await getLeads(filters);
-        setLeads(data);
-      } catch {
-        console.error("Failed to filter leads");
-      }
-    });
+    loadLeads(buildFilters(val, sourceFilter), 1);
   }
 
   function handleSourceChange(v: string | null) {
     const val = v ?? "all";
     setSourceFilter(val);
-    startTransition(async () => {
-      try {
-        const filters: Record<string, string> = {};
-        if (stageFilter !== "all") filters.stage_id = stageFilter;
-        if (val !== "all") filters.source = val;
-        if (search.trim()) filters.search = search.trim();
-        const data = await getLeads(filters);
-        setLeads(data);
-      } catch {
-        console.error("Failed to filter leads");
-      }
-    });
+    loadLeads(buildFilters(stageFilter, val), 1);
   }
 
   function handleSearchKeyDown(e: React.KeyboardEvent) {
@@ -309,21 +313,32 @@ export default function LeadsClient({
     );
   }
 
-  function handleExportCSV() {
-    if (leads.length === 0) {
+  async function handleExportCSV() {
+    if (total === 0) {
       toast.error("No leads to export");
       return;
     }
 
-    const exportData = leads.map(l => ({
+    setExporting(true);
+    let rows: Lead[];
+    try {
+      rows = await getLeadsForExport(appliedFilters);
+    } catch {
+      toast.error("Failed to export leads");
+      return;
+    } finally {
+      setExporting(false);
+    }
+
+    const exportData = rows.map((l: Lead) => ({
       "Lead Name": l.name,
       "Phone": l.phone || "",
       "Email": l.email || "",
       "Email Is Placeholder": l.email_is_synthetic ? "Yes" : "",
       "Portal Relay Email": l.email_original || "",
-      "Stage": l.stage?.name || "",
+      "Stage": l.pipeline_stages?.name || "",
       "Source": l.source || "",
-      "Project": l.project?.name || "",
+      "Project": l.projects?.name || "",
       "Assigned To": l.assigned_user?.name || "Unassigned",
       ...Object.fromEntries(
         STATUS_SLOTS.flatMap((n) => [
@@ -358,8 +373,8 @@ export default function LeadsClient({
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <Button variant="outline" onClick={handleExportCSV}>
-            <Download className="mr-2 h-4 w-4" />
+          <Button variant="outline" onClick={handleExportCSV} disabled={exporting}>
+            {exporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
             Export
           </Button>
           <Button variant="outline" onClick={() => setIsImportOpen(true)}>
@@ -431,7 +446,7 @@ export default function LeadsClient({
         </Select>
 
         <span className="text-sm text-muted-foreground">
-          {isPending ? "Loading..." : `${leads.length} leads`}
+          {isPending ? "Loading..." : `${total} leads`}
         </span>
       </div>
 
@@ -640,6 +655,38 @@ export default function LeadsClient({
           </TableBody>
         </Table>
       </div>
+
+      {/* Pagination */}
+      {total > pageSize && (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <span className="text-sm text-muted-foreground">
+            Showing {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, total)} of {total}
+          </span>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => loadLeads(appliedFilters, page - 1)}
+              disabled={isPending || page <= 1}
+            >
+              <ChevronLeft className="mr-1 h-4 w-4" />
+              Previous
+            </Button>
+            <span className="text-sm tabular-nums text-muted-foreground">
+              Page {page} of {Math.ceil(total / pageSize)}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => loadLeads(appliedFilters, page + 1)}
+              disabled={isPending || page * pageSize >= total}
+            >
+              Next
+              <ChevronRight className="ml-1 h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
