@@ -6,7 +6,7 @@ import { revalidatePath } from "next/cache";
 import { sendFacebookCAPIEvent } from "@/lib/integrations/facebook-capi";
 import { sendLeadAcknowledgmentEmail } from "@/lib/automation/lead-email";
 import { resolveLeadEmail } from "@/lib/leads/portal-email";
-import { sendAgentLeadAlert } from "@/lib/automation/agent-lead-alert";
+import { alertAgentAboutLead } from "@/lib/automation/agent-lead-email";
 import { sendLeadWhatsApp } from "@/lib/automation/lead-whatsapp";
 // Request-deduped auth: layout + all page actions share ONE auth round-trip.
 import { getCachedUserProfile as getUserProfile } from "@/lib/auth/cached-user";
@@ -233,11 +233,11 @@ export async function createLead(formData: FormData) {
       leadName: name,
     });
     if (finalAssignee !== profile.id) {
-      await sendAgentLeadAlert({
+      await alertAgentAboutLead({
         companyId: profile.company_id,
         leadId: newLead.id,
         agentUserId: finalAssignee,
-      }).catch((e) => console.error("createLead: agent alert failed:", e));
+      });
     }
   }
 
@@ -437,11 +437,11 @@ export async function updateLeadAssignment(leadId: string, assignedToId: string 
 
     // Taking a lead yourself needs no alert; neither does an unchanged owner.
     if (assignedToId !== profile.id && assignedToId !== before?.assigned_to_id) {
-      await sendAgentLeadAlert({
+      await alertAgentAboutLead({
         companyId: profile.company_id,
         leadId,
         agentUserId: assignedToId,
-      }).catch((e) => console.error("updateLeadAssignment: agent alert failed:", e));
+      });
     }
 
     // Log activity on the lead
@@ -466,6 +466,8 @@ export async function bulkImportLeads(leads: any[], projectId?: string) {
   const supabase = await createClient();
   const profile = await getUserProfile();
   if (!profile) return { error: "Unauthorized" };
+
+  if (profile.role === "AGENT") return { error: "Ask a team lead or admin to import leads" };
 
   if (!leads || leads.length === 0) return { error: "No leads to import" };
 
@@ -494,8 +496,6 @@ export async function bulkImportLeads(leads: any[], projectId?: string) {
         return {
           ...l,
           project_id: projectId || null,
-          // An agent only sees leads assigned to them.
-          ...(profile.role === "AGENT" ? { assigned_to_id: profile.id } : {}),
           email: resolved.email,
           email_is_synthetic: resolved.synthetic,
           email_original: resolved.original,

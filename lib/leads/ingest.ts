@@ -14,7 +14,7 @@ import { sendLeadAcknowledgmentEmail } from "@/lib/automation/lead-email";
 import { sendLeadWhatsApp } from "@/lib/automation/lead-whatsapp";
 import { autoSendNewLead } from "@/lib/crm/outbound";
 import { resolveLeadEmail } from "@/lib/leads/portal-email";
-import { sendAgentLeadAlert } from "@/lib/automation/agent-lead-alert";
+import { alertAgentAboutLead } from "@/lib/automation/agent-lead-email";
 import { getAccessFlags } from "@/lib/billing/state";
 
 export type IngestSource =
@@ -284,15 +284,12 @@ export async function ingestLead(input: IngestInput): Promise<IngestResult> {
     }).catch((e) => console.error("ingestLead: lead WhatsApp failed:", e));
   }
 
-  // ── 8b. WhatsApp the assigned agent the lead's name and number ──
+  // ── 8b. Tell the assigned agent: WhatsApp and email ──
   // Deferred like the CRM forward below: a slow WhatsApp API must not hold up
   // the source's webhook. Agents who have not opted in are skipped inside.
   if (assignedUserId) {
     const agentId = assignedUserId;
-    const alert = () =>
-      sendAgentLeadAlert({ companyId, leadId: lead.id, agentUserId: agentId }).catch((e) =>
-        console.error("ingestLead: agent alert failed:", e)
-      );
+    const alert = () => alertAgentAboutLead({ companyId, leadId: lead.id, agentUserId: agentId });
     try {
       after(alert);
     } catch {

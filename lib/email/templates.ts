@@ -66,23 +66,39 @@ export async function sendInviteEmail(to: string, inviterName: string, companyNa
 }
 
 // ── 3. New Lead Assigned Email ───────────────────────────────────
+// Lead details arrive from public forms, so they are escaped before going in.
+const escapeHtml = (text: string) =>
+  text.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
+
+/**
+ * Mail apps fold emails with the same subject into one thread, which would bury
+ * a new lead under the last one. The reference keeps each lead's subject its
+ * own, even when two leads share a name.
+ */
+export function newLeadSubject(leadName: string, leadId: string) {
+  const name = leadName.replace(/\s+/g, " ").trim().slice(0, 60);
+  return `New lead: ${name} #${leadId.slice(0, 6).toUpperCase()}`;
+}
+
 export function getNewLeadEmailHtml(agentName: string, leadName: string, leadPhone: string, source: string, leadUrl: string) {
   return layout(`
     <h1>New Lead Assigned 📥</h1>
-    <p>Hi ${agentName}, a new lead has been assigned to you:</p>
+    <p>Hi ${escapeHtml(agentName)}, a new lead has been assigned to you:</p>
     <div class="highlight">
-      <p style="margin:0 0 4px"><strong>${leadName}</strong></p>
-      <p class="meta" style="margin:0">📞 ${leadPhone || "No phone"} &nbsp; · &nbsp; 📌 ${source || "Unknown source"}</p>
+      <p style="margin:0 0 4px"><strong>${escapeHtml(leadName)}</strong></p>
+      <p class="meta" style="margin:0">📞 ${escapeHtml(leadPhone || "No phone")} &nbsp; · &nbsp; 📌 ${escapeHtml(source || "Unknown source")}</p>
     </div>
     <p><a href="${leadUrl}" class="btn">View Lead →</a></p>
   `);
 }
 
-export async function sendNewLeadEmail(to: string, agentName: string, leadName: string, leadPhone: string, source: string, leadUrl: string) {
+export async function sendNewLeadEmail(to: string, agentName: string, leadName: string, leadPhone: string, source: string, leadUrl: string, leadId: string) {
   return sendEmail({
     to,
-    subject: `New lead assigned: ${leadName}`,
+    subject: newLeadSubject(leadName, leadId),
     html: getNewLeadEmailHtml(agentName, leadName, leadPhone, source, leadUrl),
+    // A fresh id per email also stops Gmail grouping them by content.
+    headers: { "X-Entity-Ref-ID": crypto.randomUUID() },
   });
 }
 

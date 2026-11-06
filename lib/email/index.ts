@@ -14,6 +14,7 @@ export {
   getWelcomeEmailHtml,
   getInviteEmailHtml,
   getNewLeadEmailHtml,
+  newLeadSubject,
   getTaskReminderEmailHtml,
   getTaskOverdueEmailHtml,
   getDailyDigestEmailHtml,

@@ -6,9 +6,10 @@ interface SendEmailOptions {
   to: string;
   subject: string;
   html: string;
+  headers?: Record<string, string>;
 }
 
-export async function sendEmail({ to, subject, html }: SendEmailOptions) {
+export async function sendEmail({ to, subject, html, headers }: SendEmailOptions) {
   if (!process.env.RESEND_API_KEY) {
     console.warn("[Email] RESEND_API_KEY not set — skipping email to:", to);
     return { success: false, error: "API key not configured" };
@@ -22,6 +23,7 @@ export async function sendEmail({ to, subject, html }: SendEmailOptions) {
       to,
       subject,
       html,
+      headers,
     });
 
     if (error) {
