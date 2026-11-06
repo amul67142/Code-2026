@@ -10,6 +10,7 @@ import {
   type AlertSetup,
 } from "./agent-alert-fields";
 import type { AgentAlertSettings } from "@/lib/team/agent-alert-settings";
+import { MAX_LEAD_SHARE, MIN_LEAD_SHARE, receivesLeads } from "@/lib/team/lead-share";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -78,6 +79,7 @@ export default function TeamClient({
   const [isInviting, setIsInviting] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState("AGENT");
+  const [inviteShare, setInviteShare] = useState("");
   const [inviteAlert, setInviteAlert] = useState<AgentAlertSettings>(emptyAlertSettings());
   const [dialogOpen, setDialogOpen] = useState(false);
   const [alertSetup, setAlertSetup] = useState<AlertSetup>(initialAlertSetup);
@@ -98,7 +100,8 @@ export default function TeamClient({
       // form must not wipe a returning member's saved number.
       const alert =
         inviteAlert.enabled || inviteAlert.phone.trim() ? inviteAlert : undefined;
-      const res = await inviteTeamMember(inviteEmail, inviteRole, alert);
+      const share = receivesLeads(inviteRole) && inviteShare ? Number(inviteShare) : undefined;
+      const res = await inviteTeamMember(inviteEmail, inviteRole, alert, share);
       if (res.error) {
         toast.error(res.error);
       } else {
@@ -106,6 +109,7 @@ export default function TeamClient({
         setDialogOpen(false);
         setInviteEmail("");
         setInviteRole("AGENT");
+        setInviteShare("");
         setInviteAlert(emptyAlertSettings());
         // Opt: Refresh data (will happen on navigation/focus via NextJS cache, but we can optimistically add)
         window.location.reload();
@@ -242,6 +246,24 @@ export default function TeamClient({
                     </SelectContent>
                   </Select>
                 </div>
+                {receivesLeads(inviteRole) && (
+                  <div className="space-y-2">
+                    <Label htmlFor="invite-share">Lead share</Label>
+                    <Input
+                      id="invite-share"
+                      type="number"
+                      min={MIN_LEAD_SHARE}
+                      max={MAX_LEAD_SHARE}
+                      placeholder="1"
+                      value={inviteShare}
+                      onChange={(e) => setInviteShare(e.target.value)}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      A higher number means more leads. With 5, 3 and 3, every 11 leads split 5, 3, 3. You can
+                      change this later in Settings → Routing.
+                    </p>
+                  </div>
+                )}
                 <AgentAlertFields
                   value={inviteAlert}
                   onChange={setInviteAlert}

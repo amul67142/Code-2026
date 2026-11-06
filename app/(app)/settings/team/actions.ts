@@ -7,6 +7,7 @@ import { sendInviteEmail } from "@/lib/email";
 import { getBillingState } from "@/lib/billing/state";
 import { EXTRA_SEAT_MONTHLY_INR, inr } from "@/lib/billing/plans";
 import { validateAgentAlert, type AgentAlertSettings, type AgentAlertRow } from "@/lib/team/agent-alert-settings";
+import { MAX_LEAD_SHARE, MIN_LEAD_SHARE, validLeadShare } from "@/lib/team/lead-share";
 
 /**
  * Null if one more seat-taking member fits, else the message to show. The
@@ -73,7 +74,9 @@ export async function inviteTeamMember(
   email: string,
   role: string,
   /** Optional WhatsApp lead alerts, set up in the same dialog. */
-  alert?: AgentAlertSettings
+  alert?: AgentAlertSettings,
+  /** Optional lead share. Left out, a returning member keeps their old one. */
+  leadShare?: number
 ) {
   const supabase = await createClient();
   const adminClient = createAdminClient();
@@ -109,6 +112,11 @@ export async function inviteTeamMember(
     if ("error" in checked) return { error: checked.error };
     alertRow = checked.row;
   }
+
+  if (leadShare !== undefined && !validLeadShare(leadShare)) {
+    return { error: `Lead share must be a whole number from ${MIN_LEAD_SHARE} to ${MAX_LEAD_SHARE}.` };
+  }
+  const shareRow = leadShare !== undefined ? { lead_weight: leadShare } : {};
 
   const redirectUrl = `${getURL()}/invite`;
 
@@ -168,6 +176,7 @@ export async function inviteTeamMember(
         role: role,
         deleted_at: null,
         ...(alertRow || {}),
+        ...shareRow,
       })
       .eq("id", existingProfile.id);
   } else {
@@ -182,6 +191,7 @@ export async function inviteTeamMember(
         role: role,
         status: "INVITED",
         ...(alertRow || {}),
+        ...shareRow,
       });
 
     if (profileError) {
