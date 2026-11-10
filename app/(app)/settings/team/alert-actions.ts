@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCachedUserProfile } from "@/lib/auth/cached-user";
 import { decryptToken } from "@/lib/integrations/crypto";
-import { sendWhatsAppTemplate } from "@/lib/integrations/whatsapp";
+import { sendWhatsAppTemplate, normalizeWhatsAppNumber } from "@/lib/integrations/whatsapp";
 import { sendTemplateWithCredit } from "@/lib/billing/credits";
 import { refreshTemplateStatus } from "@/lib/integrations/template-status";
 import {
@@ -210,19 +210,39 @@ export async function sendTestAgentAlert(userId: string) {
       ]
     : [];
 
+  // Recorded in the WhatsApp Message Log with no lead. Meta can accept a test
+  // and fail it a minute later (unpaid account, missing tax details); the
+  // webhook then marks this row failed with the reason, where an admin sees it.
+  const logTest = (fields: { status: "SENT" | "FAILED"; provider_id?: string | null; error_message?: string }) =>
+    admin.from("message_log").insert({
+      company_id: guard.profile.company_id,
+      lead_id: null,
+      channel: "WHATSAPP",
+      direction: "OUTBOUND",
+      recipient_type: "AGENT",
+      to_address: normalizeWhatsAppNumber(agent.phone!),
+      subject: `Test alert: ${agent.wa_notify_template}`,
+      is_auto: false,
+      ...fields,
+    });
+
   try {
-    await sendTemplateWithCredit(guard.profile.company_id, "Test agent alert", () =>
+    const res = await sendTemplateWithCredit(guard.profile.company_id, "Test agent alert", () =>
       sendWhatsAppTemplate(
         conn.phone_number_id,
         decryptToken(conn.access_token_enc),
-        agent.phone,
-        agent.wa_notify_template,
+        agent.phone!,
+        agent.wa_notify_template!,
         language,
         components
       )
     );
+    await logTest({ status: "SENT", provider_id: res.messages?.[0]?.id || null });
+    revalidatePath("/settings/whatsapp-logs");
     return { success: true };
   } catch (err) {
-    return { error: err instanceof Error ? err.message : "WhatsApp send failed" };
+    const msg = err instanceof Error ? err.message : "WhatsApp send failed";
+    await logTest({ status: "FAILED", error_message: msg.slice(0, 500) });
+    return { error: msg };
   }
 }

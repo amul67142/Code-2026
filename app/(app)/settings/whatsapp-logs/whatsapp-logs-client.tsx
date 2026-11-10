@@ -18,6 +18,10 @@ function statusBadge(r: Row) {
     return <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100">Reply</Badge>;
   if (r.status === "SENT")
     return <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100">Sent</Badge>;
+  if (r.status === "DELIVERED")
+    return <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100">Delivered</Badge>;
+  if (r.status === "OPENED")
+    return <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100">Read</Badge>;
   if (r.status === "FAILED")
     return <Badge className="bg-red-100 text-red-700 hover:bg-red-100">Failed</Badge>;
   return <Badge variant="secondary">{r.status}</Badge>;
@@ -79,25 +83,37 @@ export function WhatsAppLogsClient({ initialRows }: { initialRows: Row[] }) {
                   <td className="px-3 py-2.5">
                     <div className="flex flex-col gap-1">
                       {statusBadge(r)}
-                      {r.is_auto === false && r.direction === "OUTBOUND" && (
-                        <span className="text-[10px] text-muted-foreground">manual</span>
+                      {r.recipient_type === "AGENT" ? (
+                        <span className="text-[10px] font-medium text-violet-700">to agent</span>
+                      ) : (
+                        r.is_auto === false &&
+                        r.direction === "OUTBOUND" && (
+                          <span className="text-[10px] text-muted-foreground">manual</span>
+                        )
                       )}
                     </div>
                   </td>
-                  <td className="px-3 py-2.5 font-mono text-xs">{r.to_address || "—"}</td>
+                  <td className="px-3 py-2.5">
+                    <p className="font-mono text-xs">{r.to_address || "—"}</p>
+                    {r.status === "FAILED" && r.error_message && (
+                      <p className="mt-1 text-[11px] text-red-600 md:hidden">{r.error_message}</p>
+                    )}
+                  </td>
                   <td className="px-3 py-2.5 hidden sm:table-cell">
                     {r.leads?.id ? (
                       <Link href={`/leads/${r.leads.id}`} prefetch={false} className="text-primary hover:underline">
                         {r.leads.name || "Lead"}
                       </Link>
+                    ) : r.recipient_type === "AGENT" ? (
+                      <span className="text-muted-foreground">Test alert</span>
                     ) : (
                       <span className="text-muted-foreground">—</span>
                     )}
                   </td>
-                  <td className="px-3 py-2.5 hidden md:table-cell max-w-[280px]">
+                  <td className="px-3 py-2.5 hidden md:table-cell max-w-[320px]">
                     <p className="truncate text-xs">{r.subject || "—"}</p>
                     {r.status === "FAILED" && r.error_message && (
-                      <p className="truncate text-[11px] text-red-600" title={r.error_message}>
+                      <p className="text-[11px] leading-snug text-red-600" title={r.error_message}>
                         {r.error_message}
                       </p>
                     )}

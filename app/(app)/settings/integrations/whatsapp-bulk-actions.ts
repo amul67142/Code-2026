@@ -27,10 +27,10 @@ export async function getWhatsAppMessageLog(filter?: "SENT" | "FAILED" | "INBOUN
   const admin = createAdminClient();
   let q = admin
     .from("message_log")
-    .select("id, direction, to_address, subject, status, error_message, is_auto, created_at, leads(id, name)")
+    .select("id, direction, recipient_type, to_address, subject, status, error_message, is_auto, created_at, leads(id, name)")
     .eq("company_id", profile.company_id)
     .eq("channel", "WHATSAPP")
-    .eq("recipient_type", "LEAD")
+    // Alerts to agents are listed too, so a failed alert shows its reason.
     .order("created_at", { ascending: false })
     .limit(200);
 
@@ -89,6 +89,7 @@ export async function sendBulkWhatsApp(leadIds: string[]) {
     .eq("company_id", profile.company_id)
     .eq("channel", "WHATSAPP")
     .eq("direction", "OUTBOUND")
+    .eq("recipient_type", "LEAD")
     .eq("is_auto", false)
     .gte("created_at", dayStart.toISOString());
 
@@ -239,6 +240,7 @@ export async function getBulkSendQuota() {
     .eq("company_id", profile.company_id)
     .eq("channel", "WHATSAPP")
     .eq("direction", "OUTBOUND")
+    .eq("recipient_type", "LEAD")
     .eq("is_auto", false)
     .gte("created_at", dayStart.toISOString());
 
