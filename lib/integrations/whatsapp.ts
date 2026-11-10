@@ -214,6 +214,30 @@ export async function listMetaTemplates(
   return (data.data || []) as MetaTemplateListItem[];
 }
 
+/**
+ * Meta's current review status for one template, or null if Meta has no
+ * template by that name and language. Looks up a single name, not the whole list.
+ */
+export async function getMetaTemplateStatus(
+  wabaId: string,
+  token: string,
+  name: string,
+  language: string
+): Promise<string | null> {
+  const res = await fetch(
+    `${BASE}/${wabaId}/message_templates?name=${encodeURIComponent(name)}&fields=name,status,language&limit=50&access_token=${encodeURIComponent(token)}`
+  );
+  const data = await res.json();
+  if (!res.ok || data.error) {
+    throw new Error(data?.error?.message || `Template lookup failed (${res.status})`);
+  }
+  // The name filter matches by prefix, so match name and language exactly.
+  const hit = ((data.data || []) as MetaTemplateListItem[]).find(
+    (t) => t.name === name && t.language === language
+  );
+  return hit ? (hit.status || "PENDING").toUpperCase() : null;
+}
+
 /** Pull the BODY text out of a Meta template's components (for local storage). */
 export function templateBodyFromComponents(components?: MetaTemplateComponent[]): string {
   const body = (components || []).find((c) => c.type?.toUpperCase() === "BODY");

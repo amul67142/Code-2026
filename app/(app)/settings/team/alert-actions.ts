@@ -6,6 +6,7 @@ import { getCachedUserProfile } from "@/lib/auth/cached-user";
 import { decryptToken } from "@/lib/integrations/crypto";
 import { sendWhatsAppTemplate } from "@/lib/integrations/whatsapp";
 import { sendTemplateWithCredit } from "@/lib/billing/credits";
+import { refreshTemplateStatus } from "@/lib/integrations/template-status";
 import {
   ALERT_FIELDS,
   STANDARD_ALERT_TEMPLATE,
@@ -148,7 +149,7 @@ export async function sendTestAgentAlert(userId: string) {
       .maybeSingle(),
     admin
       .from("whatsapp_connections")
-      .select("phone_number_id, access_token_enc, status")
+      .select("phone_number_id, waba_id, access_token_enc, status")
       .eq("company_id", guard.profile.company_id)
       .eq("status", "ACTIVE")
       .maybeSingle(),
@@ -163,13 +164,25 @@ export async function sendTestAgentAlert(userId: string) {
   const language = agent.wa_notify_template_language || "en_US";
   const { data: tpl } = await admin
     .from("whatsapp_templates")
-    .select("body_text, status")
+    .select("body_text, status, updated_at")
     .eq("company_id", guard.profile.company_id)
     .eq("name", agent.wa_notify_template)
     .eq("language", language)
     .maybeSingle();
   if (tpl && tpl.status !== "APPROVED") {
-    return { error: `Meta has not approved "${agent.wa_notify_template}" yet (${tpl.status.toLowerCase()}). Sync templates once it is.` };
+    // The saved status may predate Meta's approval; ask Meta before refusing.
+    const live = await refreshTemplateStatus({
+      companyId: guard.profile.company_id,
+      wabaId: conn.waba_id,
+      tokenEnc: conn.access_token_enc,
+      name: agent.wa_notify_template,
+      language,
+      saved: { status: tpl.status, updated_at: null },
+    });
+    if (live !== "APPROVED") {
+      return { error: `Meta has not approved "${agent.wa_notify_template}" yet (${live.toLowerCase()}).` };
+    }
+    revalidatePath("/settings/team");
   }
 
   const sample: Record<string, string> = {

@@ -3,6 +3,7 @@ import crypto from "crypto";
 import { processInboundWhatsApp } from "@/lib/leads/whatsapp-inbound";
 import { rateLimit } from "@/lib/rate-limit";
 import { settleCreditForMessage } from "@/lib/billing/credits";
+import { applyTemplateStatusEvent } from "@/lib/integrations/template-status";
 
 /**
  * WhatsApp Cloud API webhook.
@@ -77,6 +78,14 @@ export async function POST(req: NextRequest) {
 
   for (const entry of body.entry || []) {
     for (const change of entry.changes || []) {
+      // Meta approving or rejecting a template. Without this the saved status
+      // only moved when an admin clicked Sync, and alerts waited on it.
+      if (change.field === "message_template_status_update") {
+        await applyTemplateStatusEvent(entry.id, change.value || {}).catch((e) =>
+          console.error("WA webhook: template status update failed:", e)
+        );
+        continue;
+      }
       if (change.field !== "messages") continue;
       const value = change.value || {};
       const phoneNumberId = value.metadata?.phone_number_id;
@@ -188,6 +197,11 @@ interface WaChange {
     metadata?: { phone_number_id?: string };
     messages?: WaMessage[];
     statuses?: WaStatus[];
+    // message_template_status_update
+    event?: string;
+    message_template_name?: string;
+    message_template_language?: string;
+    reason?: string | null;
   };
 }
 interface WaEntry {

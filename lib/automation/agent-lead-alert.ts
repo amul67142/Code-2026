@@ -18,6 +18,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { decryptToken } from "@/lib/integrations/crypto";
 import { sendWhatsAppTemplate, normalizeWhatsAppNumber } from "@/lib/integrations/whatsapp";
 import { sendTemplateWithCredit } from "@/lib/billing/credits";
+import { refreshTemplateStatus } from "@/lib/integrations/template-status";
 import {
   fitAlertMapping,
   templateVariableCount,
@@ -130,12 +131,15 @@ export async function sendAgentLeadAlert(input: {
 
   const { data: conn } = await admin
     .from("whatsapp_connections")
-    .select("phone_number_id, access_token_enc, status")
+    .select("phone_number_id, waba_id, access_token_enc, status")
     .eq("company_id", input.companyId)
     .eq("status", "ACTIVE")
     .maybeSingle();
 
   if (!conn) return { status: "SKIPPED_NO_CONNECTION" };
+
+  const templateName = agent.wa_notify_template;
+  const language = agent.wa_notify_template_language || "en_US";
 
   const [{ data: lead }, { data: company }, { data: tpl }] = await Promise.all([
     admin
@@ -149,18 +153,29 @@ export async function sendAgentLeadAlert(input: {
     admin.from("companies").select("name").eq("id", input.companyId).maybeSingle(),
     admin
       .from("whatsapp_templates")
-      .select("body_text, header_image_url, purpose, status")
+      .select("body_text, header_image_url, purpose, status, updated_at")
       .eq("company_id", input.companyId)
-      .eq("name", agent.wa_notify_template)
+      .eq("name", templateName)
+      .eq("language", language)
       .maybeSingle(),
   ]);
 
   if (!lead) return { status: "FAILED", error: "Lead not found" };
 
   // Meta refuses an unapproved template, so sending would only produce a
-  // failed, billable-looking attempt on every assignment. Skip until approved;
-  // the Team page shows the agent as waiting so this is never silent.
-  if (tpl && tpl.status !== "APPROVED") return { status: "SKIPPED_TEMPLATE_NOT_APPROVED" };
+  // failed attempt on every assignment. But the saved status can be stale
+  // (Meta approved it, nobody clicked Sync), so ask Meta before skipping.
+  if (tpl && tpl.status !== "APPROVED") {
+    const live = await refreshTemplateStatus({
+      companyId: input.companyId,
+      wabaId: conn.waba_id,
+      tokenEnc: conn.access_token_enc,
+      name: templateName,
+      language,
+      saved: tpl,
+    });
+    if (live !== "APPROVED") return { status: "SKIPPED_TEMPLATE_NOT_APPROVED" };
+  }
 
   const to = normalizeWhatsAppNumber(agent.phone);
 
@@ -174,8 +189,6 @@ export async function sendAgentLeadAlert(input: {
   }
 
   const companyName = company?.name || "Our Team";
-  const templateName = agent.wa_notify_template;
-  const language = agent.wa_notify_template_language || "en_US";
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const components: any[] = [];
