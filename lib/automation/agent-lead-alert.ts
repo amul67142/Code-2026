@@ -125,9 +125,24 @@ export async function sendAgentLeadAlert(input: {
     .eq("company_id", input.companyId)
     .maybeSingle();
 
+  // Alerts switched off is a choice, not a fault, so it is not noted on the lead.
   if (!agent?.wa_notify_enabled) return { status: "SKIPPED_NOT_ENABLED" };
-  if (!agent.phone) return { status: "SKIPPED_NO_AGENT_PHONE" };
-  if (!agent.wa_notify_template) return { status: "SKIPPED_NO_TEMPLATE" };
+
+  // Every other skip is noted on the lead's timeline with its reason, so
+  // "the agent got nothing" can be answered from the lead itself.
+  const skip = async (status: AgentAlertStatus, reason: string): Promise<AgentAlertResult> => {
+    await admin.from("activities").insert({
+      lead_id: input.leadId,
+      user_id: null,
+      type: "WHATSAPP",
+      description: `WhatsApp alert to ${agent.name} not sent: ${reason}`,
+      metadata: { channel: "WHATSAPP", recipient: "AGENT", agent_id: agent.id, skipped: status },
+    });
+    return { status };
+  };
+
+  if (!agent.phone) return skip("SKIPPED_NO_AGENT_PHONE", "no WhatsApp number is saved for them");
+  if (!agent.wa_notify_template) return skip("SKIPPED_NO_TEMPLATE", "no alert template is chosen for them");
 
   const { data: conn } = await admin
     .from("whatsapp_connections")
@@ -136,7 +151,7 @@ export async function sendAgentLeadAlert(input: {
     .eq("status", "ACTIVE")
     .maybeSingle();
 
-  if (!conn) return { status: "SKIPPED_NO_CONNECTION" };
+  if (!conn) return skip("SKIPPED_NO_CONNECTION", "WhatsApp is not connected");
 
   const templateName = agent.wa_notify_template;
   const language = agent.wa_notify_template_language || "en_US";
@@ -174,7 +189,12 @@ export async function sendAgentLeadAlert(input: {
       language,
       saved: tpl,
     });
-    if (live !== "APPROVED") return { status: "SKIPPED_TEMPLATE_NOT_APPROVED" };
+    if (live !== "APPROVED") {
+      return skip(
+        "SKIPPED_TEMPLATE_NOT_APPROVED",
+        `Meta has not approved the template "${templateName}" (${live.toLowerCase()})`
+      );
+    }
   }
 
   const to = normalizeWhatsAppNumber(agent.phone);
@@ -185,7 +205,7 @@ export async function sendAgentLeadAlert(input: {
     console.warn(
       `sendAgentLeadAlert: agent ${agent.id} phone matches lead ${lead.id} — not sending`
     );
-    return { status: "SKIPPED_SAME_AS_LEAD" };
+    return skip("SKIPPED_SAME_AS_LEAD", "their number is the same as the lead's");
   }
 
   const companyName = company?.name || "Our Team";
@@ -268,7 +288,7 @@ export async function sendAgentLeadAlert(input: {
       lead_id: input.leadId,
       user_id: null,
       type: "WHATSAPP",
-      description: `WhatsApp alert to ${agent.name} failed`,
+      description: `WhatsApp alert to ${agent.name} failed: ${msg}`.slice(0, 500),
       metadata: { channel: "WHATSAPP", recipient: "AGENT", agent_id: agent.id, error: msg },
     });
     return { status: "FAILED", error: msg };

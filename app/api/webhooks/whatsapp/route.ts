@@ -143,7 +143,18 @@ export async function POST(req: NextRequest) {
               .eq("channel", "WHATSAPP")
               .in("status", ["SENT", "DELIVERED"]);
           } else if (s.status === "failed") {
-            const errMsg = s.errors?.[0]?.title || s.errors?.[0]?.message || "delivery failed";
+            // Meta accepted the message, then could not deliver it. The code is
+            // what tells the reasons apart (#131042 payment, #131026 not on
+            // WhatsApp, #131049 marketing limit), so keep it with the details.
+            const e0 = s.errors?.[0];
+            const errMsg =
+              [e0?.code ? `#${e0.code}` : "", e0?.title || e0?.message || "delivery failed", e0?.error_data?.details ? `- ${e0.error_data.details}` : ""]
+                .filter(Boolean)
+                .join(" ")
+                .slice(0, 500);
+            // Also logged: test alerts are not in message_log, so this line in
+            // Vercel's logs is the only place their failure shows. No numbers.
+            console.warn(`WA delivery failed: ${errMsg}`);
             await admin
               .from("message_log")
               .update({ status: "FAILED", error_message: errMsg })
@@ -189,7 +200,12 @@ interface WaMessage {
 interface WaStatus {
   id?: string;
   status?: string;
-  errors?: Array<{ title?: string; message?: string }>;
+  errors?: Array<{
+    code?: number;
+    title?: string;
+    message?: string;
+    error_data?: { details?: string };
+  }>;
 }
 interface WaChange {
   field: string;
