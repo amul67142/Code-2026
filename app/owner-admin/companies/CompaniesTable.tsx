@@ -147,7 +147,7 @@ function PlanBadge({ company }: { company: any }) {
       </span>
       <p className="mt-1 text-xs text-zinc-500 whitespace-nowrap">
         {inr(pr.platformFee)} + {inr(pr.seatPrice)}/seat
-        {pr.freeSeats > pr.includedSeats ? ` · ${pr.freeSeats} free` : ""}
+        {pr.promoSeats > pr.includedSeats ? ` · ${pr.promoSeats} free${pr.seatPromoPaused ? " (off)" : ""}` : ""}
       </p>
     </div>
   );
@@ -167,7 +167,8 @@ function PlanEditor({
   const [platformFee, setPlatformFee] = useState(String(current.platformFee));
   const [includedSeats, setIncludedSeats] = useState(String(current.includedSeats));
   const [seatPrice, setSeatPrice] = useState(String(current.seatPrice));
-  const [freeSeats, setFreeSeats] = useState(String(current.freeSeats));
+  // promoSeats, not freeSeats: a promo the client switched off must not be wiped on save.
+  const [freeSeats, setFreeSeats] = useState(String(current.promoSeats));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -284,6 +285,7 @@ function PlanEditor({
         <p className="mt-1.5 text-xs text-zinc-500">
           Seats up to {covered} cost nothing (included or free seats, whichever is more).
           {current.freeSeatsCode ? ` Set by promo ${current.freeSeatsCode}.` : ""}
+          {current.seatPromoPaused ? " The client has switched it off, so these seats are charged right now." : ""}
         </p>
 
         <div className="mt-5 rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2.5 text-xs text-zinc-400">

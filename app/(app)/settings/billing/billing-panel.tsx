@@ -35,7 +35,7 @@ import {
   proratedSeatPrice,
   seatsMonthly,
 } from "@/lib/billing/plans";
-import { applyBillingPromo } from "./actions";
+import { applyBillingPromo, toggleSeatPromo } from "./actions";
 
 interface InvoiceRow {
   id: string;
@@ -124,9 +124,6 @@ export function BillingPanel({
   const [addSeats, setAddSeats] = useState(1);
   const [creditAmount, setCreditAmount] = useState(CREDIT_PACKS[0]);
   const [promo, setPromo] = useState("");
-  // "Remove" on the seat promo: shows the price without it. Nothing is saved;
-  // the promo stays on the account and "Apply again" brings the view back.
-  const [withoutSeatPromo, setWithoutSeatPromo] = useState(false);
 
   const discount = firstMonth?.discount ?? 0;
   const platformDue = p.platformFee - discount;
@@ -194,13 +191,25 @@ export function BillingPanel({
       ? `${covered} free${p.freeSeatsCode ? ` (promo ${p.freeSeatsCode})` : ""}`
       : `${p.includedSeats} included`;
 
-  // The seat promo line: what it saves, and the price without it.
-  const hasSeatPromo = p.freeSeats > p.includedSeats;
+  // The seat promo line: what it saves. Remove switches it off for real (the
+  // pay buttons then charge every seat); Apply again switches it back on.
+  const hasSeatPromo = p.promoSeats > p.includedSeats;
+  const promoOn = hasSeatPromo && !p.seatPromoPaused;
   const noPromo = { ...p, freeSeats: 0 };
-  const seatSaving = seatsMonthly(noPromo, state.seats) - seatsMonthly(p, state.seats);
-  const shown = hasSeatPromo && withoutSeatPromo ? noPromo : p;
-  const shownBillable = billableSeats(shown, state.seats);
-  const shownCoveredText = shown === p ? coveredText : `${p.includedSeats} included`;
+  const withPromo = { ...p, freeSeats: p.promoSeats };
+  const seatSaving = seatsMonthly(noPromo, state.seats) - seatsMonthly(withPromo, state.seats);
+
+  async function switchSeatPromo(active: boolean) {
+    setBusy("seatpromo");
+    try {
+      const res = await toggleSeatPromo(active);
+      if ("error" in res && res.error) return toast.error(res.error);
+      toast.success(active ? "Seat promo applied again." : "Seat promo removed — full seat price from your next payment.");
+      setTimeout(() => window.location.reload(), 600);
+    } finally {
+      setBusy(null);
+    }
+  }
 
   const platformStatus = onTrial
     ? `Trial until ${day(state.trialEndsAt)}`
@@ -258,12 +267,12 @@ export function BillingPanel({
           ) : (
             <>
               <div className="flex items-baseline gap-1.5">
-                <span className="text-3xl font-black tabular-nums">{inr(planMonthly(shown, state.seats))}</span>
+                <span className="text-3xl font-black tabular-nums">{inr(monthly)}</span>
                 <span className="text-sm text-muted-foreground">
                   per month{onTrial ? " after the trial" : ""}
-                  {shown !== p ? " without your seat promo" : ""}
+                  {p.seatPromoPaused ? " without your seat promo" : ""}
                 </span>
-                {hasSeatPromo && shown === p && seatSaving > 0 && (
+                {promoOn && seatSaving > 0 && (
                   <span className="ml-1 text-sm text-muted-foreground line-through tabular-nums">{inr(monthly + seatSaving)}</span>
                 )}
               </div>
@@ -280,53 +289,58 @@ export function BillingPanel({
                   <div className="min-w-0">
                     <p className="font-medium">Team seats</p>
                     <p className="text-xs text-muted-foreground">
-                      {state.seats} seat{state.seats === 1 ? "" : "s"} · {shownCoveredText}
-                      {shownBillable > 0 && ` · ${shownBillable} × ${inr(p.seatPrice)}`}
-                      {shown === p && ` · ${seatStatus}`}
+                      {state.seats} seat{state.seats === 1 ? "" : "s"} · {coveredText}
+                      {billable > 0 && ` · ${billable} × ${inr(p.seatPrice)}`} · {seatStatus}
                     </p>
                   </div>
                   <span className="shrink-0 text-right tabular-nums">
-                    {shown === p && seatSaving > 0 && (
+                    {promoOn && seatSaving > 0 && (
                       <span className="mr-1.5 text-xs text-muted-foreground line-through">
                         {inr(seatsMonthly(noPromo, state.seats))}
                       </span>
                     )}
-                    <span className="font-semibold">{inr(seatsMonthly(shown, state.seats))}</span>
+                    <span className="font-semibold">{inr(seatsMonthly(p, state.seats))}</span>
                   </span>
                 </div>
                 {hasSeatPromo &&
-                  (shown === p ? (
+                  (promoOn ? (
                     <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 bg-emerald-50/60 px-4 py-3 text-emerald-800">
                       <div className="min-w-0">
                         <p className="font-medium">
-                          Seat promo applied{p.freeSeatsCode ? ` (${p.freeSeatsCode})` : ""}: first {p.freeSeats} seats free
+                          Seat promo applied{p.freeSeatsCode ? ` (${p.freeSeatsCode})` : ""}: first {p.promoSeats} seats free
                         </p>
                         <p className="text-xs">
                           {seatSaving > 0
                             ? `You save ${inr(seatSaving)} a month on your ${state.seats} seats.`
-                            : `Covers up to ${p.freeSeats} seats. Seats after that are ${inr(p.seatPrice)} each.`}
+                            : `Covers up to ${p.promoSeats} seats. Seats after that are ${inr(p.seatPrice)} each.`}
                         </p>
                       </div>
                       <button
-                        onClick={() => setWithoutSeatPromo(true)}
-                        className="shrink-0 rounded-md border border-emerald-300 bg-white px-2.5 py-1 text-xs font-medium hover:bg-emerald-50"
+                        onClick={() => switchSeatPromo(false)}
+                        disabled={!!busy || !isOwner}
+                        className="shrink-0 rounded-md border border-emerald-300 bg-white px-2.5 py-1 text-xs font-medium hover:bg-emerald-50 disabled:opacity-50"
                       >
-                        Remove
+                        {busy === "seatpromo" ? <Loader2 className="size-3.5 animate-spin" /> : "Remove"}
                       </button>
                     </div>
                   ) : (
                     <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 bg-muted/40 px-4 py-3">
                       <div className="min-w-0">
-                        <p className="font-medium">Seat promo removed — this is your price without it</p>
+                        <p className="font-medium">
+                          Seat promo removed{p.freeSeatsCode ? ` (${p.freeSeatsCode})` : ""} — you pay the full seat price
+                        </p>
                         <p className="text-xs text-muted-foreground">
-                          Apply it again to save {inr(seatSaving)} a month. Your promo stays on your account either way.
+                          {seatSaving > 0
+                            ? `Apply it again to save ${inr(seatSaving)} a month: your first ${p.promoSeats} seats free.`
+                            : `Apply it again to make your first ${p.promoSeats} seats free.`}
                         </p>
                       </div>
                       <button
-                        onClick={() => setWithoutSeatPromo(false)}
-                        className="shrink-0 rounded-md bg-emerald-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-emerald-700"
+                        onClick={() => switchSeatPromo(true)}
+                        disabled={!!busy || !isOwner}
+                        className="shrink-0 rounded-md bg-emerald-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
                       >
-                        Apply again
+                        {busy === "seatpromo" ? <Loader2 className="size-3.5 animate-spin" /> : "Apply again"}
                       </button>
                     </div>
                   ))}

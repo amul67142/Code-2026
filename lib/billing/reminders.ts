@@ -122,7 +122,7 @@ async function findDue(): Promise<Due[]> {
   const { data: subs } = await admin
     .from("subscriptions")
     .select(
-      "company_id, status, trial_ends_at, current_period_end, seats, seats_period_end, amount_inr, razorpay_sub_id, companies!inner(is_platform, deleted_at, plan_platform_fee_inr, plan_included_seats, plan_seat_price_inr, free_seats)"
+      "company_id, status, trial_ends_at, current_period_end, seats, seats_period_end, amount_inr, razorpay_sub_id, companies!inner(is_platform, deleted_at, plan_platform_fee_inr, plan_included_seats, plan_seat_price_inr, free_seats, free_seats_paused)"
     )
     .in("status", ["TRIALING", "ACTIVE"]);
 

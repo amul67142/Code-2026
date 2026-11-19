@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { getCachedUserProfile } from "@/lib/auth/cached-user";
 import { rateLimit } from "@/lib/rate-limit";
-import { applyPricePromo } from "@/lib/billing/promo";
+import { applyPricePromo, setSeatPromoActive } from "@/lib/billing/promo";
 import { getBillingState } from "@/lib/billing/state";
 import { redeemPromoCode } from "@/app/(billing)/select-plan/actions";
 
@@ -37,4 +37,15 @@ export async function applyBillingPromo(rawCode: string) {
   if ("error" in res) return { error: res.error };
   revalidatePath("/settings/billing");
   return { success: true, message: res.message };
+}
+
+/** Switch the free-seats promo off (pay full price) or back on. Owner only. */
+export async function toggleSeatPromo(active: boolean) {
+  const profile = await getCachedUserProfile();
+  if (!profile?.company_id) return { error: "Please sign in again." };
+  if (profile.role !== "SUPER_ADMIN") return { error: "Only the workspace owner can change the promo." };
+  const res = await setSeatPromoActive(profile.company_id, active);
+  if ("error" in res) return { error: res.error };
+  revalidatePath("/settings/billing");
+  return { success: true };
 }

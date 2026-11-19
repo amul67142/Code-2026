@@ -60,9 +60,13 @@ export interface CompanyPricing {
   includedSeats: number;
   /** Monthly price of each seat beyond the covered ones. */
   seatPrice: number;
-  /** Seats a promo makes free, for good. 0 = none. */
+  /** Seats a promo makes free right now. 0 = none, or the promo is switched off. */
   freeSeats: number;
   freeSeatsCode: string | null;
+  /** The promo's seats even while switched off, so it can be shown and switched back on. */
+  promoSeats: number;
+  /** The client switched the seat promo off: those seats are charged. */
+  seatPromoPaused: boolean;
 }
 
 export const BASIC_PRICING: CompanyPricing = {
@@ -72,6 +76,8 @@ export const BASIC_PRICING: CompanyPricing = {
   seatPrice: EXTRA_SEAT_MONTHLY_INR,
   freeSeats: 0,
   freeSeatsCode: null,
+  promoSeats: 0,
+  seatPromoPaused: false,
 };
 
 /** The company row's plan columns → its pricing. NULL columns mean Basic. */
@@ -81,6 +87,7 @@ export function pricingFromCompany(c: {
   plan_seat_price_inr?: number | null;
   free_seats?: number | null;
   free_seats_code?: string | null;
+  free_seats_paused?: boolean | null;
 } | null | undefined): CompanyPricing {
   const custom =
     c?.plan_platform_fee_inr != null || c?.plan_included_seats != null || c?.plan_seat_price_inr != null;
@@ -89,8 +96,10 @@ export function pricingFromCompany(c: {
     platformFee: c?.plan_platform_fee_inr ?? BASIC_MONTHLY_INR,
     includedSeats: c?.plan_included_seats ?? INCLUDED_SEATS,
     seatPrice: c?.plan_seat_price_inr ?? EXTRA_SEAT_MONTHLY_INR,
-    freeSeats: Math.max(0, c?.free_seats ?? 0),
+    freeSeats: c?.free_seats_paused ? 0 : Math.max(0, c?.free_seats ?? 0),
     freeSeatsCode: c?.free_seats_code ?? null,
+    promoSeats: Math.max(0, c?.free_seats ?? 0),
+    seatPromoPaused: !!c?.free_seats_paused && (c?.free_seats ?? 0) > 0,
   };
 }
 

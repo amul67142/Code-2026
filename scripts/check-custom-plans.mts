@@ -47,6 +47,13 @@ const mvdPromo = pricingFromCompany({ plan_platform_fee_inr: 2599, plan_included
 check("custom + 15 free: 20 seats = 5 × 599", seatsMonthly(mvdPromo, 20), 5 * 599);
 check("free seats do not stack on included (max, not sum)", coveredSeats(mvdPromo), 15);
 
+// ── Seat promo switched off by the client ──
+const paused = pricingFromCompany({ free_seats: 15, free_seats_code: "TEAM15", free_seats_paused: true });
+check("paused promo: no free seats now", paused.freeSeats, 0);
+check("paused promo: still remembered", [paused.promoSeats, paused.seatPromoPaused], [15, true]);
+check("paused promo: 13 seats charged as Basic", seatsMonthly(paused, 13), 10 * 899);
+check("pause flag without a promo is ignored", pricingFromCompany({ free_seats_paused: true }).seatPromoPaused, false);
+
 // ── First-month discount ──
 check("50% off 1,999", firstMonthDiscount(1999, { discount_percent: 50 }), 1000);
 check("100% off 2,599", firstMonthDiscount(2599, { discount_percent: 100 }), 2599);

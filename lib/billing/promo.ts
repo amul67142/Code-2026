@@ -121,7 +121,7 @@ export async function applyPricePromo(
   const seats = promo.free_seats || 0;
   const { error } = await admin
     .from("companies")
-    .update({ free_seats: seats, free_seats_code: promo.code })
+    .update({ free_seats: seats, free_seats_code: promo.code, free_seats_paused: false })
     .eq("id", companyId);
   if (error) return { error: "Could not apply the code. Please try again." };
   await recordRedemption(promo.id, companyId, null);
@@ -139,6 +139,29 @@ export async function applyPricePromo(
       .eq("id", sub.id);
   }
   return { success: true, message: `Your first ${seats} seats are now free.` };
+}
+
+/**
+ * Switch the company's free-seats promo on or off. Off: those seats are
+ * charged from the next payment. On: seats it covers need no seat month.
+ */
+export async function setSeatPromoActive(companyId: string, active: boolean): Promise<{ success: true } | { error: string }> {
+  const admin = createAdminClient();
+  const { data: company } = await admin.from("companies").select("free_seats").eq("id", companyId).maybeSingle();
+  if (!company?.free_seats) return { error: "There is no seat promo on this account." };
+  const { error } = await admin.from("companies").update({ free_seats_paused: !active }).eq("id", companyId);
+  if (error) return { error: "Could not change the promo. Please try again." };
+
+  if (active) {
+    const { data: sub } = await admin.from("subscriptions").select("id, seats").eq("company_id", companyId).maybeSingle();
+    if (sub && (sub.seats ?? 0) <= company.free_seats) {
+      await admin
+        .from("subscriptions")
+        .update({ seats_period_start: null, seats_period_end: null, updated_at: new Date().toISOString() })
+        .eq("id", sub.id);
+    }
+  }
+  return { success: true };
 }
 
 /** Count one use of a code by a company. Safe to call twice: the pair is unique. */

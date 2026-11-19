@@ -19,6 +19,9 @@ export type BillingPhase =
 
 /** Plan columns read from companies for pricing. */
 export const COMPANY_PLAN_COLUMNS =
+  "is_platform, plan_platform_fee_inr, plan_included_seats, plan_seat_price_inr, free_seats, free_seats_code, free_seats_paused";
+/** Same without the pause flag (before migration 033). */
+const COMPANY_PLAN_COLUMNS_032 =
   "is_platform, plan_platform_fee_inr, plan_included_seats, plan_seat_price_inr, free_seats, free_seats_code";
 
 type CompanyPlanRow = {
@@ -28,6 +31,7 @@ type CompanyPlanRow = {
   plan_seat_price_inr?: number | null;
   free_seats?: number | null;
   free_seats_code?: string | null;
+  free_seats_paused?: boolean | null;
 };
 
 /**
@@ -38,9 +42,11 @@ type CompanyPlanRow = {
  */
 export async function loadCompanyPlan(companyId: string): Promise<CompanyPlanRow | null> {
   const admin = createAdminClient();
-  const { data, error } = await admin.from("companies").select(COMPANY_PLAN_COLUMNS).eq("id", companyId).maybeSingle();
-  if (!error) return data as CompanyPlanRow | null;
-  console.error("loadCompanyPlan: plan columns unavailable, using Basic:", error.message);
+  for (const cols of [COMPANY_PLAN_COLUMNS, COMPANY_PLAN_COLUMNS_032]) {
+    const { data, error } = await admin.from("companies").select(cols).eq("id", companyId).maybeSingle();
+    if (!error) return data as CompanyPlanRow | null;
+    console.error("loadCompanyPlan: plan columns unavailable:", error.message);
+  }
   const { data: fallback } = await admin.from("companies").select("is_platform").eq("id", companyId).maybeSingle();
   return fallback as CompanyPlanRow | null;
 }
