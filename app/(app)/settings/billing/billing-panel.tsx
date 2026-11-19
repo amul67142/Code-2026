@@ -124,6 +124,9 @@ export function BillingPanel({
   const [addSeats, setAddSeats] = useState(1);
   const [creditAmount, setCreditAmount] = useState(CREDIT_PACKS[0]);
   const [promo, setPromo] = useState("");
+  // "Remove" on the seat promo: shows the price without it. Nothing is saved;
+  // the promo stays on the account and "Apply again" brings the view back.
+  const [withoutSeatPromo, setWithoutSeatPromo] = useState(false);
 
   const discount = firstMonth?.discount ?? 0;
   const platformDue = p.platformFee - discount;
@@ -191,6 +194,14 @@ export function BillingPanel({
       ? `${covered} free${p.freeSeatsCode ? ` (promo ${p.freeSeatsCode})` : ""}`
       : `${p.includedSeats} included`;
 
+  // The seat promo line: what it saves, and the price without it.
+  const hasSeatPromo = p.freeSeats > p.includedSeats;
+  const noPromo = { ...p, freeSeats: 0 };
+  const seatSaving = seatsMonthly(noPromo, state.seats) - seatsMonthly(p, state.seats);
+  const shown = hasSeatPromo && withoutSeatPromo ? noPromo : p;
+  const shownBillable = billableSeats(shown, state.seats);
+  const shownCoveredText = shown === p ? coveredText : `${p.includedSeats} included`;
+
   const platformStatus = onTrial
     ? `Trial until ${day(state.trialEndsAt)}`
     : state.phase === "ACTIVE"
@@ -247,8 +258,14 @@ export function BillingPanel({
           ) : (
             <>
               <div className="flex items-baseline gap-1.5">
-                <span className="text-3xl font-black tabular-nums">{inr(monthly)}</span>
-                <span className="text-sm text-muted-foreground">per month{onTrial ? " after the trial" : ""}</span>
+                <span className="text-3xl font-black tabular-nums">{inr(planMonthly(shown, state.seats))}</span>
+                <span className="text-sm text-muted-foreground">
+                  per month{onTrial ? " after the trial" : ""}
+                  {shown !== p ? " without your seat promo" : ""}
+                </span>
+                {hasSeatPromo && shown === p && seatSaving > 0 && (
+                  <span className="ml-1 text-sm text-muted-foreground line-through tabular-nums">{inr(monthly + seatSaving)}</span>
+                )}
               </div>
 
               <div className="divide-y rounded-xl border text-sm">
@@ -263,12 +280,56 @@ export function BillingPanel({
                   <div className="min-w-0">
                     <p className="font-medium">Team seats</p>
                     <p className="text-xs text-muted-foreground">
-                      {state.seats} seat{state.seats === 1 ? "" : "s"} · {coveredText}
-                      {billable > 0 && ` · ${billable} × ${inr(p.seatPrice)}`} · {seatStatus}
+                      {state.seats} seat{state.seats === 1 ? "" : "s"} · {shownCoveredText}
+                      {shownBillable > 0 && ` · ${shownBillable} × ${inr(p.seatPrice)}`}
+                      {shown === p && ` · ${seatStatus}`}
                     </p>
                   </div>
-                  <span className="shrink-0 font-semibold tabular-nums">{inr(seatsMonthly(p, state.seats))}</span>
+                  <span className="shrink-0 text-right tabular-nums">
+                    {shown === p && seatSaving > 0 && (
+                      <span className="mr-1.5 text-xs text-muted-foreground line-through">
+                        {inr(seatsMonthly(noPromo, state.seats))}
+                      </span>
+                    )}
+                    <span className="font-semibold">{inr(seatsMonthly(shown, state.seats))}</span>
+                  </span>
                 </div>
+                {hasSeatPromo &&
+                  (shown === p ? (
+                    <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 bg-emerald-50/60 px-4 py-3 text-emerald-800">
+                      <div className="min-w-0">
+                        <p className="font-medium">
+                          Seat promo applied{p.freeSeatsCode ? ` (${p.freeSeatsCode})` : ""}: first {p.freeSeats} seats free
+                        </p>
+                        <p className="text-xs">
+                          {seatSaving > 0
+                            ? `You save ${inr(seatSaving)} a month on your ${state.seats} seats.`
+                            : `Covers up to ${p.freeSeats} seats. Seats after that are ${inr(p.seatPrice)} each.`}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => setWithoutSeatPromo(true)}
+                        className="shrink-0 rounded-md border border-emerald-300 bg-white px-2.5 py-1 text-xs font-medium hover:bg-emerald-50"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 bg-muted/40 px-4 py-3">
+                      <div className="min-w-0">
+                        <p className="font-medium">Seat promo removed — this is your price without it</p>
+                        <p className="text-xs text-muted-foreground">
+                          Apply it again to save {inr(seatSaving)} a month. Your promo stays on your account either way.
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => setWithoutSeatPromo(false)}
+                        className="shrink-0 rounded-md bg-emerald-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-emerald-700"
+                      >
+                        Apply again
+                      </button>
+                    </div>
+                  ))}
                 {firstMonth && (
                   <div className="flex items-center justify-between gap-3 bg-emerald-50/60 px-4 py-3 text-emerald-800">
                     <p className="min-w-0">
