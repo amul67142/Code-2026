@@ -11,8 +11,13 @@
  */
 export type PurchaseRequest =
   | { kind: "PLAN"; seats: number }
+  | { kind: "PLATFORM" }
+  | { kind: "SEAT_MONTH"; seats: number }
   | { kind: "SEATS"; add: number }
   | { kind: "CREDITS"; credits: number };
+
+/** What came of a purchase: paid, closed, or nothing to pay (a promo covered it). */
+export type PurchaseOutcome = { done: true; free?: string } | { done: false };
 
 interface RazorpayResponse {
   razorpay_order_id: string;
@@ -21,6 +26,12 @@ interface RazorpayResponse {
 }
 
 export async function payForOrder(purchase: PurchaseRequest): Promise<boolean> {
+  const out = await purchaseOrder(purchase);
+  return out.done;
+}
+
+/** Like payForOrder, but also says when a promo meant there was nothing to pay. */
+export async function purchaseOrder(purchase: PurchaseRequest): Promise<PurchaseOutcome> {
   const res = await fetch("/api/billing/order", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -28,6 +39,13 @@ export async function payForOrder(purchase: PurchaseRequest): Promise<boolean> {
   });
   const order = await res.json().catch(() => ({}));
   if (!res.ok || order.error) throw new Error(order.error || "Could not start the payment.");
+  if (order.free) return { done: true, free: String(order.message || "Done — nothing to pay.") };
+  const paid = await openCheckout(order);
+  return paid ? { done: true } : { done: false };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function openCheckout(order: any): Promise<boolean> {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const Razorpay = (window as any).Razorpay;

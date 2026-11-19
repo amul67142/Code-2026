@@ -12,7 +12,7 @@ export function BillingNotice({
   endsAt,
   soon,
 }: {
-  kind: "TRIAL" | "GRACE";
+  kind: "TRIAL" | "GRACE" | "SEATS";
   endsAt: string;
   /** Under 36 hours left — worked out by the caller, not during render. */
   soon: boolean;
@@ -42,7 +42,7 @@ export function BillingNotice({
     <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 border-b border-red-200 bg-red-50 px-4 py-2 text-center text-xs text-red-800">
       <span className="flex items-center gap-1.5">
         <AlertTriangle className="size-3.5" />
-        Your plan expired {formatDistanceToNowStrict(end, { addSuffix: true })}. Renew now to avoid the dashboard locking.
+        {kind === "SEATS" ? "Your team seats expired" : "Your plan expired"} {formatDistanceToNowStrict(end, { addSuffix: true })}. Renew now to avoid the dashboard locking.
       </span>
       <Link href="/settings/billing" className="font-semibold underline underline-offset-2">
         Renew

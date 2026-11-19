@@ -4,6 +4,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { SelectPlanClient } from "./select-plan-client";
 import { getBillingState } from "@/lib/billing/state";
 import { reconcilePendingOrders } from "@/lib/billing/fulfil";
+import { getFirstMonthOffer } from "@/lib/billing/promo";
+import { BASIC_PRICING, type CompanyPricing } from "@/lib/billing/plans";
 
 export const metadata = {
   title: "Unlock Your Workspace — BigLead CRM",
@@ -31,6 +33,12 @@ export default async function SelectPlanPage() {
   let seatsUsed = 1;
   let waitingLeads = 0;
   let trialUsed = false;
+  let pricing: CompanyPricing = BASIC_PRICING;
+  let firstMonthDiscount = 0;
+  let firstMonthCode: string | null = null;
+  // Platform month still paid, only the seat charges ran out: pay seats alone.
+  let seatsOnly = false;
+  let paidSeats = 0;
 
   if (profile?.company_id) {
     // A payment whose confirmation never reached us is applied here, so
@@ -46,10 +54,24 @@ export default async function SelectPlanPage() {
     phase = state.phase;
     seatsUsed = Math.max(1, state.seatsUsed);
     trialUsed = !!state.trialEndsAt;
+    pricing = state.pricing;
+    seatsOnly = state.platformPaid && state.seatsLapsed;
+    paidSeats = state.seats;
+    const offer = await getFirstMonthOffer(profile.company_id).catch(() => null);
+    if (offer) {
+      firstMonthDiscount = offer.discountFor(pricing.platformFee);
+      firstMonthCode = offer.code;
+    }
 
     // Leads that arrived while locked: the reason to pay today.
     const lockedSince =
-      state.phase === "TRIAL_ENDED" ? state.trialEndsAt : state.phase === "LOCKED" ? state.periodEnd : null;
+      state.phase === "TRIAL_ENDED"
+        ? state.trialEndsAt
+        : seatsOnly
+          ? state.seatsPeriodEnd
+          : state.phase === "LOCKED"
+            ? state.periodEnd
+            : null;
     if (lockedSince) {
       const { count } = await admin
         .from("leads")
@@ -76,6 +98,11 @@ export default async function SelectPlanPage() {
         trialAvailable={!trialUsed}
         seatsUsed={seatsUsed}
         waitingLeads={waitingLeads}
+        pricing={pricing}
+        firstMonthDiscount={firstMonthDiscount}
+        firstMonthCode={firstMonthCode}
+        seatsOnly={seatsOnly}
+        paidSeats={paidSeats}
       />
     </div>
   );

@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { ensureCompanyForUser } from "@/lib/billing/ensure-company";
 import { hasActiveAccess } from "@/lib/billing/access";
 import { INCLUDED_SEATS, TRIAL_DAYS, TRIAL_FREE_CREDITS } from "@/lib/billing/plans";
+import { applyPricePromo } from "@/lib/billing/promo";
 
 /**
  * Redeem a promo code → activates the granted plan at zero cost for the code's
@@ -41,11 +42,20 @@ export async function redeemPromoCode(rawCode: string) {
   // 1. Validate the code.
   const { data: promo } = await admin
     .from("promo_codes")
-    .select("id, code, plan_id, duration_days, max_uses, used_count, is_active, expires_at")
+    .select("id, code, kind, plan_id, duration_days, max_uses, used_count, is_active, expires_at")
     .eq("code", code)
     .maybeSingle();
 
   if (!promo || !promo.is_active) return { error: "Invalid promo code." };
+
+  // Price codes (first-month discount, free seats) change what the plan
+  // costs; they do not unlock anything by themselves.
+  if (promo.kind && promo.kind !== "ACCESS") {
+    const res = await applyPricePromo(profile.company_id, code);
+    if ("error" in res) return { error: res.error };
+    if ("access" in res) return { error: "Invalid promo code." };
+    return { success: true, priceChanged: true, message: res.message };
+  }
   if (promo.expires_at && new Date(promo.expires_at) < new Date()) {
     return { error: "This promo code has expired." };
   }

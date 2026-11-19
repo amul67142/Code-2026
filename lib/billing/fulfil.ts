@@ -9,8 +9,10 @@
  */
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendInvoiceEmail } from "@/lib/email/invoice-email";
-import { addOneMonth } from "@/lib/billing/plans";
+import { addOneMonth, billableSeats, coveredSeats, inr, pricingFromCompany } from "@/lib/billing/plans";
 import { razorpayClient } from "@/lib/billing/razorpay";
+import { loadCompanyPlan } from "@/lib/billing/state";
+import { recordRedemption } from "@/lib/billing/promo";
 
 export type FulfilResult =
   | { status: "FULFILLED"; kind: string }
@@ -38,52 +40,110 @@ export async function fulfilOrder(razorpayOrderId: string, razorpayPaymentId: st
     return existing ? { status: "ALREADY_DONE", kind: existing.kind } : { status: "UNKNOWN_ORDER" };
   }
 
-  const { data: sub } = await admin
-    .from("subscriptions")
-    .select("id, status, seats, current_period_end, trial_ends_at")
-    .eq("company_id", order.company_id)
-    .maybeSingle();
+  const [{ data: sub }, company0] = await Promise.all([
+    admin
+      .from("subscriptions")
+      .select("id, status, seats, current_period_end, trial_ends_at, seats_period_end")
+      .eq("company_id", order.company_id)
+      .maybeSingle(),
+    loadCompanyPlan(order.company_id),
+  ]);
+  const pricing = pricingFromCompany(company0);
 
   let description = "";
   let periodStart: Date | null = null;
   let periodEnd: Date | null = null;
 
-  if (order.kind === "PLAN") {
-    // Paying early never loses days: a running paid month is extended from
-    // its end. A trial is not a paid month, so paying during one starts now —
-    // the remaining trial days are not carried over.
-    const running =
-      sub?.status === "ACTIVE" && sub.current_period_end && new Date(sub.current_period_end) > now;
-    periodStart = running ? new Date(sub!.current_period_end!) : now;
-    periodEnd = addOneMonth(periodStart);
+  // Paying early never loses days: a running paid month is extended from its
+  // end. A trial is not a paid month, so paying during one starts now — the
+  // remaining trial days are not carried over. Platform and seats each have
+  // their own month.
+  const platformMonth = () => {
+    const running = sub?.status === "ACTIVE" && sub.current_period_end && new Date(sub.current_period_end) > now;
+    const start = running ? new Date(sub!.current_period_end!) : now;
+    return { running, start, end: addOneMonth(start) };
+  };
+  const seatMonth = () => {
+    const running = !!sub?.seats_period_end && new Date(sub.seats_period_end) > now;
+    const start = running ? new Date(sub!.seats_period_end!) : now;
+    return { running, start, end: addOneMonth(start) };
+  };
+  const promoNote = order.discount_inr > 0 ? ` (promo: ${inr(order.discount_inr)} off)` : "";
 
-    const { data: basic } = await admin
-      .from("pricing_plans")
-      .select("id")
-      .eq("name", "Basic")
-      .maybeSingle();
+  if (order.kind === "PLAN" || order.kind === "PLATFORM") {
+    const pm = platformMonth();
+    periodStart = pm.start;
+    periodEnd = pm.end;
+
+    const { data: basic } = await admin.from("pricing_plans").select("id").eq("name", "Basic").maybeSingle();
+
+    // Seats: a PLAN order pays them too. A PLATFORM order leaves paid seats
+    // alone; with no seat month running, seats fall back to the free ones
+    // (people already on the team stay, but no one more can be added until
+    // seats are paid for).
+    const seatFields: Record<string, unknown> = {};
+    if (order.kind === "PLAN") {
+      seatFields.seats = order.seats;
+      if (billableSeats(pricing, order.seats) > 0) {
+        const sm = seatMonth();
+        if (!sm.running) seatFields.seats_period_start = sm.start.toISOString();
+        seatFields.seats_period_end = sm.end.toISOString();
+      } else {
+        seatFields.seats_period_start = null;
+        seatFields.seats_period_end = null;
+      }
+    } else if (!(sub?.seats_period_end && new Date(sub.seats_period_end) > now)) {
+      seatFields.seats = coveredSeats(pricing);
+      seatFields.seats_period_start = null;
+      seatFields.seats_period_end = null;
+    }
 
     await admin.from("subscriptions").upsert(
       {
         company_id: order.company_id,
         status: "ACTIVE",
-        seats: order.seats,
-        current_period_start: running ? undefined : periodStart.toISOString(),
-        current_period_end: periodEnd.toISOString(),
-        amount_inr: order.amount_inr,
+        current_period_start: pm.running ? undefined : pm.start.toISOString(),
+        current_period_end: pm.end.toISOString(),
+        // amount_inr marks a paying customer (isFreeAccount). A 100%-off first
+        // month still counts as the start of a paid plan.
+        amount_inr: order.amount_inr || pricing.platformFee,
         plan_id: basic?.id ?? null,
         updated_at: now.toISOString(),
+        ...seatFields,
       },
       { onConflict: "company_id" }
     );
     await admin.from("companies").update({ status: "ACTIVE" }).eq("id", order.company_id);
-    description = `Basic plan — ${order.seats} seats, 1 month`;
+
+    if (order.promo_id) {
+      await recordRedemption(order.promo_id, order.company_id, pm.end.toISOString());
+      await admin.from("companies").update({ first_month_promo_id: null }).eq("id", order.company_id);
+    }
+    description =
+      order.kind === "PLAN"
+        ? `Platform fee + ${order.seats} seats, 1 month${promoNote}`
+        : `Platform fee, 1 month${promoNote}`;
+  } else if (order.kind === "SEAT_MONTH") {
+    const sm = seatMonth();
+    periodStart = sm.start;
+    periodEnd = sm.end;
+    await admin
+      .from("subscriptions")
+      .update({
+        seats: order.seats,
+        ...(sm.running ? {} : { seats_period_start: sm.start.toISOString() }),
+        seats_period_end: sm.end.toISOString(),
+        updated_at: now.toISOString(),
+      })
+      .eq("company_id", order.company_id);
+    const billable = billableSeats(pricing, order.seats);
+    description = `${order.seats} seats (${billable} charged × ${inr(pricing.seatPrice)}), 1 month`;
   } else if (order.kind === "SEATS") {
     await admin
       .from("subscriptions")
       .update({ seats: (sub?.seats ?? 0) + order.seats, updated_at: now.toISOString() })
       .eq("company_id", order.company_id);
-    description = `${order.seats} extra seat${order.seats === 1 ? "" : "s"} (rest of this month)`;
+    description = `${order.seats} extra seat${order.seats === 1 ? "" : "s"} (rest of this seat month)`;
   } else if (order.kind === "CREDITS") {
     const { error } = await admin.rpc("credit_add", {
       p_company_id: order.company_id,
@@ -160,6 +220,7 @@ export async function reconcilePendingOrders(companyId?: string): Promise<number
     .from("billing_orders")
     .select("razorpay_order_id")
     .eq("status", "CREATED")
+    .not("razorpay_order_id", "like", "free_%") // promo orders never touch Razorpay
     .gte("created_at", since)
     .order("created_at", { ascending: false })
     .limit(50);

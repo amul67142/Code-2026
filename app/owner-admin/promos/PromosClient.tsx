@@ -3,7 +3,23 @@
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Ticket, Plus, Loader2, Copy, Power } from "lucide-react";
-import { createPromoCode, togglePromoCode, getPromoCodes } from "./actions";
+import { createPromoCode, togglePromoCode, getPromoCodes, type PromoKind } from "./actions";
+
+const KINDS: { value: PromoKind; label: string; hint: string }[] = [
+  { value: "FIRST_MONTH", label: "First-month discount", hint: "% or ₹ off the first month's platform fee." },
+  { value: "FREE_SEATS", label: "Free seats", hint: "The first N seats are free, for good. Seats after that are charged." },
+  { value: "ACCESS", label: "Free access", hint: "Full access for N days at no cost — investor demos and testing." },
+];
+
+/** What a code gives, in one line. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function gives(p: any): string {
+  if (p.kind === "FIRST_MONTH") {
+    return p.discount_percent ? `${p.discount_percent}% off first month` : `₹${p.discount_inr} off first month`;
+  }
+  if (p.kind === "FREE_SEATS") return `First ${p.free_seats} seats free`;
+  return `${p.pricing_plans?.name || "Top plan"} free for ${p.duration_days} days`;
+}
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Promo = any;
@@ -25,6 +41,10 @@ export default function PromosClient({
   const [isPending, startTransition] = useTransition();
 
   // form
+  const [kind, setKind] = useState<PromoKind>("FIRST_MONTH");
+  const [discountType, setDiscountType] = useState<"PERCENT" | "INR">("PERCENT");
+  const [discountValue, setDiscountValue] = useState(100);
+  const [freeSeats, setFreeSeats] = useState(15);
   const [code, setCode] = useState("");
   const [description, setDescription] = useState("");
   const [planId, setPlanId] = useState(plans[0]?.id || "");
@@ -39,6 +59,10 @@ export default function PromosClient({
   function handleCreate() {
     startTransition(async () => {
       const res = await createPromoCode({
+        kind,
+        discountType,
+        discountValue,
+        freeSeats,
         code,
         description,
         planId: planId || null,
@@ -78,14 +102,29 @@ export default function PromosClient({
           <Ticket className="size-5 text-indigo-400" /> Promo Codes
         </h1>
         <p className="text-sm text-zinc-400 mt-1">
-          Zero-cost access for investors and testing. A redeemed code activates the granted plan for
-          its duration — the workspace locks again when it lapses.
+          Discounts and free seats for clients you choose, and free access for demos. Clients enter
+          the code on their Billing page (or the plan page when locked).
         </p>
       </div>
 
       {/* Create */}
       <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-5 space-y-4">
         <h2 className="text-sm font-semibold text-zinc-300">Create a code</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          {KINDS.map((k) => (
+            <button
+              key={k.value}
+              type="button"
+              onClick={() => setKind(k.value)}
+              className={`rounded-md border px-3 py-2 text-left transition-colors ${
+                kind === k.value ? "border-indigo-500 bg-indigo-500/10" : "border-zinc-700 hover:bg-zinc-800"
+              }`}
+            >
+              <p className="text-sm font-semibold text-zinc-100">{k.label}</p>
+              <p className="text-[11px] text-zinc-400">{k.hint}</p>
+            </button>
+          ))}
+        </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
           <input
             value={code}
@@ -99,22 +138,59 @@ export default function PromosClient({
             placeholder="Note (e.g. Investor demo)"
             className={input}
           />
-          <select value={planId} onChange={(e) => setPlanId(e.target.value)} className={input}>
-            {plans.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name} (₹{p.price_inr})
-              </option>
-            ))}
-          </select>
-          <input
-            type="number"
-            min={1}
-            value={days}
-            onChange={(e) => setDays(parseInt(e.target.value) || 30)}
-            placeholder="Days"
-            className={input}
-            title="Access duration (days)"
-          />
+          {kind === "ACCESS" && (
+            <>
+              <select value={planId} onChange={(e) => setPlanId(e.target.value)} className={input}>
+                {plans.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name} (₹{p.price_inr})
+                  </option>
+                ))}
+              </select>
+              <input
+                type="number"
+                min={1}
+                value={days}
+                onChange={(e) => setDays(parseInt(e.target.value) || 30)}
+                placeholder="Days"
+                className={input}
+                title="Access duration (days)"
+              />
+            </>
+          )}
+          {kind === "FIRST_MONTH" && (
+            <>
+              <select
+                value={discountType}
+                onChange={(e) => setDiscountType(e.target.value as "PERCENT" | "INR")}
+                className={input}
+              >
+                <option value="PERCENT">% off</option>
+                <option value="INR">₹ off</option>
+              </select>
+              <input
+                type="number"
+                min={1}
+                max={discountType === "PERCENT" ? 100 : undefined}
+                value={discountValue}
+                onChange={(e) => setDiscountValue(parseInt(e.target.value) || 0)}
+                placeholder={discountType === "PERCENT" ? "Percent off" : "Rupees off"}
+                className={input}
+                title={discountType === "PERCENT" ? "Percent off the first month's platform fee" : "Rupees off"}
+              />
+            </>
+          )}
+          {kind === "FREE_SEATS" && (
+            <input
+              type="number"
+              min={1}
+              value={freeSeats}
+              onChange={(e) => setFreeSeats(parseInt(e.target.value) || 0)}
+              placeholder="Free seats"
+              className={`${input} lg:col-span-2`}
+              title="Seats that cost nothing, for good"
+            />
+          )}
           <input
             type="number"
             min={1}
@@ -134,7 +210,7 @@ export default function PromosClient({
           Generate code
         </button>
         <p className="text-[11px] text-zinc-500">
-          Duration = days of free access. Max uses = how many different companies can redeem it.
+          Max uses = how many different companies can use it. Each company can use a code once.
         </p>
       </div>
 
@@ -145,8 +221,7 @@ export default function PromosClient({
             <tr>
               <th className="px-4 py-3 font-medium">Code</th>
               <th className="px-4 py-3 font-medium hidden md:table-cell">Note</th>
-              <th className="px-4 py-3 font-medium">Plan</th>
-              <th className="px-4 py-3 font-medium">Days</th>
+              <th className="px-4 py-3 font-medium">Gives</th>
               <th className="px-4 py-3 font-medium">Uses</th>
               <th className="px-4 py-3 font-medium">Status</th>
               <th className="px-4 py-3 font-medium text-right">Actions</th>
@@ -155,7 +230,7 @@ export default function PromosClient({
           <tbody className="divide-y divide-zinc-800/80">
             {promos.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-4 py-10 text-center text-zinc-500">
+                <td colSpan={6} className="px-4 py-10 text-center text-zinc-500">
                   No promo codes yet — generate one above.
                 </td>
               </tr>
@@ -166,8 +241,7 @@ export default function PromosClient({
                   <td className="px-4 py-3 text-zinc-400 hidden md:table-cell max-w-[220px] truncate">
                     {p.description || "—"}
                   </td>
-                  <td className="px-4 py-3 text-zinc-300">{p.pricing_plans?.name || "Top plan"}</td>
-                  <td className="px-4 py-3 tabular-nums text-zinc-300">{p.duration_days}</td>
+                  <td className="px-4 py-3 text-zinc-300">{gives(p)}</td>
                   <td className="px-4 py-3 tabular-nums text-zinc-300">
                     {p.used_count}/{p.max_uses}
                   </td>

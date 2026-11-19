@@ -14,7 +14,15 @@ import { decryptToken } from "@/lib/integrations/crypto";
 import { normalizeWhatsAppNumber, sendWhatsAppTemplate } from "@/lib/integrations/whatsapp";
 import { sendBillingReminderEmail } from "@/lib/email";
 import { getURL } from "@/lib/utils";
-import { INCLUDED_SEATS, RENEWAL_GRACE_DAYS, inr, monthlyPrice } from "@/lib/billing/plans";
+import {
+  RENEWAL_GRACE_DAYS,
+  coveredSeats,
+  inr,
+  planMonthly,
+  pricingFromCompany,
+  seatsMonthly,
+  type CompanyPricing,
+} from "@/lib/billing/plans";
 import { countSeatsUsed } from "@/lib/billing/state";
 
 /**
@@ -40,7 +48,7 @@ export const BILLING_REMINDER_TEMPLATE = {
   ],
 };
 
-type Kind = "TRIAL_1D" | "TRIAL_ENDED" | "RENEW_3D" | "RENEW_DUE";
+type Kind = "TRIAL_1D" | "TRIAL_ENDED" | "RENEW_3D" | "RENEW_DUE" | "SEATS_3D" | "SEATS_DUE";
 
 const HOUR = 3600 * 1000;
 const DAY = 24 * HOUR;
@@ -56,8 +64,9 @@ const when = (iso: string) =>
 const day = (iso: string) =>
   new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "short", timeZone: "Asia/Kolkata" });
 
-function copy(kind: Kind, endIso: string, seats: number): { headline: string; line: string } {
-  const price = inr(monthlyPrice(seats));
+function copy(kind: Kind, endIso: string, seats: number, pricing: CompanyPricing): { headline: string; line: string } {
+  const price = inr(planMonthly(pricing, seats));
+  const seatPrice = inr(seatsMonthly(pricing, seats));
   switch (kind) {
     case "TRIAL_1D":
       return {
@@ -81,6 +90,18 @@ function copy(kind: Kind, endIso: string, seats: number): { headline: string; li
         line: `Your BigLead plan expired on ${day(endIso)}. Renew for ${price} — your dashboard locks on ${day(lockIso)} if it is not renewed.`,
       };
     }
+    case "SEATS_3D":
+      return {
+        headline: `Your team seats renew on ${day(endIso)}`,
+        line: `Your ${seats} BigLead seats are paid until ${day(endIso)}. Renew them for ${seatPrice} to keep your whole team working.`,
+      };
+    case "SEATS_DUE": {
+      const lockIso = new Date(new Date(endIso).getTime() + RENEWAL_GRACE_DAYS * DAY).toISOString();
+      return {
+        headline: "Your team seats have expired",
+        line: `Your BigLead seats expired on ${day(endIso)}. Renew them for ${seatPrice} — your dashboard locks on ${day(lockIso)} if they are not renewed.`,
+      };
+    }
   }
 }
 
@@ -91,6 +112,7 @@ interface Due {
   seats: number;
   /** Trial or promo: seats were granted, not bought. */
   free: boolean;
+  pricing: CompanyPricing;
 }
 
 /** Which reminders are due right now. Tuned for one run a day. */
@@ -99,7 +121,9 @@ async function findDue(): Promise<Due[]> {
   const now = Date.now();
   const { data: subs } = await admin
     .from("subscriptions")
-    .select("company_id, status, trial_ends_at, current_period_end, seats, amount_inr, razorpay_sub_id, companies!inner(is_platform, deleted_at)")
+    .select(
+      "company_id, status, trial_ends_at, current_period_end, seats, seats_period_end, amount_inr, razorpay_sub_id, companies!inner(is_platform, deleted_at, plan_platform_fee_inr, plan_included_seats, plan_seat_price_inr, free_seats)"
+    )
     .in("status", ["TRIALING", "ACTIVE"]);
 
   const due: Due[] = [];
@@ -109,20 +133,33 @@ async function findDue(): Promise<Due[]> {
     if (company?.is_platform || company?.deleted_at) continue;
     const seats = s.seats || 3;
     const free = s.status === "TRIALING" || !s.amount_inr;
+    const pricing = pricingFromCompany(company);
 
     if (s.status === "TRIALING" && s.trial_ends_at) {
       const left = new Date(s.trial_ends_at).getTime() - now;
       // 36h, not 24h: with one run a day, a 24h window misses any trial that
       // ends just after the run.
-      if (left > 0 && left <= 36 * HOUR) due.push({ companyId: s.company_id, kind: "TRIAL_1D", endIso: s.trial_ends_at, seats, free });
-      else if (left <= 0 && left > -7 * DAY) due.push({ companyId: s.company_id, kind: "TRIAL_ENDED", endIso: s.trial_ends_at, seats, free });
+      if (left > 0 && left <= 36 * HOUR) due.push({ companyId: s.company_id, kind: "TRIAL_1D", endIso: s.trial_ends_at, seats, free, pricing });
+      else if (left <= 0 && left > -7 * DAY) due.push({ companyId: s.company_id, kind: "TRIAL_ENDED", endIso: s.trial_ends_at, seats, free, pricing });
     }
 
     // Autopay subscriptions renew themselves; "please pay" would confuse them.
     if (s.status === "ACTIVE" && s.current_period_end && !s.razorpay_sub_id) {
       const left = new Date(s.current_period_end).getTime() - now;
-      if (left > 0 && left <= 3.5 * DAY) due.push({ companyId: s.company_id, kind: "RENEW_3D", endIso: s.current_period_end, seats, free });
-      else if (left <= 0 && left > -7 * DAY) due.push({ companyId: s.company_id, kind: "RENEW_DUE", endIso: s.current_period_end, seats, free });
+      if (left > 0 && left <= 3.5 * DAY) due.push({ companyId: s.company_id, kind: "RENEW_3D", endIso: s.current_period_end, seats, free, pricing });
+      else if (left <= 0 && left > -7 * DAY) due.push({ companyId: s.company_id, kind: "RENEW_DUE", endIso: s.current_period_end, seats, free, pricing });
+    }
+
+    // Seats paid for their own month. When it ends with the platform month the
+    // reminder above already quotes the full bill, so only a seat month on a
+    // different date gets its own.
+    const seatEnd = s.seats_period_end;
+    const sameAsPlatform =
+      !!s.current_period_end && Math.abs(new Date(seatEnd || 0).getTime() - new Date(s.current_period_end).getTime()) < DAY;
+    if (s.status === "ACTIVE" && seatEnd && seats > coveredSeats(pricing) && !sameAsPlatform) {
+      const left = new Date(seatEnd).getTime() - now;
+      if (left > 0 && left <= 3.5 * DAY) due.push({ companyId: s.company_id, kind: "SEATS_3D", endIso: seatEnd, seats, free, pricing });
+      else if (left <= 0 && left > -7 * DAY) due.push({ companyId: s.company_id, kind: "SEATS_DUE", endIso: seatEnd, seats, free, pricing });
     }
   }
   return due;
@@ -201,8 +238,8 @@ export async function sendDueReminders(): Promise<{ sent: number; skipped: numbe
     const name = owner?.name || "there";
     const workspace = company?.name && company.name !== "Pending Onboarding" ? company.name : "BigLead";
     // Quote what checkout will charge: seats in use, not seats the owner granted.
-    const seats = d.free ? Math.max(INCLUDED_SEATS, await countSeatsUsed(d.companyId)) : d.seats;
-    const { headline, line } = copy(d.kind, d.endIso, seats);
+    const seats = d.free ? Math.max(coveredSeats(d.pricing), await countSeatsUsed(d.companyId)) : d.seats;
+    const { headline, line } = copy(d.kind, d.endIso, seats, d.pricing);
 
     let whatsapp: string;
     if ("skip" in sender) whatsapp = `SKIPPED: ${sender.skip}`;

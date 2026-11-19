@@ -19,17 +19,18 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { redeemPromoCode, startFreeTrial } from "./actions";
-import { payForOrder } from "@/lib/billing/checkout-client";
+import { purchaseOrder } from "@/lib/billing/checkout-client";
 import {
-  BASIC_MONTHLY_INR,
-  EXTRA_SEAT_MONTHLY_INR,
   INCLUDED_SEATS,
   MAX_SEATS,
   MIN_CREDIT_RECHARGE,
   TRIAL_DAYS,
   TRIAL_FREE_CREDITS,
+  billableSeats,
+  coveredSeats,
   inr,
-  monthlyPrice,
+  seatsMonthly,
+  type CompanyPricing,
 } from "@/lib/billing/plans";
 
 interface Props {
@@ -40,6 +41,14 @@ interface Props {
   seatsUsed: number;
   /** Leads that arrived while the workspace was locked. */
   waitingLeads: number;
+  /** Basic, or the custom price set for this company. */
+  pricing: CompanyPricing;
+  /** A first-month promo waiting to be used: rupees off the platform fee. */
+  firstMonthDiscount: number;
+  firstMonthCode: string | null;
+  /** The platform month is paid; only the seat charges ran out. */
+  seatsOnly: boolean;
+  paidSeats: number;
 }
 
 const TRIAL_INCLUDES = [
@@ -49,24 +58,38 @@ const TRIAL_INCLUDES = [
   `${INCLUDED_SEATS} team seats`,
 ];
 
-const BASIC_INCLUDES = [
-  "Everything in the trial",
-  "AI WhatsApp agent",
-  `${INCLUDED_SEATS} seats included, ${inr(EXTRA_SEAT_MONTHLY_INR)}/month per extra seat`,
-  "WhatsApp credits: ₹1 per delivered template",
-];
-
-export function SelectPlanClient({ userEmail, phase, trialAvailable, seatsUsed, waitingLeads }: Props) {
-  const minSeats = Math.max(INCLUDED_SEATS, seatsUsed);
-  const [seats, setSeats] = useState(minSeats);
+export function SelectPlanClient({
+  userEmail,
+  phase,
+  trialAvailable,
+  seatsUsed,
+  waitingLeads,
+  pricing,
+  firstMonthDiscount,
+  firstMonthCode,
+  seatsOnly,
+  paidSeats,
+}: Props) {
+  const covered = coveredSeats(pricing);
+  const coveredText =
+    pricing.freeSeats > pricing.includedSeats ? `${covered} seats free (promo)` : `${pricing.includedSeats} seats included`;
+  const planIncludes = [
+    "Everything in the trial",
+    "AI WhatsApp agent",
+    `${coveredText}, ${inr(pricing.seatPrice)}/month per extra seat`,
+    "WhatsApp credits: ₹1 per delivered template",
+  ];
+  const minSeats = seatsOnly ? Math.max(1, seatsUsed) : Math.max(covered, seatsUsed);
+  const [seats, setSeats] = useState(Math.max(minSeats, seatsOnly ? paidSeats : 0));
   const [paying, setPaying] = useState(false);
   const [startingTrial, setStartingTrial] = useState(false);
   const [promo, setPromo] = useState("");
   const [promoLoading, setPromoLoading] = useState(false);
 
   const locked = phase === "TRIAL_ENDED" || phase === "LOCKED";
-  const price = monthlyPrice(seats);
-  const extra = Math.max(0, seats - INCLUDED_SEATS);
+  const platformDue = pricing.platformFee - firstMonthDiscount;
+  const price = seatsOnly ? seatsMonthly(pricing, seats) : platformDue + seatsMonthly(pricing, seats);
+  const extra = billableSeats(pricing, seats);
 
   async function handleTrial() {
     setStartingTrial(true);
@@ -87,12 +110,12 @@ export function SelectPlanClient({ userEmail, phase, trialAvailable, seatsUsed, 
   async function handlePay() {
     setPaying(true);
     try {
-      const done = await payForOrder({ kind: "PLAN", seats });
-      if (!done) {
+      const out = await purchaseOrder(seatsOnly ? { kind: "SEAT_MONTH", seats } : { kind: "PLAN", seats });
+      if (!out.done) {
         toast.info("Payment window closed.");
         return;
       }
-      toast.success("Payment received — your workspace is active.");
+      toast.success(out.free || "Payment received — your workspace is active.");
       setTimeout(() => (window.location.href = "/dashboard"), 600);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Payment failed.", { duration: 12000 });
@@ -106,11 +129,17 @@ export function SelectPlanClient({ userEmail, phase, trialAvailable, seatsUsed, 
     setPromoLoading(true);
     try {
       const res = await redeemPromoCode(promo);
-      if (res.error) {
+      if ("error" in res && res.error) {
         toast.error(res.error);
         return;
       }
-      toast.success(`${res.planName} unlocked for ${res.days} days`);
+      if ("priceChanged" in res) {
+        // A discount or free seats: the price on this page changes.
+        toast.success(res.message);
+        setTimeout(() => window.location.reload(), 700);
+        return;
+      }
+      if ("days" in res) toast.success(`${res.planName} unlocked for ${res.days} days`);
       setTimeout(() => (window.location.href = "/dashboard"), 700);
     } finally {
       setPromoLoading(false);
@@ -155,7 +184,9 @@ export function SelectPlanClient({ userEmail, phase, trialAvailable, seatsUsed, 
             <p className="text-sm font-bold text-red-700">
               {phase === "TRIAL_ENDED"
                 ? "Your free trial has ended — your workspace is locked."
-                : "Your plan has expired — your workspace is locked."}
+                : seatsOnly
+                  ? "Your seat charges are unpaid — your workspace is locked."
+                  : "Your plan has expired — your workspace is locked."}
             </p>
             <p className="mt-0.5 text-xs text-red-600">
               {waitingLeads > 0
@@ -221,9 +252,13 @@ export function SelectPlanClient({ userEmail, phase, trialAvailable, seatsUsed, 
         {/* Basic */}
         <div className="flex flex-col justify-between rounded-2xl border border-zinc-900 bg-white p-8 shadow-sm ring-1 ring-zinc-900">
           <div>
-            <h3 className="text-xl font-bold text-zinc-900">Basic</h3>
+            <h3 className="text-xl font-bold text-zinc-900">
+              {seatsOnly ? "Team seats" : pricing.custom ? "Your plan" : "Basic"}
+            </h3>
             <p className="mt-1 text-xs text-zinc-500">
-              {inr(BASIC_MONTHLY_INR)}/month for {INCLUDED_SEATS} seats. GST included.
+              {seatsOnly
+                ? `Your platform fee is paid. ${coveredText}; ${inr(pricing.seatPrice)}/month per extra seat.`
+                : `${inr(pricing.platformFee)}/month platform fee, ${coveredText}. GST included.`}
             </p>
 
             <div className="my-6">
@@ -231,9 +266,15 @@ export function SelectPlanClient({ userEmail, phase, trialAvailable, seatsUsed, 
                 <span className="text-4xl font-black text-zinc-900">{inr(price)}</span>
                 <span className="text-sm text-zinc-500">/month</span>
               </div>
-              {extra > 0 && (
+              {(extra > 0 || firstMonthDiscount > 0) && (
                 <p className="mt-1 text-xs text-zinc-500">
-                  {inr(BASIC_MONTHLY_INR)} + {extra} extra seat{extra === 1 ? "" : "s"} × {inr(EXTRA_SEAT_MONTHLY_INR)}
+                  {seatsOnly ? "" : `${inr(platformDue)} platform${extra > 0 ? " + " : ""}`}
+                  {extra > 0 && `${extra} extra seat${extra === 1 ? "" : "s"} × ${inr(pricing.seatPrice)}`}
+                </p>
+              )}
+              {!seatsOnly && firstMonthDiscount > 0 && (
+                <p className="mt-1 text-xs font-medium text-emerald-700">
+                  Promo {firstMonthCode}: {inr(firstMonthDiscount)} off your first month&apos;s platform fee
                 </p>
               )}
             </div>
@@ -243,7 +284,7 @@ export function SelectPlanClient({ userEmail, phase, trialAvailable, seatsUsed, 
               <div>
                 <p className="text-sm font-semibold text-zinc-900">Team seats</p>
                 <p className="text-[11px] text-zinc-500">
-                  {seatsUsed > INCLUDED_SEATS
+                  {seatsUsed > covered
                     ? `You have ${seatsUsed} people already`
                     : "Everyone who logs in, except read-only"}
                 </p>
@@ -269,8 +310,8 @@ export function SelectPlanClient({ userEmail, phase, trialAvailable, seatsUsed, 
               </div>
             </div>
 
-            <ul className="space-y-2.5 text-sm">
-              {BASIC_INCLUDES.map((f) => (
+            <ul className={`space-y-2.5 text-sm ${seatsOnly ? "hidden" : ""}`}>
+              {planIncludes.map((f) => (
                 <li key={f} className="flex items-start gap-2 text-zinc-700">
                   <Check className="mt-0.5 size-4 shrink-0 text-emerald-600" /> {f}
                 </li>
@@ -284,7 +325,13 @@ export function SelectPlanClient({ userEmail, phase, trialAvailable, seatsUsed, 
               disabled={paying || startingTrial}
               className="h-11 w-full bg-zinc-900 font-bold text-white hover:bg-zinc-800"
             >
-              {paying ? <Loader2 className="size-4 animate-spin" /> : `Pay ${inr(price)} for 1 month`}
+              {paying ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : price === 0 ? (
+                "Activate — nothing to pay"
+              ) : (
+                `Pay ${inr(price)} for 1 month`
+              )}
             </Button>
             <p className="flex items-center justify-center gap-1 text-[11px] text-zinc-400">
               <ShieldCheck className="size-3" /> Secured by Razorpay · UPI, cards, netbanking

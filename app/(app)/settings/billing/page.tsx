@@ -4,6 +4,7 @@ import { getCachedUserProfile } from "@/lib/auth/cached-user";
 import { getBillingState } from "@/lib/billing/state";
 import { getCreditBalance } from "@/lib/billing/credits";
 import { reconcilePendingOrders } from "@/lib/billing/fulfil";
+import { getFirstMonthOffer } from "@/lib/billing/promo";
 import { BillingPanel } from "./billing-panel";
 
 export const metadata = {
@@ -22,15 +23,10 @@ export default async function BillingPage() {
   await reconcilePendingOrders(profile.company_id).catch(() => 0);
 
   const admin = createAdminClient();
-  const [state, credits, { data: ledger }, { data: invoices }] = await Promise.all([
+  const [state, credits, offer, { data: invoices }] = await Promise.all([
     getBillingState(profile.company_id),
     getCreditBalance(profile.company_id),
-    admin
-      .from("credit_ledger")
-      .select("id, delta, kind, state, note, created_at")
-      .eq("company_id", profile.company_id)
-      .order("created_at", { ascending: false })
-      .limit(25),
+    getFirstMonthOffer(profile.company_id).catch(() => null),
     admin
       .from("invoices")
       .select("id, invoice_number, amount_inr, paid_at, description, created_at")
@@ -43,9 +39,13 @@ export default async function BillingPage() {
     <BillingPanel
       state={state}
       credits={credits}
-      ledger={ledger || []}
       invoices={invoices || []}
       isOwner={profile.role === "SUPER_ADMIN"}
+      firstMonth={
+        offer
+          ? { code: offer.code, label: offer.label, discount: offer.discountFor(state.pricing.platformFee) }
+          : null
+      }
     />
   );
 }

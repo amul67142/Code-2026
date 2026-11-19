@@ -57,6 +57,8 @@ export async function updateFreeAccount(companyId: string, input: { extendDays: 
       updated_at: now.toISOString(),
       ...(endsAt ? { current_period_end: endsAt } : {}),
       ...(endsAt && onTrial ? { trial_ends_at: endsAt } : {}),
+      // A demo's seats run as long as its access, so they never lock it early.
+      ...(endsAt && !onTrial ? { seats_period_end: endsAt } : {}),
     })
     .eq("id", sub.id)
     .eq("status", sub.status); // a payment landing now wins
@@ -66,6 +68,55 @@ export async function updateFreeAccount(companyId: string, input: { extendDays: 
   }
   if (endsAt && onTrial) {
     await admin.from("companies").update({ status: "TRIAL", trial_ends_at: endsAt }).eq("id", companyId);
+  }
+
+  revalidatePath("/owner-admin/companies");
+  return { success: true };
+}
+
+/**
+ * Put a company on Basic (all NULL) or a custom plan: its own platform fee,
+ * seats the fee includes, and price per extra seat. Also sets free seats (what
+ * a FREE_SEATS promo gives) by hand. Applies from the company's next payment;
+ * a month already paid keeps the price it was paid at.
+ */
+export async function updateCompanyPlan(
+  companyId: string,
+  input: { custom: boolean; platformFee: number; includedSeats: number; seatPrice: number; freeSeats: number }
+) {
+  if (!(await isOwner())) return { error: "Unauthorized" };
+  const whole = (n: number, min: number, max: number) => Number.isInteger(n) && n >= min && n <= max;
+
+  if (input.custom) {
+    if (!whole(input.platformFee, 1, 1_000_000)) return { error: "Platform fee must be a whole number of rupees." };
+    if (!whole(input.includedSeats, 0, MAX_SEATS)) return { error: `Included seats must be 0 to ${MAX_SEATS}.` };
+    if (!whole(input.seatPrice, 1, 100_000)) return { error: "Seat price must be a whole number of rupees." };
+  }
+  if (!whole(input.freeSeats, 0, 1000)) return { error: "Free seats must be 0 to 1000." };
+
+  const admin = createAdminClient();
+  const { data: company } = await admin
+    .from("companies")
+    .select("is_platform, free_seats, free_seats_code")
+    .eq("id", companyId)
+    .maybeSingle();
+  if (!company) return { error: "Company not found." };
+  if (company.is_platform) return { error: "The platform workspace is never billed." };
+
+  const { error } = await admin
+    .from("companies")
+    .update({
+      plan_platform_fee_inr: input.custom ? input.platformFee : null,
+      plan_included_seats: input.custom ? input.includedSeats : null,
+      plan_seat_price_inr: input.custom ? input.seatPrice : null,
+      free_seats: input.freeSeats,
+      // A hand-set number is no longer the promo's.
+      free_seats_code: input.freeSeats === company.free_seats ? company.free_seats_code : null,
+    })
+    .eq("id", companyId);
+  if (error) {
+    console.error("updateCompanyPlan failed:", error);
+    return { error: "Could not save. Please try again." };
   }
 
   revalidatePath("/owner-admin/companies");

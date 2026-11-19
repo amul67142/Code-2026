@@ -43,6 +43,34 @@ export function hasActiveAccess(sub: AccessSubscription | null): boolean {
   return false;
 }
 
+/**
+ * Seat charges are paid for their own month (seats_period_end). They lock the
+ * dashboard only when that month ended more than the grace days ago AND the
+ * company still holds seats beyond the free ones. NULL period = nothing to
+ * pay for seats.
+ */
+export function seatsLapsed(
+  sub: { seats?: number | null; seats_period_end?: string | null } | null,
+  covered: number,
+  now = Date.now()
+): boolean {
+  if (!sub?.seats_period_end) return false;
+  if ((sub.seats ?? 0) <= covered) return false;
+  return new Date(sub.seats_period_end).getTime() + GRACE_MS <= now;
+}
+
+/** Seat month ended but still inside the grace days: time to warn. */
+export function seatsInGrace(
+  sub: { seats?: number | null; seats_period_end?: string | null } | null,
+  covered: number,
+  now = Date.now()
+): boolean {
+  if (!sub?.seats_period_end) return false;
+  if ((sub.seats ?? 0) <= covered) return false;
+  const end = new Date(sub.seats_period_end).getTime();
+  return end <= now && end + GRACE_MS > now;
+}
+
 /** On a free trial that has not ended. */
 export function isOnTrial(sub: AccessSubscription | null): boolean {
   return (

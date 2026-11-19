@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { getURL } from "@/lib/utils";
 import { sendInviteEmail } from "@/lib/email";
 import { getBillingState } from "@/lib/billing/state";
-import { EXTRA_SEAT_MONTHLY_INR, inr } from "@/lib/billing/plans";
+import { inr } from "@/lib/billing/plans";
 import { validateAgentAlert, type AgentAlertSettings, type AgentAlertRow } from "@/lib/team/agent-alert-settings";
 import { MAX_LEAD_SHARE, MIN_LEAD_SHARE, validLeadShare } from "@/lib/team/lead-share";
 
@@ -39,7 +39,7 @@ async function seatAvailable(
   if (state.seatsUsed < state.seats) return null;
   return state.phase === "TRIAL"
     ? `The free trial includes ${state.seats} seats, and all are in use. Choose more seats when you pick your plan, or invite this person as Read Only.`
-    : `All ${state.seats} seats are in use. Add a seat in Settings → Billing (${inr(EXTRA_SEAT_MONTHLY_INR)}/month), or invite this person as Read Only.`;
+    : `All ${state.seats} seats are in use. Add a seat in Settings → Billing (${inr(state.pricing.seatPrice)}/month), or invite this person as Read Only.`;
 }
 
 export async function getTeamMembers() {

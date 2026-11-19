@@ -8,39 +8,35 @@ import { toast } from "sonner";
 import {
   AlertTriangle,
   ArrowLeft,
+  Building2,
   Download,
   Loader2,
   MessageCircle,
   Minus,
   Plus,
   Receipt,
+  Ticket,
   Users,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { payForOrder, type PurchaseRequest } from "@/lib/billing/checkout-client";
+import { purchaseOrder, type PurchaseRequest } from "@/lib/billing/checkout-client";
 import type { BillingState } from "@/lib/billing/state";
 import {
   CREDIT_PACKS,
-  EXTRA_SEAT_MONTHLY_INR,
-  INCLUDED_SEATS,
   MAX_CREDIT_RECHARGE,
   MAX_SEATS,
   MIN_CREDIT_RECHARGE,
+  billableSeats,
+  coveredSeats,
   creditPrice,
   inr,
-  monthlyPrice,
+  planMonthly,
   proratedSeatPrice,
+  seatsMonthly,
 } from "@/lib/billing/plans";
+import { applyBillingPromo } from "./actions";
 
-interface LedgerRow {
-  id: string;
-  delta: number;
-  kind: string;
-  state: string;
-  note: string | null;
-  created_at: string;
-}
 interface InvoiceRow {
   id: string;
   invoice_number: string;
@@ -50,14 +46,8 @@ interface InvoiceRow {
   created_at: string;
 }
 
-const PHASE_LABEL: Record<string, { text: string; tone: string }> = {
-  PLATFORM: { text: "SpaceTrans workspace", tone: "bg-zinc-100 text-zinc-700" },
-  TRIAL: { text: "Free trial", tone: "bg-emerald-50 text-emerald-700" },
-  ACTIVE: { text: "Basic plan", tone: "bg-emerald-50 text-emerald-700" },
-  GRACE: { text: "Expired — renew now", tone: "bg-red-50 text-red-700" },
-};
-
-const fmt = (iso: string | null) => (iso ? format(new Date(iso), "d MMM yyyy, h:mm a") : "—");
+const day = (iso: string | null) => (iso ? format(new Date(iso), "d MMM yyyy") : "—");
+const future = (iso: string | null) => !!iso && new Date(iso).getTime() > Date.now();
 
 function Stepper({
   value,
@@ -95,45 +85,73 @@ function Stepper({
   );
 }
 
+/** Small coloured status pill. */
+function Pill({ tone, children }: { tone: "green" | "amber" | "red" | "zinc"; children: React.ReactNode }) {
+  const tones = {
+    green: "bg-emerald-50 text-emerald-700",
+    amber: "bg-amber-50 text-amber-700",
+    red: "bg-red-50 text-red-700",
+    zinc: "bg-zinc-100 text-zinc-700",
+  };
+  return <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${tones[tone]}`}>{children}</span>;
+}
+
 export function BillingPanel({
   state,
   credits,
-  ledger,
   invoices,
   isOwner,
+  firstMonth,
 }: {
   state: BillingState;
   credits: number;
-  ledger: LedgerRow[];
   invoices: InvoiceRow[];
   isOwner: boolean;
+  firstMonth: { code: string; label: string; discount: number } | null;
 }) {
+  const p = state.pricing;
+  const covered = coveredSeats(p);
+  const platform = state.isPlatform;
+  const onTrial = state.phase === "TRIAL";
+  const platformPaid = state.platformPaid;
+  const seatMonthRunning = future(state.seatsPeriodEnd);
+
   const [busy, setBusy] = useState<string | null>(null);
-  const minPlanSeats = Math.max(INCLUDED_SEATS, state.seatsUsed, state.phase === "ACTIVE" || state.phase === "GRACE" ? state.seats : 0);
-  const [planSeats, setPlanSeats] = useState(minPlanSeats);
+  // Pay-both (trial / not yet paid): seats chosen here.
+  const [planSeats, setPlanSeats] = useState(Math.max(covered, state.seatsUsed, state.seats));
+  // Seat month on a paid plan.
+  const [monthSeats, setMonthSeats] = useState(Math.max(state.seatsUsed, state.seats, 1));
   const [addSeats, setAddSeats] = useState(1);
   const [creditAmount, setCreditAmount] = useState(CREDIT_PACKS[0]);
+  const [promo, setPromo] = useState("");
 
-  const platform = state.isPlatform;
-  const paid = state.phase === "ACTIVE";
-  const seatAddPrice =
-    paid && state.periodEnd
+  const discount = firstMonth?.discount ?? 0;
+  const platformDue = p.platformFee - discount;
+  const billable = billableSeats(p, state.seats);
+  const monthly = planMonthly(p, state.seats);
+  const overLimit = !platform && state.seatsUsed > state.seats;
+  const creditValid = creditAmount >= MIN_CREDIT_RECHARGE && creditAmount <= MAX_CREDIT_RECHARGE;
+
+  const newlyBillable = billableSeats(p, state.seats + addSeats) - billable;
+  const addPrice =
+    seatMonthRunning && newlyBillable > 0
       ? proratedSeatPrice(
-          addSeats,
-          // Legacy rows may lack a start; a month before the end is the same
-          // assumption the server makes.
-          state.periodStart ? new Date(state.periodStart) : new Date(new Date(state.periodEnd).getTime() - 30 * 864e5),
-          new Date(state.periodEnd)
+          newlyBillable,
+          state.seatsPeriodStart
+            ? new Date(state.seatsPeriodStart)
+            : new Date(new Date(state.seatsPeriodEnd!).getTime() - 30 * 864e5),
+          new Date(state.seatsPeriodEnd!),
+          new Date(),
+          p.seatPrice
         )
       : 0;
-  const creditValid = creditAmount >= MIN_CREDIT_RECHARGE && creditAmount <= MAX_CREDIT_RECHARGE;
 
   async function buy(key: string, purchase: PurchaseRequest, success: string) {
     setBusy(key);
     try {
-      const done = await payForOrder(purchase);
-      if (!done) return toast.info("Payment window closed.");
-      toast.success(success);
+      const out = await purchaseOrder(purchase);
+      if (!out.done) return toast.info("Payment window closed.");
+      toast.success(out.free || success);
       // Hard reload: balances and dates are rendered on the server.
       setTimeout(() => window.location.reload(), 700);
     } catch (err) {
@@ -143,7 +161,53 @@ export function BillingPanel({
     }
   }
 
-  const label = PHASE_LABEL[state.phase] || PHASE_LABEL.GRACE;
+  async function applyPromo() {
+    if (!promo.trim()) return;
+    setBusy("promo");
+    try {
+      const res = await applyBillingPromo(promo);
+      if ("error" in res && res.error) return toast.error(res.error);
+      toast.success(("message" in res && res.message) || "Code applied.");
+      setTimeout(() => window.location.reload(), 700);
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  // ── Plan headline ──
+  const planName = platform ? "SpaceTrans workspace" : onTrial ? "Free trial" : p.custom ? "Custom plan" : "Basic plan";
+  const status: { tone: "green" | "amber" | "red" | "zinc"; text: string } = platform
+    ? { tone: "zinc", text: "Never billed" }
+    : onTrial
+      ? { tone: "green", text: `Ends ${formatDistanceToNowStrict(new Date(state.trialEndsAt!), { addSuffix: true })}` }
+      : state.phase === "ACTIVE" && !state.seatsInGrace && !overLimit
+        ? { tone: "green", text: "Active" }
+        : state.phase === "ACTIVE" || state.phase === "GRACE"
+          ? { tone: "amber", text: "Payment due" }
+          : { tone: "red", text: "Locked" };
+
+  const coveredText =
+    p.freeSeats > p.includedSeats
+      ? `${covered} free${p.freeSeatsCode ? ` (promo ${p.freeSeatsCode})` : ""}`
+      : `${p.includedSeats} included`;
+
+  const platformStatus = onTrial
+    ? `Trial until ${day(state.trialEndsAt)}`
+    : state.phase === "ACTIVE"
+      ? `Paid until ${day(state.periodEnd)}`
+      : state.phase === "GRACE"
+        ? `Expired ${day(state.periodEnd)}`
+        : "Not paid";
+  const seatStatus =
+    billable === 0
+      ? "No charge"
+      : seatMonthRunning
+        ? `Paid until ${day(state.seatsPeriodEnd)}`
+        : state.seatsPeriodEnd
+          ? `Expired ${day(state.seatsPeriodEnd)}`
+          : onTrial
+            ? "Included in trial"
+            : "Not paid";
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
@@ -157,7 +221,7 @@ export function BillingPanel({
           <ArrowLeft className="size-3.5" /> Settings
         </Link>
         <h1 className="text-2xl font-bold tracking-tight">Billing</h1>
-        <p className="text-muted-foreground">Your plan, team seats and WhatsApp credits. Prices include GST.</p>
+        <p className="text-muted-foreground">Your plan, what you pay each month, and your invoices. Prices include GST.</p>
       </div>
 
       {!isOwner && !platform && (
@@ -166,109 +230,263 @@ export function BillingPanel({
         </p>
       )}
 
-      {/* ── Plan ── */}
+      {/* ── Your plan ── */}
       <Card>
-        <CardHeader>
+        <CardHeader className="pb-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <CardTitle className="text-lg">Plan</CardTitle>
-            <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${label.tone}`}>{label.text}</span>
-          </div>
-          <CardDescription>
-            {platform && "This is the platform workspace. It is never billed or locked."}
-            {state.phase === "TRIAL" &&
-              state.trialEndsAt &&
-              `Your free trial ends ${formatDistanceToNowStrict(new Date(state.trialEndsAt), { addSuffix: true })} — ${fmt(state.trialEndsAt)}. The AI agent is not included in the trial.`}
-            {state.phase === "ACTIVE" && `Paid until ${fmt(state.periodEnd)}.`}
-            {state.phase === "GRACE" &&
-              `Your plan ended on ${fmt(state.periodEnd)}. Renew now — the dashboard locks a few days after it ends.`}
-          </CardDescription>
-        </CardHeader>
-        {!platform && (
-          <CardContent className="space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border p-4">
-              <div>
-                <p className="text-sm font-semibold">
-                  {paid ? "Renew for another month" : state.phase === "TRIAL" ? "Buy the plan now" : "Renew your plan"}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {inr(monthlyPrice(INCLUDED_SEATS))} for {INCLUDED_SEATS} seats, {inr(EXTRA_SEAT_MONTHLY_INR)} per extra
-                  seat.{paid ? " Added to the end of your current month — no days lost." : ""}
-                </p>
-              </div>
-              <div className="flex items-center gap-3">
-                <Stepper value={planSeats} min={minPlanSeats} max={MAX_SEATS} onChange={setPlanSeats} disabled={!!busy || !isOwner} />
-                <Button
-                  onClick={() => buy("plan", { kind: "PLAN", seats: planSeats }, "Plan paid — thank you.")}
-                  disabled={!!busy || !isOwner}
-                >
-                  {busy === "plan" ? <Loader2 className="size-4 animate-spin" /> : `Pay ${inr(monthlyPrice(planSeats))}`}
-                </Button>
-              </div>
+            <div>
+              <CardDescription>Your plan</CardDescription>
+              <CardTitle className="text-xl">{planName}</CardTitle>
             </div>
-          </CardContent>
-        )}
-      </Card>
-
-      {/* ── Seats ── */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <Users className="size-4" /> Team seats
-          </CardTitle>
-          <CardDescription>
-            Everyone who can log in takes a seat, including invites not yet accepted. Read-only users are free.
-          </CardDescription>
+            <Pill tone={status.tone}>{status.text}</Pill>
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div>
-            <div className="mb-1.5 flex justify-between text-sm">
-              <span>
-                <strong>{state.seatsUsed}</strong> of {platform ? "unlimited" : state.seats} seats used
-              </span>
-              {!platform && state.seatsUsed >= state.seats && (
-                <span className="text-xs font-medium text-amber-600">Full — add a seat to invite more</span>
-              )}
-            </div>
-            {!platform && (
-              <div className="h-2 overflow-hidden rounded-full bg-muted">
-                <div
-                  className={`h-full ${state.seatsUsed >= state.seats ? "bg-amber-500" : "bg-emerald-500"}`}
-                  style={{ width: `${Math.min(100, (state.seatsUsed / Math.max(1, state.seats)) * 100)}%` }}
-                />
+          {platform ? (
+            <p className="text-sm text-muted-foreground">This is the platform workspace. It is never billed or locked.</p>
+          ) : (
+            <>
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-3xl font-black tabular-nums">{inr(monthly)}</span>
+                <span className="text-sm text-muted-foreground">per month{onTrial ? " after the trial" : ""}</span>
               </div>
-            )}
-          </div>
 
-          {paid && (
-            <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border p-4">
-              <div>
-                <p className="text-sm font-semibold">Add seats now</p>
-                <p className="text-xs text-muted-foreground">
-                  Charged for the rest of this month only. From your next renewal each seat is{" "}
-                  {inr(EXTRA_SEAT_MONTHLY_INR)}/month.
+              <div className="divide-y rounded-xl border text-sm">
+                <div className="flex items-center justify-between gap-3 px-4 py-3">
+                  <div className="min-w-0">
+                    <p className="font-medium">Platform fee</p>
+                    <p className="text-xs text-muted-foreground">{platformStatus}</p>
+                  </div>
+                  <span className="shrink-0 font-semibold tabular-nums">{inr(p.platformFee)}</span>
+                </div>
+                <div className="flex items-center justify-between gap-3 px-4 py-3">
+                  <div className="min-w-0">
+                    <p className="font-medium">Team seats</p>
+                    <p className="text-xs text-muted-foreground">
+                      {state.seats} seat{state.seats === 1 ? "" : "s"} · {coveredText}
+                      {billable > 0 && ` · ${billable} × ${inr(p.seatPrice)}`} · {seatStatus}
+                    </p>
+                  </div>
+                  <span className="shrink-0 font-semibold tabular-nums">{inr(seatsMonthly(p, state.seats))}</span>
+                </div>
+                {firstMonth && (
+                  <div className="flex items-center justify-between gap-3 bg-emerald-50/60 px-4 py-3 text-emerald-800">
+                    <p className="min-w-0">
+                      First month: {firstMonth.label} the platform fee{" "}
+                      <span className="font-mono text-xs">({firstMonth.code})</span>
+                    </p>
+                    <span className="shrink-0 font-semibold tabular-nums">−{inr(firstMonth.discount)}</span>
+                  </div>
+                )}
+              </div>
+
+              {state.seatsLapsed && (
+                <p className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+                  Seat charges are unpaid. Pay for your seats below to unlock the dashboard.
                 </p>
-              </div>
-              <div className="flex items-center gap-3">
-                <Stepper value={addSeats} min={1} max={MAX_SEATS - state.seats} onChange={setAddSeats} disabled={!!busy || !isOwner} />
-                <Button
-                  variant="outline"
-                  onClick={() =>
-                    buy("seats", { kind: "SEATS", add: addSeats }, `${addSeats} seat${addSeats === 1 ? "" : "s"} added.`)
-                  }
-                  disabled={!!busy || !isOwner || seatAddPrice < 1}
-                >
-                  {busy === "seats" ? <Loader2 className="size-4 animate-spin" /> : `Pay ${inr(seatAddPrice)}`}
-                </Button>
-              </div>
-            </div>
-          )}
-          {state.phase === "TRIAL" && (
-            <p className="text-xs text-muted-foreground">
-              The trial includes {state.seats} seats. Need more? Choose the seat count when you buy the plan above.
-            </p>
+              )}
+              {overLimit && (
+                <p className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                  <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+                  {state.seatsUsed} people use a seat, but {state.seats} are paid for. Pay for {state.seatsUsed} seats
+                  below so you can keep adding agents.
+                </p>
+              )}
+
+              {/* Not on a paid plan yet: pay both in one go. */}
+              {!platformPaid && (
+                <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border bg-muted/30 p-4">
+                  <div>
+                    <p className="text-sm font-semibold">{onTrial ? "Start your plan" : "Pay to unlock"}</p>
+                    <p className="text-xs text-muted-foreground">
+                      Platform fee {discount > 0 ? `${inr(platformDue)} (after promo)` : inr(p.platformFee)} +{" "}
+                      {billableSeats(p, planSeats)} charged seat{billableSeats(p, planSeats) === 1 ? "" : "s"} ×{" "}
+                      {inr(p.seatPrice)}, for one month.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Stepper
+                      value={planSeats}
+                      min={Math.max(covered, state.seatsUsed)}
+                      max={MAX_SEATS}
+                      onChange={setPlanSeats}
+                      disabled={!!busy || !isOwner}
+                    />
+                    <Button
+                      onClick={() => buy("plan", { kind: "PLAN", seats: planSeats }, "Plan paid — thank you.")}
+                      disabled={!!busy || !isOwner}
+                    >
+                      {busy === "plan" ? (
+                        <Loader2 className="size-4 animate-spin" />
+                      ) : (
+                        `Pay ${inr(platformDue + seatsMonthly(p, planSeats))}`
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </CardContent>
       </Card>
+
+      {/* ── Pay separately: platform fee and seats ── */}
+      {!platform && platformPaid && (
+        <div className="grid gap-6 md:grid-cols-2">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Building2 className="size-4" /> Platform fee
+              </CardTitle>
+              <CardDescription>{platformStatus}</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex items-baseline gap-1.5">
+                {discount > 0 && (
+                  <span className="text-sm text-muted-foreground line-through">{inr(p.platformFee)}</span>
+                )}
+                <span className="text-2xl font-bold tabular-nums">{inr(platformDue)}</span>
+                <span className="text-sm text-muted-foreground">/ month</span>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {future(state.periodEnd)
+                  ? `Paying now adds a month after ${day(state.periodEnd)} — no days lost.`
+                  : "Your next month starts the day you pay."}
+              </p>
+              <Button
+                className="w-full"
+                onClick={() => buy("platform", { kind: "PLATFORM" }, "Platform fee paid — thank you.")}
+                disabled={!!busy || !isOwner}
+              >
+                {busy === "platform" ? <Loader2 className="size-4 animate-spin" /> : `Pay ${inr(platformDue)}`}
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Users className="size-4" /> Team seats
+              </CardTitle>
+              <CardDescription>{seatStatus}</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <div className="mb-1.5 flex justify-between text-sm">
+                  <span>
+                    <strong>{state.seatsUsed}</strong> of {state.seats} seats used
+                  </span>
+                  <span className="text-xs text-muted-foreground">{coveredText}</span>
+                </div>
+                <div className="h-2 overflow-hidden rounded-full bg-muted">
+                  <div
+                    className={`h-full ${state.seatsUsed >= state.seats ? "bg-amber-500" : "bg-emerald-500"}`}
+                    style={{ width: `${Math.min(100, (state.seatsUsed / Math.max(1, state.seats)) * 100)}%` }}
+                  />
+                </div>
+                <p className="mt-1.5 text-xs text-muted-foreground">
+                  Everyone who can log in takes a seat, including invites not yet accepted. Read-only users are free.
+                </p>
+              </div>
+
+              <div className="space-y-2 rounded-xl border p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm font-medium">{seatMonthRunning ? "Next month's seats" : "Seats for a month"}</p>
+                  <Stepper
+                    value={monthSeats}
+                    min={Math.max(1, state.seatsUsed)}
+                    max={MAX_SEATS}
+                    onChange={setMonthSeats}
+                    disabled={!!busy || !isOwner}
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {billableSeats(p, monthSeats) === 0
+                    ? `All ${monthSeats} are covered by your plan — no charge.`
+                    : `${billableSeats(p, monthSeats)} charged × ${inr(p.seatPrice)}${
+                        seatMonthRunning ? `, added after ${day(state.seatsPeriodEnd)}` : ""
+                      }.`}
+                </p>
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() =>
+                    buy("seatmonth", { kind: "SEAT_MONTH", seats: monthSeats }, "Seats paid — thank you.")
+                  }
+                  disabled={!!busy || !isOwner || (seatsMonthly(p, monthSeats) === 0 && monthSeats === state.seats)}
+                >
+                  {busy === "seatmonth" ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : seatsMonthly(p, monthSeats) === 0 ? (
+                    `Set ${monthSeats} seats`
+                  ) : (
+                    `Pay ${inr(seatsMonthly(p, monthSeats))}`
+                  )}
+                </Button>
+              </div>
+
+              {seatMonthRunning && (
+                <div className="space-y-2 rounded-xl border p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-sm font-medium">Add seats now</p>
+                    <Stepper
+                      value={addSeats}
+                      min={1}
+                      max={Math.max(1, MAX_SEATS - state.seats)}
+                      onChange={setAddSeats}
+                      disabled={!!busy || !isOwner}
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Charged only for the rest of this seat month (until {day(state.seatsPeriodEnd)}).
+                  </p>
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={() =>
+                      buy("seats", { kind: "SEATS", add: addSeats }, `${addSeats} seat${addSeats === 1 ? "" : "s"} added.`)
+                    }
+                    disabled={!!busy || !isOwner}
+                  >
+                    {busy === "seats" ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : addPrice > 0 ? (
+                      `Pay ${inr(addPrice)}`
+                    ) : (
+                      `Add ${addSeats} free`
+                    )}
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* ── Promo code ── */}
+      {!platform && isOwner && (
+        <Card>
+          <CardContent className="flex flex-wrap items-center gap-3 pt-6">
+            <Ticket className="size-4 text-muted-foreground" />
+            <span className="text-sm font-medium">Have a promo code?</span>
+            <div className="flex flex-1 gap-2">
+              <input
+                value={promo}
+                onChange={(e) => setPromo(e.target.value.toUpperCase())}
+                onKeyDown={(e) => e.key === "Enter" && applyPromo()}
+                placeholder="Enter code"
+                aria-label="Promo code"
+                className="h-9 min-w-0 flex-1 rounded-lg border bg-transparent px-3 font-mono text-sm uppercase"
+                disabled={!!busy}
+              />
+              <Button variant="outline" onClick={applyPromo} disabled={!!busy || !promo.trim()}>
+                {busy === "promo" ? <Loader2 className="size-4 animate-spin" /> : "Apply"}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* ── WhatsApp credits ── */}
       <Card>
@@ -290,7 +508,7 @@ export function BillingPanel({
                 <span className={`text-4xl font-black tabular-nums ${credits === 0 ? "text-red-600" : ""}`}>
                   {credits.toLocaleString("en-IN")}
                 </span>
-                <span className="text-sm text-muted-foreground">credits</span>
+                <span className="text-sm text-muted-foreground">credits left</span>
               </div>
               {credits === 0 && (
                 <p className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
@@ -326,7 +544,8 @@ export function BillingPanel({
                 </div>
                 {!creditValid && (
                   <p className="mt-2 text-xs text-red-600">
-                    Between {MIN_CREDIT_RECHARGE.toLocaleString("en-IN")} and {MAX_CREDIT_RECHARGE.toLocaleString("en-IN")} credits.
+                    Between {MIN_CREDIT_RECHARGE.toLocaleString("en-IN")} and{" "}
+                    {MAX_CREDIT_RECHARGE.toLocaleString("en-IN")} credits.
                   </p>
                 )}
                 <Button
@@ -343,37 +562,6 @@ export function BillingPanel({
                   )}
                 </Button>
               </div>
-
-              {ledger.length > 0 && (
-                <div>
-                  <p className="mb-2 text-sm font-semibold">Recent activity</p>
-                  <div className="divide-y rounded-lg border text-sm">
-                    {ledger.map((row) => (
-                      <div key={row.id} className="flex items-center justify-between gap-3 px-3 py-2">
-                        <div className="min-w-0">
-                          <p className="truncate">{row.note || row.kind}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {format(new Date(row.created_at), "d MMM, h:mm a")}
-                            {row.state === "HELD" && " · waiting for delivery"}
-                            {row.state === "REFUNDED" && " · not delivered, refunded"}
-                          </p>
-                        </div>
-                        <span
-                          className={`shrink-0 font-mono tabular-nums ${
-                            row.state === "REFUNDED"
-                              ? "text-muted-foreground line-through"
-                              : row.delta > 0
-                                ? "text-emerald-600"
-                                : ""
-                          }`}
-                        >
-                          {row.delta > 0 ? `+${row.delta}` : row.delta}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
             </>
           )}
         </CardContent>
