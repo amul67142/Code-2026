@@ -131,7 +131,10 @@ export function Sidebar() {
           <img
             src={user.companyLogo}
             alt={user.companyName || "Company"}
-            className="size-8 rounded-lg object-cover shrink-0"
+            className={cn(
+              "h-8 shrink-0 rounded-md object-contain",
+              sidebarCollapsed ? "w-8" : "w-auto max-w-[110px]"
+            )}
           />
         ) : (
           <div className="flex items-center justify-center size-8 rounded-lg bg-gray-900 text-white text-sm font-bold shrink-0">

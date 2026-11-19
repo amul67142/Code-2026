@@ -114,19 +114,19 @@ export function MobileSidebar() {
 
         {/* Brand */}
         <div className="flex items-center justify-between px-4 h-14 border-b border-gray-200">
-          <div className="flex items-center gap-2">
+          <div className="flex min-w-0 items-center gap-2">
             {user.companyLogo ? (
               <img
                 src={user.companyLogo}
                 alt={user.companyName || "Company"}
-                className="size-8 rounded-lg object-cover shrink-0"
+                className="h-8 w-auto max-w-[110px] shrink-0 rounded-md object-contain"
               />
             ) : (
               <div className="flex items-center justify-center size-8 rounded-lg bg-gray-900 text-white text-sm font-bold">
                 {(user.companyName || "B").charAt(0).toUpperCase()}
               </div>
             )}
-            <span className="text-sm font-semibold text-gray-900">
+            <span className="truncate text-sm font-semibold text-gray-900">
               {user.companyName || "Big Lead"}
             </span>
           </div>

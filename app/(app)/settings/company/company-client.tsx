@@ -127,7 +127,7 @@ export function CompanyClient() {
         </CardHeader>
         <CardContent>
           <div className="flex items-center gap-4">
-            <div className="flex items-center justify-center size-20 rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 overflow-hidden">
+            <div className="flex items-center justify-center h-20 w-40 p-2 rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 overflow-hidden">
               {company?.logo_url ? (
                 <img
                   src={company.logo_url}
