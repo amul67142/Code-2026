@@ -82,7 +82,8 @@ export async function createWebhook(data: {
       secret_key_hash: secretKey, // Storing raw for simplicity in validation, in prod consider hashing
       status: "ACTIVE"
     })
-    .select()
+    // Same shape as getWebhooks, so the new row shows its project name at once.
+    .select("*, projects ( id, name ), webhook_logs ( id, status, received_at, processing_ms )")
     .single();
 
   if (error) {
