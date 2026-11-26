@@ -6,6 +6,7 @@ import { getCachedUserProfile } from "@/lib/auth/cached-user";
 import { decryptToken } from "@/lib/integrations/crypto";
 import { sendWhatsAppText, normalizeWhatsAppNumber } from "@/lib/integrations/whatsapp";
 import { sendLeadWhatsApp } from "@/lib/automation/lead-whatsapp";
+import { sendWithCredit } from "@/lib/billing/credits";
 
 const WINDOW_MS = 24 * 60 * 60 * 1000;
 
@@ -194,11 +195,9 @@ export async function sendChatMessage(leadId: string, text: string) {
 
   const to = normalizeWhatsAppNumber(lead.phone);
   try {
-    const res = await sendWhatsAppText(
-      conn.phone_number_id,
-      decryptToken(conn.access_token_enc),
-      to,
-      body
+    // Every message costs a credit; an empty wallet stops the send with a clear reason.
+    const res = await sendWithCredit(profile.company_id, "Live Chat reply", () =>
+      sendWhatsAppText(conn.phone_number_id, decryptToken(conn.access_token_enc), to, body)
     );
     const nowIso = new Date().toISOString();
     const { data: inserted } = await admin

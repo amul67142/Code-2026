@@ -89,7 +89,7 @@ export const FAQ: FaqGroup[] = [
       },
       {
         q: "What are WhatsApp credits?",
-        a: "Credits are used for messages BigLead sends for you. You can see your balance and buy more in Settings → Billing.",
+        a: "Every WhatsApp message sent from BigLead costs 1 credit (₹1): welcome messages, agent alerts, bulk sends, Live Chat replies and AI agent replies. You only pay for messages that are delivered — a failed one is refunded. See your balance and buy more in Settings → Billing. When credits run out, messages stop until you recharge.",
       },
       {
         q: "What happens if I don't pay on time?",

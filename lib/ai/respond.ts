@@ -17,6 +17,7 @@ import {
 import { getAgentConfig, loadAgentContext } from "./context";
 import { runAgentTurn } from "./agent";
 import { getAccessFlags } from "@/lib/billing/state";
+import { getCreditBalance, InsufficientCreditsError, paysForMessages, sendWithCredit } from "@/lib/billing/credits";
 import { splitMessages, typingDelayMs, sleep } from "./humanize";
 
 export interface AiRespondInput {
@@ -44,6 +45,10 @@ export async function maybeAiRespond(input: AiRespondInput): Promise<void> {
     // Gate 0b — the plan includes it. Not on the free trial, and not on a
     // locked workspace: a lapsed customer must not keep a bot answering.
     if (!(await getAccessFlags(input.companyId)).aiAgent) return;
+
+    // Gate 0c — each reply costs a credit. With an empty wallet the agent stays
+    // quiet (and costs nothing to run); the conversation waits for a person.
+    if ((await paysForMessages(input.companyId)) && (await getCreditBalance(input.companyId)) < 1) return;
 
     // Gate 1 — conversation-level state.
     const { data: conv } = await admin
@@ -201,7 +206,9 @@ async function sendBotMessages(
   for (let i = 0; i < parts.length; i++) {
     if (i > 0) await sleep(typingDelayMs(parts[i]));
     try {
-      const res = await sendWhatsAppText(conn.phone_number_id, token, to, parts[i]);
+      const res = await sendWithCredit(companyId, "AI agent reply", () =>
+        sendWhatsAppText(conn.phone_number_id, token, to, parts[i])
+      );
       const nowIso = new Date().toISOString();
       await admin.from("message_log").insert({
         company_id: companyId,
@@ -227,6 +234,10 @@ async function sendBotMessages(
         })
         .eq("id", convId);
     } catch (e) {
+      if (e instanceof InsufficientCreditsError) {
+        console.warn(`AI agent stopped: company ${companyId} is out of WhatsApp credits.`);
+        return;
+      }
       console.error("Bot send failed:", e);
       return; // don't attempt part 2 if part 1 failed
     }

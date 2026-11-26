@@ -1,15 +1,15 @@
 /**
- * Prepaid WhatsApp credits: 1 credit per delivered template.
+ * Prepaid WhatsApp credits: 1 credit per delivered message.
  *
- * Every business-initiated template a customer sends goes through
- * sendTemplateWithCredit, which HOLDS one credit before the send. The delivery
+ * Every WhatsApp message a customer sends from BigLead — templates (welcomes,
+ * agent alerts, bulk sends), Live Chat replies and the AI agent's replies —
+ * goes through sendWithCredit, which HOLDS one credit before the send. The delivery
  * webhook then CHARGES it, a failure REFUNDS it, and a hold with no news in 72
  * hours is refunded by the daily cron. Net effect: they pay only for what was
  * delivered, and a burst of sends can never take the wallet below zero —
  * the hold is taken under a row lock in the database.
  *
- * Session replies inside the 24-hour window (Live Chat, the AI agent) are not
- * templates and cost nothing. The platform company is never charged.
+ * The platform company is never charged.
  */
 import { createAdminClient } from "@/lib/supabase/admin";
 import { CREDIT_HOLD_TTL_HOURS, MIN_CREDIT_RECHARGE } from "@/lib/billing/plans";
@@ -44,14 +44,14 @@ async function isPlatform(companyId: string): Promise<boolean> {
 }
 
 /**
- * Send one template, paying for it with a credit.
+ * Send one WhatsApp message, paying for it with a credit.
  *
  * Throws InsufficientCreditsError when the wallet is empty, before anything is
  * sent. Callers already catch send errors and log them, so an empty wallet
  * shows up in the lead timeline and message log as a failed send with the
  * reason, rather than as silence.
  */
-export async function sendTemplateWithCredit<T extends { messages?: { id?: string }[] }>(
+export async function sendWithCredit<T extends { messages?: { id?: string }[] }>(
   companyId: string,
   note: string,
   send: () => Promise<T>
@@ -66,7 +66,7 @@ export async function sendTemplateWithCredit<T extends { messages?: { id?: strin
   if (error) {
     // The wallet could not be read. Refusing is the safe side: sending free
     // would be a silent leak, and this only fails if the database does.
-    console.error("sendTemplateWithCredit: hold failed:", error.message);
+    console.error("sendWithCredit: hold failed:", error.message);
     throw new Error("Could not check WhatsApp credits. Try again shortly.");
   }
   if (!holdId) throw new InsufficientCreditsError();
@@ -89,7 +89,7 @@ export async function sendTemplateWithCredit<T extends { messages?: { id?: strin
 /**
  * Settle a held credit from a WhatsApp status report. Idempotent: only a HELD
  * row moves, so Meta re-sending a status cannot charge or refund twice.
- * Messages that were never held (Live Chat, the platform) simply match nothing.
+ * Messages that were never held (the platform's own) simply match nothing.
  */
 export async function settleCreditForMessage(
   wamid: string,
@@ -107,6 +107,14 @@ export async function settleCreditForMessage(
     p_ledger_id: row.id,
     p_outcome: status === "failed" ? "REFUNDED" : "CHARGED",
   });
+}
+
+/** Older name, kept so existing template senders read the same. */
+export const sendTemplateWithCredit = sendWithCredit;
+
+/** True when the company pays for messages (everyone but the platform). */
+export async function paysForMessages(companyId: string): Promise<boolean> {
+  return !(await isPlatform(companyId));
 }
 
 /** Refund holds that never got a delivery report. Run daily. */

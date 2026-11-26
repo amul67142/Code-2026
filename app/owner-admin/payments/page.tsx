@@ -18,7 +18,7 @@ export default async function OwnerPaymentsPage() {
           </span>
         </h1>
         <p className="text-zinc-400 mt-2">
-          Monitor all platform revenue, invoices, and active recurring subscriptions.
+          Money collected from clients, monthly revenue and every payment. Your own SpaceTrans account is not counted.
         </p>
       </div>
 

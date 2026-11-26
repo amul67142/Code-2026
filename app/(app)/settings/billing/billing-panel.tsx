@@ -570,8 +570,8 @@ export function BillingPanel({
             <MessageCircle className="size-4" /> WhatsApp credits
           </CardTitle>
           <CardDescription>
-            1 credit (₹1) per delivered template message — welcomes, agent alerts, bulk sends. Live Chat replies
-            and the AI agent&apos;s replies are free. A failed message is refunded.
+            1 credit (₹1) for every WhatsApp message delivered — welcomes, agent alerts, bulk sends, Live Chat
+            replies and the AI agent&apos;s replies. A message that fails is refunded.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">

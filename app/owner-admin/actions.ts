@@ -3,63 +3,100 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
 import { assertOwner } from "@/lib/owner/session";
+import { getBillingState, type BillingPhase } from "@/lib/billing/state";
+import { planMonthly } from "@/lib/billing/plans";
+
+/** What a client's billing looks like right now, from the real billing state. */
+export type ClientStatus = "TRIAL" | "PAYING" | "GRACE" | "LOCKED" | "PLATFORM";
+
+export interface ClientBilling {
+  id: string;
+  name: string;
+  createdAt: string;
+  isPlatform: boolean;
+  status: ClientStatus;
+  planName: string;
+  monthly: number;
+  seats: number;
+  trialEndsAt: string | null;
+}
+
+const STATUS_OF: Record<BillingPhase, ClientStatus> = {
+  PLATFORM: "PLATFORM",
+  TRIAL: "TRIAL",
+  ACTIVE: "PAYING",
+  GRACE: "GRACE",
+  TRIAL_ENDED: "LOCKED",
+  LOCKED: "LOCKED",
+  NONE: "LOCKED",
+};
+
+/** Every company with its live billing state. The platform account is flagged, never counted as a customer. */
+async function loadClientBilling(): Promise<ClientBilling[]> {
+  const supabase = createAdminClient();
+  const { data: companies, error } = await supabase
+    .from("companies")
+    .select("id, name, created_at, is_platform")
+    .order("created_at", { ascending: false });
+  if (error) throw new Error("Failed to fetch companies");
+
+  return Promise.all(
+    (companies || []).map(async (c) => {
+      const state = await getBillingState(c.id);
+      const isPlatform = !!c.is_platform || state.isPlatform;
+      const status = isPlatform ? "PLATFORM" : STATUS_OF[state.phase];
+      return {
+        id: c.id,
+        name: c.name,
+        createdAt: c.created_at,
+        isPlatform,
+        status,
+        planName: isPlatform ? "Platform account" : state.pricing.custom ? "Custom" : "Basic",
+        monthly: isPlatform ? 0 : planMonthly(state.pricing, state.seats),
+        seats: state.seats,
+        trialEndsAt: state.trialEndsAt,
+      };
+    })
+  );
+}
 
 export async function getOwnerDashboardData() {
   await assertOwner();
   const supabase = createAdminClient();
 
-  // Fetch Companies
-  const { data: companies, error: companiesError } = await supabase
-    .from("companies")
-    .select("id, name, status, created_at, plan");
-  
-  if (companiesError) throw new Error("Failed to fetch companies");
-
-  // Fetch Users
-  const { data: users, error: usersError } = await supabase
-    .from("users")
-    .select("id, created_at, role, status")
-    .is("deleted_at", null);
-  
+  const [all, { data: users, error: usersError }] = await Promise.all([
+    loadClientBilling(),
+    supabase.from("users").select("id, company_id").is("deleted_at", null),
+  ]);
   if (usersError) throw new Error("Failed to fetch users");
 
-  // Fetch Subscriptions
-  const { data: subscriptions, error: subError } = await supabase
-    .from("subscriptions")
-    .select("id, status");
-  
-  if (subError) throw new Error("Failed to fetch subscriptions");
+  const clients = all.filter((c) => !c.isPlatform);
+  const platformIds = new Set(all.filter((c) => c.isPlatform).map((c) => c.id));
+  const count = (s: ClientStatus) => clients.filter((c) => c.status === s).length;
 
-  // Compute Metrics
-  const totalCompanies = companies?.length || 0;
-  const activeCompanies = companies?.filter(c => c.status === "ACTIVE").length || 0;
-  const trialCompanies = companies?.filter(c => c.status === "TRIAL").length || 0;
-  
-  const thirtyDaysAgo = new Date();
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-  const newSignups = companies?.filter(c => new Date(c.created_at) > thirtyDaysAgo).length || 0;
-
-  const totalUsers = users?.length || 0;
-  const activeSubscriptions = subscriptions?.filter(s => s.status === "ACTIVE").length || 0;
-
-  // Plan Distribution
-  const planDistribution = companies?.reduce((acc: Record<string, number>, curr) => {
-    const plan = curr.plan || "UNKNOWN";
-    acc[plan] = (acc[plan] || 0) + 1;
-    return acc;
-  }, {});
+  const thirtyDaysAgo = Date.now() - 30 * 24 * 3600 * 1000;
+  const paying = clients.filter((c) => c.status === "PAYING" || c.status === "GRACE");
 
   return {
-    totalCompanies,
-    activeCompanies,
-    trialCompanies,
-    totalUsers,
-    newSignups,
-    activeSubscriptions,
-    planDistribution,
-    recentCompanies: companies?.slice(0, 5).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()),
+    totalClients: clients.length,
+    trialClients: count("TRIAL"),
+    payingClients: paying.length,
+    lockedClients: count("LOCKED"),
+    graceClients: count("GRACE"),
+    clientUsers: (users || []).filter((u) => !platformIds.has(u.company_id)).length,
+    newSignups: clients.filter((c) => new Date(c.createdAt).getTime() > thirtyDaysAgo).length,
+    mrr: paying.reduce((sum, c) => sum + c.monthly, 0),
+    statusDistribution: [
+      { name: "Paying", value: count("PAYING") },
+      { name: "Grace period", value: count("GRACE") },
+      { name: "Free trial", value: count("TRIAL") },
+      { name: "Locked", value: count("LOCKED") },
+    ].filter((d) => d.value > 0),
+    recentCompanies: all.slice(0, 6),
   };
 }
+
+export type OwnerDashboardData = Awaited<ReturnType<typeof getOwnerDashboardData>>;
 
 
 export async function deleteCompany(id: string) {
@@ -146,10 +183,13 @@ export async function getOwnerRevenueMetrics() {
       amount_inr,
       status,
       paid_at,
-      companies:company_id (
-        name
+      description,
+      companies:company_id!inner (
+        name,
+        is_platform
       )
     `)
+    .eq("companies.is_platform", false)
     .order("paid_at", { ascending: false });
 
   if (invoicesError) {
@@ -157,41 +197,20 @@ export async function getOwnerRevenueMetrics() {
     throw new Error("Failed to fetch invoices metrics");
   }
 
-  // 2. Fetch Active Subscriptions with dynamic plans
-  const { data: subscriptions, error: subsError } = await supabase
-    .from("subscriptions")
-    .select(`
-      id,
-      status,
-      amount_inr,
-      pricing_plans:plan_id (name)
-    `)
-    .eq("status", "ACTIVE");
-
-  if (subsError) {
-    console.error("❌ Failed to query active subscriptions:", subsError);
-    throw new Error("Failed to fetch active subscriptions metrics");
-  }
+  // 2. Live billing state of every client (the platform account is left out).
+  const clients = (await loadClientBilling()).filter((c) => !c.isPlatform);
+  const paying = clients.filter((c) => c.status === "PAYING" || c.status === "GRACE");
 
   // 3. Compute Metrics
   const paidInvoices = invoices?.filter(i => i.status === "PAID") || [];
   const totalRevenue = paidInvoices.reduce((acc, curr) => acc + curr.amount_inr, 0);
-  const activeMrr = subscriptions?.reduce((acc, curr) => acc + curr.amount_inr, 0) || 0;
-  
+  const activeMrr = paying.reduce((acc, c) => acc + c.monthly, 0);
   const totalTransactions = invoices?.length || 0;
 
-  // Plan Distribution of active subscriptions
-  const planDistribution = subscriptions?.reduce((acc: Record<string, number>, curr) => {
-    const planName = (curr.pricing_plans as any)?.name || "Unknown";
-    acc[planName] = (acc[planName] || 0) + 1;
-    return acc;
-  }, {}) || {};
-
-  // Formatted Plan distribution for charts
-  const planDistributionArray = Object.keys(planDistribution).map(name => ({
-    name,
-    value: planDistribution[name]
-  }));
+  // Paying customers by plan.
+  const planCounts: Record<string, number> = {};
+  for (const c of paying) planCounts[c.planName] = (planCounts[c.planName] || 0) + 1;
+  const planDistributionArray = Object.keys(planCounts).map(name => ({ name, value: planCounts[name] }));
 
   // 4. Compute monthly revenue logs for drawing Recharts charts
   // Group paid invoices by month (YYYY-MM)
@@ -218,6 +237,7 @@ export async function getOwnerRevenueMetrics() {
       amount_inr: inv.amount_inr,
       status: inv.status,
       paid_at: inv.paid_at,
+      description: inv.description || null,
       companies: company ? { name: company.name } : null
     };
   });

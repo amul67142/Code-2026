@@ -1,7 +1,7 @@
 "use client";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { 
   TrendingUp, 
   Users, 
@@ -26,6 +26,7 @@ interface PaymentsClientProps {
       amount_inr: number;
       status: string;
       paid_at: string | null;
+      description: string | null;
       companies: {
         name: string;
       } | null;
@@ -51,35 +52,35 @@ export function PaymentsClient({ metrics }: PaymentsClientProps) {
   };
 
   return (
-    <div className="space-y-6 text-zinc-150">
+    <div className="space-y-6 text-zinc-100">
       {/* 4 Stats Cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {[
           {
             title: "Total Revenue",
             value: formatCurrency(metrics.totalRevenue),
-            desc: "Cumulative paid platform invoices",
+            desc: "Everything collected from clients",
             icon: Coins,
             color: "text-emerald-500 bg-emerald-500/10"
           },
           {
             title: "Active MRR",
             value: formatCurrency(metrics.activeMrr),
-            desc: "Monthly recurring subscription volume",
+            desc: "What paying customers pay each month",
             icon: TrendingUp,
             color: "text-indigo-500 bg-indigo-500/10"
           },
           {
             title: "Total ARR",
             value: formatCurrency(metrics.activeMrr * 12),
-            desc: "Annualized subscription revenue run-rate",
+            desc: "Monthly revenue × 12",
             icon: CalendarCheck,
             color: "text-purple-500 bg-purple-500/10"
           },
           {
             title: "Total Transactions",
             value: metrics.totalTransactions,
-            desc: "Payment records and logs generated",
+            desc: "Client payments recorded",
             icon: Receipt,
             color: "text-amber-500 bg-amber-500/10"
           }
@@ -97,7 +98,7 @@ export function PaymentsClient({ metrics }: PaymentsClientProps) {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-black">{stat.value}</div>
-                <p className="text-[10px] text-zinc-500 mt-1">{stat.desc}</p>
+                <p className="text-xs text-zinc-500 mt-1">{stat.desc}</p>
               </CardContent>
             </Card>
           );
@@ -111,45 +112,21 @@ export function PaymentsClient({ metrics }: PaymentsClientProps) {
           <CardHeader>
             <CardTitle className="text-base font-bold">Monthly Revenue Collections</CardTitle>
             <CardDescription className="text-xs text-zinc-500">
-              Platform billing volumes aggregated over time in ₹ INR.
+              Client payments collected each month, in ₹.
             </CardDescription>
           </CardHeader>
           <CardContent className="h-64 pt-2">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={metrics.monthlyRevenue} margin={{ left: -10, right: 10, top: 10, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <XAxis 
-                  dataKey="month" 
-                  stroke="#52525b" 
-                  fontSize={10} 
-                  tickLine={false} 
-                  axisLine={false} 
-                />
-                <YAxis 
-                  stroke="#52525b" 
-                  fontSize={10} 
-                  tickLine={false} 
-                  axisLine={false} 
-                  tickFormatter={(v) => `₹${v}`} 
-                />
-                <Tooltip 
+              <BarChart data={metrics.monthlyRevenue} margin={{ left: -10, right: 10, top: 10, bottom: 0 }}>
+                <XAxis dataKey="month" stroke="#52525b" fontSize={11} tickLine={false} axisLine={false} />
+                <YAxis stroke="#52525b" fontSize={11} tickLine={false} axisLine={false} tickFormatter={(v) => `₹${v}`} />
+                <Tooltip
+                  cursor={{ fill: "rgba(255,255,255,0.04)" }}
                   contentStyle={{ backgroundColor: "#18181b", borderColor: "#27272a", color: "#f4f4f5" }}
-                  formatter={(value: any) => [formatCurrency(value), "Revenue"]}
+                  formatter={(value: any) => [formatCurrency(value), "Collected"]}
                 />
-                <Area 
-                  type="monotone" 
-                  dataKey="revenue" 
-                  stroke="#8b5cf6" 
-                  strokeWidth={2} 
-                  fillOpacity={1} 
-                  fill="url(#colorRevenue)" 
-                />
-              </AreaChart>
+                <Bar dataKey="revenue" fill="#8b5cf6" radius={[6, 6, 0, 0]} maxBarSize={48} />
+              </BarChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>
@@ -157,16 +134,16 @@ export function PaymentsClient({ metrics }: PaymentsClientProps) {
         {/* Plan Distribution of Active Subscriptions */}
         <Card className="bg-zinc-900 border-zinc-800 text-white shadow-sm flex flex-col justify-between">
           <CardHeader>
-            <CardTitle className="text-base font-bold">Plan Distribution</CardTitle>
+            <CardTitle className="text-base font-bold">Paying customers by plan</CardTitle>
             <CardDescription className="text-xs text-zinc-500">
-              Active subscriptions by tier count.
+              Basic or custom plan.
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col items-center justify-center pb-6">
             {metrics.planDistribution.length === 0 ? (
               <div className="text-center py-10 space-y-2">
                 <Users className="size-8 text-zinc-700 mx-auto" />
-                <p className="text-xs text-zinc-500">No active plans subscribed.</p>
+                <p className="text-xs text-zinc-500">No paying customers yet.</p>
               </div>
             ) : (
               <>
@@ -189,14 +166,14 @@ export function PaymentsClient({ metrics }: PaymentsClientProps) {
                     </PieChart>
                   </ResponsiveContainer>
                 </div>
-                <div className="w-full space-y-1.5 mt-2 max-w-[180px]">
+                <div className="w-full space-y-1.5 mt-2 max-w-[220px]">
                   {metrics.planDistribution.map((plan, idx) => (
-                    <div key={plan.name} className="flex justify-between items-center text-[11px]">
+                    <div key={plan.name} className="flex justify-between items-center text-sm">
                       <div className="flex items-center gap-1.5">
                         <span className="size-2 rounded-full" style={{ backgroundColor: COLORS[idx % COLORS.length] }} />
                         <span className="font-semibold text-zinc-300">{plan.name}</span>
                       </div>
-                      <span className="font-black text-white">{plan.value} subs</span>
+                      <span className="font-black text-white">{plan.value}</span>
                     </div>
                   ))}
                 </div>
@@ -211,30 +188,31 @@ export function PaymentsClient({ metrics }: PaymentsClientProps) {
         <CardHeader>
           <CardTitle className="text-base font-bold">Recent Receipts & Transactions</CardTitle>
           <CardDescription className="text-xs text-zinc-500">
-            Realtime payments log collected globally from clients.
+            Every payment from a client. Your own SpaceTrans account is left out.
           </CardDescription>
         </CardHeader>
         <CardContent className="p-0">
           {metrics.recentInvoices.length === 0 ? (
             <div className="text-center py-12 px-4 space-y-2">
               <Receipt className="size-8 text-zinc-800 mx-auto" />
-              <p className="text-xs text-zinc-500">No payment transaction records generated yet.</p>
+              <p className="text-xs text-zinc-500">No client payments yet.</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse text-xs">
+              <table className="w-full text-left border-collapse text-sm">
                 <thead>
-                  <tr className="bg-zinc-950 border-b border-zinc-800 text-zinc-500 font-bold uppercase tracking-wider text-[10px]">
+                  <tr className="bg-zinc-950 border-b border-zinc-800 text-zinc-500 font-bold uppercase tracking-wider text-xs">
                     <th className="p-4">Billing Date</th>
                     <th className="p-4">Invoice #</th>
-                    <th className="p-4">Client/Company</th>
-                    <th className="p-4">Amount Collected</th>
-                    <th className="p-4">Gateway Status</th>
+                    <th className="p-4">Company</th>
+                    <th className="p-4">For</th>
+                    <th className="p-4">Amount</th>
+                    <th className="p-4">Status</th>
                   </tr>
                 </thead>
                 <tbody>
                   {metrics.recentInvoices.map((inv) => (
-                    <tr key={inv.id} className="border-b border-zinc-800/60 hover:bg-zinc-850/40">
+                    <tr key={inv.id} className="border-b border-zinc-800/60 hover:bg-zinc-800/40">
                       <td className="p-4 text-zinc-400">
                         {inv.paid_at 
                           ? new Date(inv.paid_at).toLocaleDateString("en-IN", {
@@ -248,11 +226,12 @@ export function PaymentsClient({ metrics }: PaymentsClientProps) {
                       </td>
                       <td className="p-4 font-mono font-bold text-white">{inv.invoice_number}</td>
                       <td className="p-4 text-zinc-300 font-medium">
-                        {inv.companies?.name || "Anonymous Workspace"}
+                        {inv.companies?.name || "—"}
                       </td>
+                      <td className="p-4 text-zinc-400">{inv.description || "Plan"}</td>
                       <td className="p-4 font-bold text-white">{formatCurrency(inv.amount_inr)}</td>
                       <td className="p-4">
-                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wide ${
+                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${
                           inv.status === "PAID"
                             ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
                             : "bg-amber-500/10 text-amber-400 border border-amber-500/20"
@@ -262,7 +241,7 @@ export function PaymentsClient({ metrics }: PaymentsClientProps) {
                           ) : (
                             <XCircle className="size-3 text-amber-400" />
                           )}
-                          {inv.status}
+                          {inv.status === "PAID" ? "Paid" : inv.status.charAt(0) + inv.status.slice(1).toLowerCase()}
                         </span>
                       </td>
                     </tr>
