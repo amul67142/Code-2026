@@ -280,7 +280,7 @@ export function getBillingReminderEmailHtml(name: string, headline: string, line
     <p>Hi ${name},</p>
     <p>${line}</p>
     <p style="text-align:center; margin-top:24px"><a href="${payUrl}" class="btn">Pay now →</a></p>
-    <p class="meta" style="margin-top:16px">Prices include GST. Questions? Just reply to this email.</p>
+    <p class="meta" style="margin-top:16px">Questions? Just reply to this email.</p>
   `);
 }
 

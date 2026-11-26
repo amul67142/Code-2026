@@ -101,6 +101,9 @@ export async function GET(
       ? new Date(invoice.billing_period_end).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
       : "—";
 
+    // Credits and seat top-ups cover no period; only show one when there is.
+    const hasPeriod = Boolean(invoice.billing_period_start && invoice.billing_period_end);
+
     const companyName = company?.name || "Customer";
     const billingEmail = company?.billing_email || "—";
 
@@ -130,8 +133,9 @@ export async function GET(
       box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
     }
     .header {
-      background: #09090b;
-      padding: 32px 40px;
+      background: #ffffff;
+      border-bottom: 1px solid #e4e4e7;
+      padding: 28px 40px;
       display: flex;
       justify-content: space-between;
       align-items: center;
@@ -144,9 +148,9 @@ export async function GET(
     }
     .logo span { color: #71717a; }
     .header-badge {
-      background: rgba(255,255,255,0.1);
-      border: 1px solid rgba(255,255,255,0.15);
-      color: #a1a1aa;
+      background: #f4f4f5;
+      border: 1px solid #e4e4e7;
+      color: #52525b;
       font-size: 11px;
       font-weight: 700;
       text-transform: uppercase;
@@ -302,7 +306,7 @@ export async function GET(
   <div class="invoice">
     <div class="header">
       <img src="https://res.cloudinary.com/dy2zpgv6q/image/upload/v1779118448/Gemini_Generated_Image_2kpsnp2kpsnp2kps_1_-Photoroom_ddqkxb.png" alt="BigLead" style="height:44px;width:auto;object-fit:contain;" />
-      <div class="header-badge">Tax Invoice</div>
+      <div class="header-badge">Invoice</div>
     </div>
 
     <div class="body">
@@ -325,11 +329,11 @@ export async function GET(
           <div class="meta-value">${paidDate}</div>
           <div style="font-size: 12px; color: #71717a; margin-top: 2px;">Status: <span class="status-badge">${invoice.status}</span></div>
         </div>
-        <div class="meta-card">
+        ${hasPeriod ? `<div class="meta-card">
           <div class="meta-label">Billing Period</div>
           <div class="meta-value">${periodStart} — ${periodEnd}</div>
-        </div>
-        <div class="meta-card">
+        </div>` : ""}
+        <div class="meta-card"${hasPeriod ? "" : ' style="grid-column: span 2;"'}>
           <div class="meta-label">Payment Gateway</div>
           <div class="meta-value">Razorpay</div>
         </div>
@@ -351,12 +355,11 @@ export async function GET(
       <div class="total-row">
         <div class="total-label">Total Amount Paid</div>
         <div class="total-value">${formattedAmount}</div>
-      </div>
-    </div>
+      </div>    </div>
 
     <div class="footer">
       &copy; 2026 BigLead CRM. All rights reserved.<br>
-      Questions? Contact us at <a href="mailto:info@bigleads.site">info@bigleads.site</a>
+      Questions? Contact us at <a href="mailto:info@biglead.site">info@biglead.site</a>
     </div>
   </div>
 </body>

@@ -169,7 +169,7 @@ export async function POST(request: Request) {
           const emailResponse = await sendInvoiceEmail({
             to: customerEmail,
             companyName: company.name,
-            planName: planName,
+            planName: `${planName} Plan`,
             amount: amountInr,
             invoiceNumber: invoiceNumber,
             paidAt: new Date().toLocaleDateString("en-IN", {

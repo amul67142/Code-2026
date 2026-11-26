@@ -1,6 +1,6 @@
 /**
  * Every number that decides what a customer pays. Change prices here and
- * nowhere else. All prices are GST-inclusive: ₹1999 is the amount charged.
+ * nowhere else. Prices are the amount charged: no GST is added (BigLead is not GST-registered).
  *
  * Client-safe (no server imports), so pricing pages and the billing screen can
  * show the same figures the server charges.

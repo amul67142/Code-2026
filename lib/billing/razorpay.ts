@@ -86,7 +86,7 @@ export const razorpayClient = {
 
   /**
    * A one-time order: a month of the plan, extra seats, or WhatsApp credits.
-   * Amount in whole rupees, GST-inclusive.
+   * Amount in whole rupees: exactly what is charged.
    */
   async createOrder(amountInr: number, receipt: string, notes: Record<string, string>) {
     if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET) {

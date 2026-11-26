@@ -56,7 +56,8 @@ export function generateInvoiceHtml({
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
           }
           .header {
-            background-color: #09090b;
+            background-color: #ffffff;
+            border-bottom: 1px solid #e4e4e7;
             padding: 32px;
             text-align: center;
           }
@@ -148,7 +149,7 @@ export function generateInvoiceHtml({
             </div>
             <div class="content">
               <h1>Thank you for your purchase!</h1>
-              <p>Hi ${companyName}, your payment has been processed successfully. Your active subscription has been updated. Below are your transaction and invoice details.</p>
+              <p>Hi ${companyName}, your payment has been processed successfully. Your account has been updated. Below are your transaction and invoice details.</p>
               
               <div class="receipt-box">
                 <div class="receipt-row">
@@ -156,8 +157,8 @@ export function generateInvoiceHtml({
                   <span class="receipt-value" style="font-family: monospace;">${invoiceNumber}</span>
                 </div>
                 <div class="receipt-row">
-                  <span class="receipt-label">Plan Subscribed</span>
-                  <span class="receipt-value" style="font-weight: 600;">${planName} Plan</span>
+                  <span class="receipt-label">Item</span>
+                  <span class="receipt-value" style="font-weight: 600;">${planName}</span>
                 </div>
                 <div class="receipt-row">
                   <span class="receipt-label">Payment Date</span>
@@ -173,7 +174,7 @@ export function generateInvoiceHtml({
                 <a href="${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/settings/billing" class="button">Manage Billing Dashboard</a>
               </div>
 
-              <p style="margin-bottom: 0; font-size: 13px; text-align: center; color: #a1a1aa;">If you have any questions or did not authorize this charge, please contact <a href="mailto:info@bigleads.site" style="color: #71717a; text-decoration: underline;">info@bigleads.site</a>.</p>
+              <p style="margin-bottom: 0; font-size: 13px; text-align: center; color: #a1a1aa;">If you have any questions or did not authorize this charge, please contact <a href="mailto:info@biglead.site" style="color: #71717a; text-decoration: underline;">info@biglead.site</a>.</p>
             </div>
             <div class="footer">
               &copy; 2026 BigLead CRM. All rights reserved.<br>

@@ -205,7 +205,7 @@ export function SelectPlanClient({
         <p className="text-base text-zinc-500">
           {trialAvailable && !locked
             ? `Try BigLead free for ${TRIAL_DAYS} days — no card needed. Or go straight to the full plan.`
-            : "One plan, priced by team size. GST included."}
+            : "One plan, priced by team size. No extra taxes."}
         </p>
       </div>
 
@@ -258,7 +258,7 @@ export function SelectPlanClient({
             <p className="mt-1 text-xs text-zinc-500">
               {seatsOnly
                 ? `Your platform fee is paid. ${coveredText}; ${inr(pricing.seatPrice)}/month per extra seat.`
-                : `${inr(pricing.platformFee)}/month platform fee, ${coveredText}. GST included.`}
+                : `${inr(pricing.platformFee)}/month platform fee, ${coveredText}. No extra taxes.`}
             </p>
 
             <div className="my-6">

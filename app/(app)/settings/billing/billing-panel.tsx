@@ -241,7 +241,7 @@ export function BillingPanel({
           <ArrowLeft className="size-3.5" /> Settings
         </Link>
         <h1 className="text-2xl font-bold tracking-tight">Billing</h1>
-        <p className="text-muted-foreground">Your plan, what you pay each month, and your invoices. Prices include GST.</p>
+        <p className="text-muted-foreground">Your plan, what you pay each month, and your invoices.</p>
       </div>
 
       {!isOwner && !platform && (
