@@ -1,51 +1,33 @@
 import { MetadataRoute } from "next";
 
+/** Signed-in areas: nothing there for a crawler. */
+const PRIVATE = [
+  "/dashboard",
+  "/inbox",
+  "/leads",
+  "/my-leads",
+  "/tasks",
+  "/projects",
+  "/reports",
+  "/support",
+  "/settings",
+  "/ai-agent",
+  "/onboarding",
+  "/select-plan",
+  "/owner-admin",
+  "/invite",
+  "/reset-password",
+  "/api",
+];
+
 export default function robots(): MetadataRoute.Robots {
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://biglead.site";
-  
+  const baseUrl = (process.env.NEXT_PUBLIC_SITE_URL || "https://www.biglead.site").replace(/\/$/, "");
+  const disallow = PRIVATE.flatMap((p) => [p, `${p}/`]);
+
   return {
-    rules: [
-      {
-        // 1. General Search & AI Crawlers
-        userAgent: "*",
-        allow: ["/", "/login", "/signup", "/llm.txt", "/llm-full.txt"],
-        disallow: [
-          "/dashboard",
-          "/dashboard/*",
-          "/onboarding",
-          "/onboarding/*",
-          "/select-plan",
-          "/settings",
-          "/settings/*",
-          "/api",
-          "/api/*",
-        ],
-      },
-      {
-        // 2. Specific AI Crawler - ChatGPT (GPTBot)
-        userAgent: "GPTBot",
-        allow: ["/", "/llm.txt", "/llm-full.txt"],
-        disallow: ["/dashboard", "/dashboard/*", "/api", "/api/*", "/settings", "/settings/*"],
-      },
-      {
-        // 3. Specific AI Crawler - Claude (ClaudeBot / Claude-Web)
-        userAgent: "Claude-Web",
-        allow: ["/", "/llm.txt", "/llm-full.txt"],
-        disallow: ["/dashboard", "/dashboard/*", "/api", "/api/*", "/settings", "/settings/*"],
-      },
-      {
-        // 4. Specific AI Crawler - Perplexity (PerplexityBot)
-        userAgent: "PerplexityBot",
-        allow: ["/", "/llm.txt", "/llm-full.txt"],
-        disallow: ["/dashboard", "/dashboard/*", "/api", "/api/*", "/settings", "/settings/*"],
-      },
-      {
-        // 5. Google AI - Gemini (Google-Extended)
-        userAgent: "Google-Extended",
-        allow: ["/", "/llm.txt", "/llm-full.txt"],
-        disallow: ["/dashboard", "/dashboard/*", "/api", "/api/*", "/settings", "/settings/*"],
-      },
-    ],
+    // Search engines and AI crawlers (GPTBot, Claude, Perplexity, Google-Extended)
+    // all get the same rules: public pages and llm.txt open, app pages closed.
+    rules: [{ userAgent: "*", allow: ["/", "/llm.txt", "/llm-full.txt"], disallow }],
     sitemap: `${baseUrl}/sitemap.xml`,
   };
 }

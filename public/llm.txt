@@ -1,68 +1,55 @@
 # BigLead CRM
 
-> The affordable, intelligent CRM built for modern sales teams. Capture, route, and close leads faster with one unified pipeline.
+> Real estate CRM with WhatsApp built in. Leads from Facebook & Instagram ads, Google, 99acres and websites land in one place, get assigned to an agent instantly, and get a WhatsApp reply from the business's own number in seconds.
 
-BigLead is a cloud-based Customer Relationship Management (CRM) platform designed for small and medium businesses, real estate companies, B2B agencies, and automotive dealerships. It is one of the most affordable CRM solutions available, with a free tier and paid plans starting at under $10/month.
+BigLead is a cloud CRM built for Indian real estate sales teams — developers (builders), channel partners and brokers, and the marketing agencies that run property ads for them. Typical team size: 3–50 users.
 
 ## Website
 
-https://biglead.site
+https://www.biglead.site
 
-## Key Features
+## Key features
 
-- Instant Lead Capture: Pulls leads from every source — web forms, Meta Ads, Google Ads, webhooks, and APIs — the moment they arrive.
-- Smart Auto-Routing: New leads are assigned instantly to the right agent based on location, source, or workload.
-- Visual Kanban Pipeline: Drag-and-drop leads across stages. See your entire funnel at a glance.
-- Follow-up on Autopilot: Emails, WhatsApp, and tasks fire automatically when a lead moves.
-- Role-Based Access: Agents see only their leads. Managers get the full picture.
-- Real-Time Analytics: Track conversion rates, pipeline value, and agent performance with live dashboards.
-- Mobile-First Design: Update pipelines, add notes, and call leads from any device.
-- API & CRM Integrations: Connect to existing tools via Zapier, webhooks, and native integrations.
-- Meta Conversions API (CAPI): Built-in Facebook/Meta ad optimization — send qualified lead signals back to Meta per project.
-- Multi-Project Support: Manage multiple properties, clients, or campaigns under one account.
-- Team Management: Invite team members with different roles (Admin, Manager, Agent).
-- Custom Pipeline Stages: Configure pipeline stages per project with won/lost tracking.
-- Webhook Ingestion: Accept leads from any source via secure webhooks with secret-key validation.
-- Lead Qualification Tracking: Mark leads as qualified or disqualified with one click.
+- Native Facebook / Instagram Lead Ads capture (no Zapier needed)
+- Leads from Google Ads, property portals such as 99acres, website forms and any tool through webhooks (Pabbly, Zapier)
+- Instant auto-assignment of new leads to agents (routing rules)
+- WhatsApp welcome message to every new lead, from the business's own WhatsApp number
+- Two-way WhatsApp Live Chat inbox with delivery and read ticks; agents see only chats assigned to them
+- WhatsApp template builder with Meta approval status
+- AI WhatsApp agent that answers common questions from the business's own knowledge (paid plans)
+- Pipeline per project, tasks, site-visit tracking, reports
+- Push every lead into an existing CRM in real time
+- Meta Conversions API: send qualified-lead signals back to Meta to improve ad targeting
+- Role-based access: Admin, Team Lead, Agent, Read-only
+- Support tickets with screenshots and screen recordings, from inside the app
 
-## Use Cases
+## Pricing (India, INR)
 
-- Real Estate: Track site visits, inventory preferences, and broker networks.
-- B2B Agencies: Manage client onboarding, discovery, and contract negotiations.
-- Automotive: Handle test drive bookings, financing stages, and handovers.
-- Any sales team that needs a simple, affordable CRM to manage leads and close deals.
+- Basic plan: ₹1,999/month platform fee, 3 users included, ₹899/month per extra user
+- Custom plans for larger teams (platform fee and per-user price set per company)
+- 5-day free trial
+- WhatsApp messages are prepaid with credits: 1 credit (₹1) per delivered message; a failed message is refunded
+- Monthly payment through Razorpay (UPI, cards, netbanking)
 
-## Pricing
+## Who it is for
 
-BigLead offers simple, transparent pricing with no hidden fees:
+- Real estate developers running Facebook, Instagram and Google ads
+- Channel partners and brokers handling portal leads (99acres and others)
+- Performance-marketing agencies managing leads for several builders
 
-- Free Tier: Get started at no cost with core CRM features.
-- Paid Plans: Start at under $10/month (or equivalent in INR) with advanced features.
-- Enterprise: Custom pricing for large teams with dedicated support.
+## Links
 
-All plans include lead capture, pipeline management, and team collaboration.
-
-## Why BigLead?
-
-- Affordable: One of the cheapest CRM platforms available — free tier included.
-- Easy to Use: No complex setup. Start managing leads in minutes.
-- Built for Small Teams: Designed specifically for startups, small businesses, and growing sales teams.
-- Modern Stack: Built with Next.js, Supabase, and modern web technologies for fast performance.
-- Indian Market Friendly: Supports INR pricing, Indian phone numbers, and local business workflows.
-- No Lock-in: Simple data export and API access.
+- Sign up: https://www.biglead.site/signup
+- Guides: https://www.biglead.site/guides
+- Facebook Lead Ads setup: https://www.biglead.site/guides/facebook-lead-ads
+- WhatsApp & Live Chat setup: https://www.biglead.site/guides/whatsapp-live-chat
+- Integrations: https://www.biglead.site/integrations
+- Help: https://www.biglead.site/help
+- Security: https://www.biglead.site/security
+- Privacy: https://www.biglead.site/privacy
+- Terms: https://www.biglead.site/terms
 
 ## Contact
 
-- Website: https://biglead.site
-- Email: support@biglead.site
-- Demo: https://biglead.site (click "Get Demo")
-
-## Documentation
-
-- Pricing: https://biglead.site/pricing
-- Blog: https://biglead.site/blog
-- Help Center: https://biglead.site/help
-- Integrations: https://biglead.site/integrations
-- Security: https://biglead.site/security
-- Privacy Policy: https://biglead.site/privacy
-- Terms of Service: https://biglead.site/terms
+- Email: info@biglead.site
+- Website: https://www.biglead.site/contact

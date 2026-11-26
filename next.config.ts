@@ -16,6 +16,8 @@ const nextConfig: NextConfig = {
   async redirects() {
     return [
       { source: "/pricing", destination: "/", permanent: false },
+      // The blog only had placeholder posts; the guides are the real articles.
+      { source: "/blog", destination: "/guides", permanent: false },
       { source: "/favicon.ico", destination: "/icon.png", permanent: true },
     ];
   },

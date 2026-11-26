@@ -25,7 +25,7 @@ import {
 } from "@/lib/support/constants";
 import { cn } from "@/lib/utils";
 import { createSupportTicket } from "./actions";
-import { FAQ } from "./faq";
+import { FAQ } from "@/lib/support/faq";
 
 const selectClass =
   "h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50";

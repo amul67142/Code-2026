@@ -13,13 +13,23 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
+  // Page titles already carry the brand ("Billing | Big Lead CRM", "… — BigLead").
   title: {
-    default: "Big Lead CRM",
-    template: "%s — Big Lead CRM",
+    default: "BigLead CRM — Real Estate CRM with WhatsApp Built In",
+    template: "%s",
   },
   description:
-    "Capture, assign, track, and close every real estate lead from one simple dashboard.",
+    "Real estate CRM for builders and channel partners: every lead from ads and portals in one place, assigned instantly, answered on WhatsApp in seconds.",
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"),
+  applicationName: "BigLead CRM",
+  openGraph: {
+    siteName: "BigLead CRM",
+    locale: "en_IN",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+  },
 };
 
 /**
