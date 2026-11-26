@@ -22,7 +22,7 @@ const navigation = [
   { name: "Pricing", href: "/owner-admin/pricing", icon: Tag },
   { name: "Promos", href: "/owner-admin/promos", icon: Ticket },
   { name: "Payments", href: "/owner-admin/payments", icon: CreditCard },
-  { name: "Tickets", href: "/owner-admin/tickets", icon: LifeBuoy, locked: true },
+  { name: "Tickets", href: "/owner-admin/tickets", icon: LifeBuoy, locked: false },
 ];
 
 export default function OwnerAdminLayout({

@@ -28,6 +28,7 @@ import {
   Database,
   ListChecks,
   Share2,
+  LifeBuoy,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -69,6 +70,7 @@ const navigation: NavItem[] = [
   { title: "Tasks", href: "/tasks", icon: CheckSquare },
   { title: "Projects", href: "/projects", icon: Building2, minRole: "TEAM_LEAD" },
   { title: "Reports", href: "/reports", icon: BarChart3, minRole: "TEAM_LEAD" },
+  { title: "Support", href: "/support", icon: LifeBuoy },
   {
     title: "Settings",
     href: "/settings",

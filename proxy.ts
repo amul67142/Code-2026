@@ -10,6 +10,7 @@ const PROTECTED_ROUTES = [
   "/tasks",
   "/projects",
   "/reports",
+  "/support",
   "/settings",
   "/onboarding",
   "/select-plan",
