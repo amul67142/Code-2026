@@ -74,8 +74,15 @@ export function MyLeadsClient({ initialLeads = [] }: { initialLeads?: any[] }) {
         toast.error(result.error);
       } else {
         const saved = savedStatuses(statuses);
-        toast.success(statusSavedMessage(selectedLead, saved));
-        setLeads((prev) => prev.map((l) => (l.id === selectedLead.id ? { ...l, ...saved } : l)));
+        const moved = "stage" in result ? result.stage : null;
+        toast.success(statusSavedMessage(selectedLead, saved) + (moved ? ` · moved to ${moved.name}` : ""));
+        setLeads((prev) =>
+          prev.map((l) =>
+            l.id === selectedLead.id
+              ? { ...l, ...saved, ...(moved ? { stage_id: moved.id, pipeline_stages: { ...(l.pipeline_stages || {}), ...moved } } : {}) }
+              : l
+          )
+        );
         setSelectedLead(null);
       }
     } catch {

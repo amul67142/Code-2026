@@ -2,7 +2,8 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
-import { notifyLeadQualification } from "@/lib/notifications/notify";
+import { notifyLeadQualification, notifyLeadStageChange } from "@/lib/notifications/notify";
+import { autoStageFor, latestStatus, type StageRow } from "@/lib/leads/auto-stage";
 import { STATUS_FIELDS, STATUS_SLOTS, remarkKey, statusKey, type StatusField } from "../status-options";
 
 // ── Helper: get current user's profile ──────────────────────────
@@ -139,10 +140,63 @@ export async function updateLeadStatus(
     metadata: update,
   });
 
+  // A status says the lead is being worked: move its stage forward to match
+  // (never back, never to a closed stage). See lib/leads/auto-stage.ts.
+  const movedTo = await moveStageForStatus(supabase, {
+    leadId,
+    companyId: profile.company_id,
+    actorId: profile.id,
+    currentStageId: lead.stage_id,
+    status: latestStatus({ ...lead, ...update }),
+  });
+
   revalidatePath(`/leads/${leadId}`);
   revalidatePath("/leads");
+  revalidatePath("/leads/kanban");
   revalidatePath("/settings/profile");
-  return { success: true };
+  return { success: true, stage: movedTo };
+}
+
+/** Move the lead to the stage its latest status calls for, if any. */
+async function moveStageForStatus(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  p: { leadId: string; companyId: string; actorId: string; currentStageId: string | null; status: string | null }
+): Promise<{ id: string; name: string; color: string | null } | null> {
+  try {
+    const { data: stages } = await supabase
+      .from("pipeline_stages")
+      .select("id, name, stage_order, is_won, is_terminal, color")
+      .eq("company_id", p.companyId);
+    const dest = autoStageFor(p.status, p.currentStageId, (stages || []) as StageRow[]);
+    if (!dest) return null;
+
+    const { error } = await supabase
+      .from("leads")
+      .update({ stage_id: dest.id, updated_at: new Date().toISOString() })
+      .eq("id", p.leadId)
+      .eq("company_id", p.companyId);
+    if (error) {
+      console.error("auto stage move failed:", error);
+      return null;
+    }
+
+    const from = (stages || []).find((s) => s.id === p.currentStageId);
+    await supabase.from("activities").insert({
+      lead_id: p.leadId,
+      user_id: p.actorId,
+      type: "STAGE_CHANGE",
+      description: `Stage moved to ${dest.name}${from ? ` from ${from.name}` : ""} (status: ${p.status})`,
+      metadata: { from_stage_id: p.currentStageId, to_stage_id: dest.id, reason: "status", status: p.status },
+    });
+    // The agent moved their own lead: tell them nothing they already know.
+    await notifyLeadStageChange({ leadId: p.leadId, companyId: p.companyId, newStageId: dest.id, actorUserId: p.actorId, skipSelf: true });
+
+    const row = (stages || []).find((s) => s.id === dest.id);
+    return { id: dest.id, name: dest.name, color: (row?.color as string | null) ?? null };
+  } catch (e) {
+    console.error("auto stage move failed:", e);
+    return null;
+  }
 }
 
 // ── Add activity to a lead ─────────────────────────────────────

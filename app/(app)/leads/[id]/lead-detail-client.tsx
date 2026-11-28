@@ -167,7 +167,8 @@ export function LeadDetailClient({
       if (result.error) {
         toast.error(result.error);
       } else {
-        toast.success(statusSavedMessage(lead, savedStatuses(statuses)));
+        const moved = "stage" in result ? result.stage : null;
+        toast.success(statusSavedMessage(lead, savedStatuses(statuses)) + (moved ? ` · moved to ${moved.name}` : ""));
         router.refresh();
       }
     } catch {

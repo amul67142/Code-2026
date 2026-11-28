@@ -44,7 +44,8 @@ export function StatusCell({
   leadId: string;
   leadName: string;
   value: Partial<LeadStatuses>;
-  onSaved: (next: LeadStatuses) => void;
+  /** `stage` is set when saving the status also moved the lead's stage. */
+  onSaved: (next: LeadStatuses, stage?: { id: string; name: string; color: string | null } | null) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -71,9 +72,10 @@ export function StatusCell({
       }
 
       const next = savedStatuses(draft);
-      onSaved(next);
+      const stage = "stage" in res ? res.stage : null;
+      onSaved(next, stage);
       setOpen(false);
-      toast.success(statusSavedMessage(value, next));
+      toast.success(statusSavedMessage(value, next) + (stage ? ` · moved to ${stage.name}` : ""));
     });
   }
 

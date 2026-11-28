@@ -309,9 +309,22 @@ export default function LeadsClient({
   }
 
   /** Push an inline status edit back into the row without a re-fetch. */
-  function handleStatusSaved(leadId: string, next: LeadStatuses) {
+  function handleStatusSaved(
+    leadId: string,
+    next: LeadStatuses,
+    stage?: { id: string; name: string; color: string | null } | null
+  ) {
     setLeads((prev) =>
-      prev.map((l: Lead) => (l.id === leadId ? { ...l, ...next } : l))
+      prev.map((l: Lead) =>
+        l.id === leadId
+          ? {
+              ...l,
+              ...next,
+              // The status also moved the lead forward in the pipeline.
+              ...(stage ? { stage_id: stage.id, pipeline_stages: { ...(l.pipeline_stages || {}), ...stage } } : {}),
+            }
+          : l
+      )
     );
   }
 
@@ -621,7 +634,7 @@ export default function LeadsClient({
                       leadId={lead.id}
                       leadName={lead.name}
                       value={lead}
-                      onSaved={(next) => handleStatusSaved(lead.id, next)}
+                      onSaved={(next, stage) => handleStatusSaved(lead.id, next, stage)}
                     />
                   </TableCell>
                   <TableCell className="hidden sm:table-cell">
